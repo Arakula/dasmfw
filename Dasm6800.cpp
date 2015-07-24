@@ -15,6 +15,11 @@
  * along with this program; if not, write to the Free Software             *
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.               *
  ***************************************************************************/
+/*                          Copyright (C) Hermann Seib                     *
+ * The 6800 disassembler engine is based on dasm09, last found at          *
+ * http://koti.mbnet.fi/~atjs/mc6809/Disassembler/dasm09.TGZ , so          *
+ *                    Parts Copyright (C) 2000  Arto Salmi                 *
+ ***************************************************************************/
 
 /*****************************************************************************/
 /* Dasm6800.cpp : 6800 disassembler implementation                           */
@@ -412,6 +417,13 @@ bool bExecutable = false;
 addr_t fbegin = GetHighestCodeAddr(), fend = GetLowestCodeAddr();
 addr_t i;
 
+int c = fgetc(f);                       /* fetch first byte to decide        */
+if (c == EOF)                           /* whether it may be a FLEX(9) binary*/
+  return false;
+ungetc(c, f);
+if (c != 0 && c != 0x02 && c != 0x16)
+  return false;
+
 while (ReadFlexRecord(f, &rec))
   {
   addr_t nStart = rec.GetLoadAddress();
@@ -591,7 +603,10 @@ if (!bDataBus)
     };
   for (addr_t addr = 0xfff8; addr <= GetHighestCodeAddr(); addr+= 2)
     {
-    if (GetMemType(addr) != Untyped)    /* if system vector loaded           */
+    MemoryType memType = GetMemType(addr);
+    if (memType != Untyped &&           /* if system vector loaded           */
+        memType != Const &&             /* and not defined as constant       */
+        !FindLabel(addr))               /* and no label set in info file     */
       {
       SetMemType(addr, Data);           /* that's a data word                */
       SetCellSize(addr, 2);
@@ -634,6 +649,32 @@ return csz;
 }
 
 /*****************************************************************************/
+/* FetchInstructionDetails : fetch details about current instruction         */
+/*****************************************************************************/
+
+addr_t Dasm6800::FetchInstructionDetails
+    (
+    addr_t PC,
+    uint8_t &O,
+    uint8_t &T,
+    uint8_t &M,
+    uint16_t &W,
+    int &MI,
+    const char *&I,
+    std::string *smnemo
+    )
+{
+O = T = GetUByte(PC++);
+W = (uint16_t)(T * 2);
+MI = T = codes[W++];
+I = mnemo[T].mne;
+M = codes[W];
+if (smnemo)
+  *smnemo = I;
+return PC;
+}
+
+/*****************************************************************************/
 /* ParseCode : parse instruction at given memory address for labels          */
 /*****************************************************************************/
 
@@ -650,11 +691,7 @@ const char *I;
 addr_t PC = addr;
 bool bSetLabel;
 
-O = T = GetUByte(PC++);
-W = (uint16_t)(T * 2);
-MI = T = codes[W++];
-I = mnemo[T].mne;
-M = codes[W];
+PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
 
 switch (M)                              /* which mode is this ?              */
   {
@@ -696,8 +733,8 @@ switch (M)                              /* which mode is this ?              */
     bSetLabel = !IsConst(PC);
     if (bSetLabel)
       {
-      uint16_t ow = GetUWord(PC);
-      W = (uint16_t)PhaseInner(ow, PC);
+      W = GetUWord(PC);
+      W = (uint16_t)PhaseInner(W, PC);
       AddLabel(W, mnemo[MI].memType, "", true);
       }
     PC += 2;
@@ -740,7 +777,6 @@ std::string s;
 
 if (/* !IsCellUsed(addr) && */ // to be done externally!
     (pLabel = FindLabel(addr)) != NULL &&
-    pLabel->IsUsed() &&
     pLabel->GetText().find_first_of("+-") == std::string::npos)
   {
   smnemo = "EQU";
@@ -838,17 +874,12 @@ addr_t Dasm6800::DisassembleCode
 uint8_t O, T, M;
 uint16_t W;
 addr_t Wrel;
+int MI;
 const char *I;
 addr_t PC = addr;
 bool bGetLabel;
 
-O = T = GetUByte(PC++);
-W = (uint16_t)(T * 2);
-T = codes[W++];
-I = mnemo[T].mne;
-M = codes[W];
-
-smnemo = I;                             /* initialize mnemonic               */
+PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
 
 switch (M)                              /* which mode is this?               */
   {
@@ -881,10 +912,10 @@ switch (M)                              /* which mode is this?               */
   case _imw:                            /* immediate word                    */
     bGetLabel = !IsConst(PC);
     W = GetUWord(PC);
-    PC += 2;
     if (bGetLabel)
-      W = (uint16_t)PhaseInner(W, PC - 2);
-    sparm = "#" + Label2String(W, bGetLabel, PC - 2);
+      W = (uint16_t)PhaseInner(W, PC);
+    sparm = "#" + Label2String(W, bGetLabel, PC);
+    PC += 2;
     break;
 
   case _dir:                            /* direct                            */
@@ -898,7 +929,9 @@ switch (M)                              /* which mode is this?               */
 
   case _ext:                            /* extended                          */
     bGetLabel = !IsConst(PC);
-    W = (uint16_t)PhaseInner(GetUWord(PC), PC);
+    W = GetUWord(PC);
+    if (bGetLabel)
+      W = (uint16_t)PhaseInner(W, PC);
     PC += 2;
     if (forceExtendedAddr && (W & (uint16_t)0xff00) == 0)
       sparm = ">" + Label2String(W, bGetLabel, PC - 2);

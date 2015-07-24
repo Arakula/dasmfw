@@ -15,6 +15,11 @@
  * along with this program; if not, write to the Free Software             *
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.               *
  ***************************************************************************/
+/*                          Copyright (C) Hermann Seib                     *
+ * The 6309 disassembler engine is based on contributions to f9dasm        *
+ * by Colin Bourassa, so                                                   *
+ *                    Parts Copyright (C) 2013  Colin Bourassa             *
+ ***************************************************************************/
 
 /*****************************************************************************/
 /* Dasm6309.cpp : 6309 disassembler classes implementation                   */
@@ -392,7 +397,10 @@ if (!bDataBus)
 
   // set up DIV0 system vector
   addr_t addr = 0xfff0;
-  if (GetMemType(addr) != Untyped)      /* if system vector loaded           */
+  MemoryType memType = GetMemType(addr);
+  if (memType != Untyped &&             /* if system vector loaded           */
+      memType != Const &&               /* and not defined as constant       */
+      !FindLabel(addr))                 /* and no label set in info file     */
     {
     SetMemType(addr, Data);             /* that's a data word                */
     SetCellSize(addr, 2);
@@ -553,34 +561,12 @@ addr_t PC = addr;
 bool bSetLabel;
 addr_t dp = GetDirectPage(addr);
 
-
-O = T = GetUByte(PC++);
-if (T == 0x10)
-  {
-  T = GetUByte(PC++);
-  W = T * 2;
-  MI = T = codes10[W++];
-  I = mnemo[T].mne;
-  M = codes10[W];
-  
-  if ((T == _swi2) && os9Patch)
-    return (PC + 1 - addr);
-  }
-else if (T == 0x11)
-  {
-  T = GetUByte(PC++);
-  W = T * 2;
-  MI = T = codes11[W++];
-  I = mnemo[T].mne;
-  M = codes11[W];
-  }
-else
-  {
-  W = T * 2;
-  MI = T = codes[W++];
-  I = mnemo[T].mne;
-  M = codes[W];
-  }
+PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
+#if 1
+// speed up things a bit by checking here (would be done in 6809 anyway)
+if ((T == _swi2) && os9Patch)
+  return (PC + 1 - addr);
+#endif
 
 switch (M)                              /* which mode is this ?              */
   {
@@ -607,9 +593,10 @@ switch (M)                              /* which mode is this ?              */
   case _be:                             /* Bit Manipulation extended         */
     T = GetUByte(PC++);
     bSetLabel = !IsConst(PC);
+    W = GetUWord(PC);
     if (bSetLabel)
       {
-      W = (uint16_t)PhaseInner(GetUWord(PC), PC);
+      W = (uint16_t)PhaseInner(W, PC);
       AddLabel(W, mnemo[MI].memType, "", true);
       }
     PC += 2;
@@ -690,45 +677,23 @@ addr_t Dasm6309::DisassembleCode
 {
 uint8_t O, T, M;
 uint16_t W;
+int MI;
 const char *I;
 addr_t PC = addr;
 bool bGetLabel;
 addr_t dp = GetDirectPage(addr);
 
-O = T = GetUByte(PC++);
-if (T == 0x10)
+PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
+#if 1
+// speed up things a bit by checking here (would be done in 6809 anyway)
+if ((T == _swi2) && os9Patch)
   {
   T = GetUByte(PC++);
-  W = T * 2;
-  T = codes10[W++];
-  I = mnemo[T].mne;
-  M = codes10[W];
-  
-  if ((T == _swi2) && os9Patch)
-    {
-    T = GetUByte(PC++);
-    smnemo = "OS9";
-    sparm = os9_codes[T];
-    return PC - addr;
-    }
+  smnemo = "OS9";
+  sparm = os9_codes[T];
+  return PC - addr;
   }
-else if (T == 0x11)
-  {
-  T = GetUByte(PC++);
-  W = T * 2;
-  T = codes11[W++];
-  I = mnemo[T].mne;
-  M = codes11[W];
-  }
-else
-  {
-  W = T * 2;
-  T = codes[W++];
-  I = mnemo[T].mne;
-  M = codes[W];
-  }
-
-smnemo = I;                             /* initialize mnemonic               */
+#endif
 
 switch (M)                              /* which mode is this?               */
   {
@@ -767,8 +732,9 @@ switch (M)                              /* which mode is this?               */
   case _be:                             /* Bit Manipulation extended         */
     T = GetUByte(PC++);
     bGetLabel = !IsConst(PC);
+    W = GetUWord(PC);
     if (bGetLabel)
-      W = (uint16_t)PhaseInner(GetUWord(PC), addr);
+      W = (uint16_t)PhaseInner(W, addr);
     PC += 2;
     if ((dp != NO_ADDRESS) &&
         ((W & (uint16_t)0xff00) == (uint16_t)dp) &&

@@ -210,6 +210,8 @@ class Disassembler
     int SetOption(std::string name, std::string value);
     std::string GetOption(int idx) { return ((*this).*(options[idx]->getter))(options[idx]->name); }
     std::string GetOption(std::string name);
+    // print disassembler-specific info file help
+    virtual std::string InfoHelp() { return ""; }
     // global typed options
     addr_t GetBegin() { return begin; }
     addr_t GetEnd() { return end; }
@@ -224,7 +226,7 @@ class Disassembler
         return false;
       return memattr[bDataBus] && memattr[bDataBus]->AddMemory(addrStart, memSize, memType);
       }
-    template<class T> T getat(addr_t addr, bool bDataBus = false)
+    template<class T> T inline getat(addr_t addr, bool bDataBus = false)
       {
       T val;
       if (!getat(addr, (uint8_t *)&val, sizeof(val), bDataBus))
@@ -293,6 +295,15 @@ class Disassembler
     bool SetSDWord(addr_t addr, int32_t val, bool bDataBus = false)
       { return setat(addr, (uint8_t *)&val, sizeof(val), bDataBus); }
     bool SetUDWord(addr_t addr, uint32_t val, bool bDataBus = false)
+      { return setat(addr, (uint8_t *)&val, sizeof(val), bDataBus); }
+    // Get/Set memory qword
+    int64_t GetSQWord(addr_t addr, bool bDataBus = false)
+      { return getat<int64_t>(addr, bDataBus); }
+    uint64_t GetUQWord(addr_t addr, bool bDataBus = false)
+      { return getat<uint64_t>(addr, bDataBus); }
+    bool SetSQWord(addr_t addr, int64_t val, bool bDataBus = false)
+      { return setat(addr, (uint8_t *)&val, sizeof(val), bDataBus); }
+    bool SetUQWord(addr_t addr, uint64_t val, bool bDataBus = false)
       { return setat(addr, (uint8_t *)&val, sizeof(val), bDataBus); }
     // Get/Set 32-bit floating-point IEEE 854 value
     float GetFloat(addr_t addr, bool bDataBus = false)
@@ -665,6 +676,15 @@ class Disassembler
       return s + Number2String((addr_t)value, nDigits, addr, bDataBus);
       }
     virtual std::string Label2String(addr_t value, bool bUseLabel, addr_t addr, bool bDataBus = false);
+    // generate text for an unnamed label
+    virtual std::string UnnamedLabel(addr_t addr, bool bCode, bool bDataBus = false)
+      {
+      return sformat("%c%s%0*X",
+                     bCode ? 'Z' : 'M', 
+                     bDataBus ? "D" : "",
+                     (GetCodeBits() > GetDataBits() ? GetCodeBits() : GetDataBits()) / 4,
+                     addr);
+      }
   };
 
 addr_t GetHex(FILE *f, int nChars, uint8_t *pchks = NULL);

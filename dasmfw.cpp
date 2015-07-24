@@ -215,14 +215,22 @@ Application::Application(int argc, char* argv[])
 {
 pDasm = NULL;                           /* selected disassembler             */
 iDasm = -1;                             /* index of selected disassembler    */
+abortHelp = false;                      /* abort after help has been given   */
 bInfoBus = false;                       /* false = code, true = data         */
 showHex = true;                         /* flag for hex data display         */
 showAddr = true;                        /* flag for address display          */
+labelLen = 8;                           /* minimum label length              */
+lLabelLen = 8;                          /* minimum EQU label length          */
+mnemoLen = 8;                           /* minimum mnemonics length          */
+cparmLen = 24;                          /* min parm len with lcomment        */
+uparmLen = 52;                          /* max parm len without lcomment     */
+dbCount = 5;                            /* min code bytes for hex/asc dump   */
 #if RB_VARIANT
 showAsc = false;                        /* flag for ASCII content display    */
 #else
 showAsc = true;                         /* flag for ASCII content display    */
 #endif
+showUnused = false;                     /* don't show unused labels          */
 out = stdout;
 comments[0][0].SetMultipleDefs();       /* allow multi-line comments / lines */
 comments[0][1].SetMultipleDefs();
@@ -239,7 +247,7 @@ if (idx != sDasmName.npos)
 idx = sDasmName.rfind('.');
 if (idx != sDasmName.npos)
   sDasmName = sDasmName.substr(0, idx);
-// if the name is "dasm"+code, use this disassembler
+// if the name might be "dasm"+code, try to use this disassembler
 if (lowercase(sDasmName.substr(0, 4)) == "dasm")
   pDasm = CreateDisassembler(sDasmName.substr(4), &iDasm);
 
@@ -284,55 +292,20 @@ for (i = 0; i < _countof(defnfo); i++)
   if (!defnfo[i].empty())
     ParseOption("info", defnfo[i], true, false);
 ParseOptions(argc, argv, true);
-if (!pDasm)
-  return Help();
+if (!pDasm)                             /* disassembler must be loaded now   */
+  return Help();                        /* if not, display help & exit       */
                                         /* then parse all other options      */
+for (i = 0; i < _countof(defnfo); i++)  /* for data & info files to load     */
+  if (!defnfo[i].empty())
+    ParseOption("info", defnfo[i], false, false);
 ParseOptions(argc, argv, false);
 
-int nInterleave = 1;
-for (i = 0;                             /* load file(s) given on commandline */
-     i < (int)saFNames.size();          /* and parsed from info files        */
-     i++)
-  {                                     /* and load-relevant option settings */
-  if (saFNames[i].substr(0, 7) == "-begin:")
-    ParseOption("begin", saFNames[i].substr(7));
-  else if (saFNames[i].substr(0, 5) == "-end:")
-    ParseOption("end", saFNames[i].substr(5));
-  else if (saFNames[i].substr(0, 8) == "-offset:")
-    ParseOption("offset", saFNames[i].substr(8));
-  else if (saFNames[i].substr(0, 12) == "-interleave:")
-    nInterleave = atoi(saFNames[i].substr(12).c_str());
-  else
-    {
-    std::string sLoadType;
-    bool bOK = pDasm->Load(saFNames[i], sLoadType, nInterleave);
-    saFNames[i] = sformat("%soaded: %s file \"%s\"",
-                          bOK ? "L" : "NOT l",
-                          sLoadType.c_str(),
-                          saFNames[i].c_str());
-    if (nInterleave != 1)
-      saFNames[i] += sformat(" (interleave=%d)", nInterleave);
-    printf("%s\n", saFNames[i].c_str());
-    }
-  }
-                                        /* then process all info files       */
-for (i = 0; i < _countof(defnfo); i++)
-  if (!defnfo[i].empty())
-    {
-    bool bOK = LoadInfo(defnfo[i]);
-    if (bOK)
-      printf("Loaded: Info file \"%s\"\n",
-           defnfo[i].c_str());
-    }
-for (i = 0;
-     i < (int)saINames.size();
-     i++)
-  {
-  bool bOK = LoadInfo(saINames[i]);
-  printf("%soaded: Info file \"%s\"\n",
-         bOK ? "L" : "NOT l",
-         saINames[i].c_str());
-  }
+if (abortHelp)                          /* help has been given, so end it    */
+  return 1;
+
+LoadFiles();                            /* load all data files               */
+
+LoadInfoFiles();                        /* load all info files               */
 
 // parse labels in 2 passes
 if (pDasm->GetMemoryArrayCount(false)) Parse(0, false);
@@ -355,17 +328,22 @@ while (sComHdr.size() < 53)
 out = outname.size() ? fopen(outname.c_str(), "w") : stdout;
 if (out == NULL)
   out = stdout;
-if (out != stdout)
+if (out != stdout)                      /* if output goes to file            */
+  {                                     /* write header details              */
   PrintLine(sComDel +
             sformat(" %s: Disassembler Framework V" DASMFW_VERSION,
                     sDasmName.c_str()));
-for (i = 0;                             /* print loaded files                */
-     i < (int)saFNames.size();
-     i++)
-  if (saFNames[i].substr(0, 1) != "-")
-    PrintLine(sComDel + " " + saFNames[i]);
+  for (i = 0;                           /* print loaded files                */
+       i < (int)saFNames.size();
+       i++)
+    if (saFNames[i].substr(0, 1) != "-")
+      PrintLine(sComDel + " " + saFNames[i]);
+  for (i = 0;                           /* print loaded info files           */
+       i < (int)saINames.size();
+       i++)
+  PrintLine(sComDel + " " + saINames[i]);
+  }
 
-// TEST TEST TEST TEST TEST TEST TEST
 // #ifdef _DEBUG
 #if 0
 PrintLine();
@@ -438,6 +416,68 @@ return 0;
 }
 
 /*****************************************************************************/
+/* LoadFiles : load all data files referenced on command line or from info   */
+/*****************************************************************************/
+
+bool Application::LoadFiles()
+{
+bool bAllOK = true;
+
+int nInterleave = 1;
+for (int i = 0;                         /* load file(s) given on commandline */
+     i < (int)saFNames.size();          /* and parsed from info files        */
+     i++)
+  {                                     /* and load-relevant option settings */
+  if (saFNames[i].substr(0, 7) == "-begin:")
+    ParseOption("begin", saFNames[i].substr(7));
+  else if (saFNames[i].substr(0, 5) == "-end:")
+    ParseOption("end", saFNames[i].substr(5));
+  else if (saFNames[i].substr(0, 8) == "-offset:")
+    ParseOption("offset", saFNames[i].substr(8));
+  else if (saFNames[i].substr(0, 12) == "-interleave:")
+    nInterleave = atoi(saFNames[i].substr(12).c_str());
+  else
+    {
+    std::string sLoadType;
+    bool bOK = pDasm->Load(saFNames[i], sLoadType, nInterleave);
+    saFNames[i] = sformat("%soaded: %s file \"%s\"",
+                          bOK ? "L" : "NOT l",
+                          sLoadType.c_str(),
+                          saFNames[i].c_str());
+    if (nInterleave != 1)
+      saFNames[i] += sformat(" (interleave=%d)", nInterleave);
+    printf("%s\n", saFNames[i].c_str());
+    bAllOK &= bOK;
+    }
+  }
+
+return bAllOK;
+}
+
+/*****************************************************************************/
+/* LoadInfoFiles : fully process all info files                              */
+/*****************************************************************************/
+
+bool Application::LoadInfoFiles()
+{
+bool bAllOK = true;
+
+for (int i = 0;
+     i < (int)saINames.size();
+     i++)
+  {
+  bool bOK = LoadInfo(saINames[i]);
+  saINames[i] = sformat("%soaded: Info file \"%s\"",
+                         bOK ? "L" : "NOT l",
+                         saINames[i].c_str());
+  printf("%s\n", saINames[i].c_str());
+  bAllOK &= bOK;
+  }
+
+return bAllOK;
+}
+
+/*****************************************************************************/
 /* Parse : go through the loaded memory areas and parse all labels           */
 /*****************************************************************************/
 
@@ -480,7 +520,8 @@ for (int i = pDasm->GetLabelCount(bDataBus) - 1; i >= 0; i--)
   std::string::size_type p = s.find_first_of("+-");
   addr_t offs;
   if (p != s.npos &&
-      pDasm->String2Number(s.substr(p + 1), offs))
+//    pDasm->String2Number(s.substr(p + 1), offs))
+      sscanf(s.substr(p + 1).c_str(), "%d", &offs) == 1)
     {
     if (s[p] == '+') offs = (addr_t)(-(int32_t)offs);
     pLbl->SetUsed(false);
@@ -542,7 +583,7 @@ for (int l = 0; l < pDasm->GetLabelCount(bDataBus); l++)
   {
   Label *pLbl = pDasm->LabelAt(l, bDataBus);
   addr_t laddr = pLbl->GetAddress();
-  if (pLbl->IsUsed() &&
+  if ((showUnused || pLbl->IsUsed()) &&
       pDasm->GetMemType(laddr, bDataBus) == Untyped)
     {
     std::string smnemo, sparm;
@@ -572,7 +613,7 @@ for (int l = 0; l < pDasm->GetLabelCount(bDataBus); l++)
       pComment = GetFirstLComment(laddr, it, bDataBus);
       std::string scomment = pComment ? pComment->GetText() : "";
       if (scomment.size()) scomment = sComBlk + scomment;
-      PrintLine(slabel, smnemo, sparm, scomment);
+      PrintLine(slabel, smnemo, sparm, scomment, lLabelLen);
       if (pComment)
         {
         while ((pComment = GetNextLComment(laddr, it, bDataBus)) != NULL)
@@ -625,7 +666,7 @@ if (p && p->IsUsed())
   sLabel = pDasm->Label2String(addr, true, addr, bDataBus) +
            labelDelim;
 pComment = GetFirstLComment(addr, it, bDataBus);
-int maxparmlen = (bWithComments || pComment) ? 24 : 52;
+int maxparmlen = (bWithComments || pComment) ? cparmLen : uparmLen;
 addr_t sz = pDasm->Disassemble(addr, sMnemo, sParms, maxparmlen, bDataBus);
 
 std::string scomment;
@@ -646,7 +687,7 @@ if ((showHex || showAsc) && !pDasm->IsBss(addr, bDataBus))
   sAsc += '\'';
   if (showHex || showAsc)
     {
-    for (; i < 5; i++)
+    for (; i < (addr_t)dbCount; i++)
       {
       if (showHex && showAsc)
         sHex += "   ";
@@ -690,39 +731,38 @@ bool Application::PrintLine
     std::string sLabel,
     std::string smnemo,
     std::string sparm,
-    std::string scomment
+    std::string scomment,
+    int labelLen
     )
 {
-// for now: VERY primitive output
+if (labelLen < 0) labelLen = this->labelLen;
 int nLen = 0;
+int nMinLen = labelLen;
+bool bLastBlank = false;
 if (sLabel.size())
-  nLen += fprintf(out, "%s ", sLabel.c_str());
+  nLen += fprintf(out, "%s", sLabel.c_str());
 if (smnemo.size())
   {
-  if (nLen < 8) nLen += fprintf(out, "%*s", 8 - nLen, "");
-  nLen += fprintf(out, "%s ", smnemo.c_str());
+  if (nLen > 0) nLen += fprintf(out, " ");
+  if (nLen < nMinLen) nLen += fprintf(out, "%*s", nMinLen - nLen, "");
+  nLen += fprintf(out, "%s", smnemo.c_str());
   }
+nMinLen += mnemoLen;
 if (sparm.size())
   {
-  if (nLen < 16) nLen += fprintf(out, "%*s", 16 - nLen, "");
-  nLen += fprintf(out, "%s ", sparm.c_str());
+  if (nLen > 0) nLen += fprintf(out, " ");
+  if (nLen < nMinLen) nLen += fprintf(out, "%*s", nMinLen - nLen, "");
+  nLen += fprintf(out, "%s", sparm.c_str());
   }
+nMinLen += cparmLen;
 if (scomment.size())
   {
-  if (nLen < 41) nLen += fprintf(out, "%*s", 41 - nLen, "");
-  nLen += fprintf(out, "%s ", scomment.c_str());
+  if (nLen > 0) nLen += fprintf(out, " ");
+  if (nLen < nMinLen) nLen += fprintf(out, "%*s", nMinLen - nLen, "");
+  nLen += fprintf(out, "%s", scomment.c_str());
   }
 nLen += fprintf(out, "\n");
 return nLen > 0;
-}
-
-/*****************************************************************************/
-/* InfoHelp : pass back help for info files                                  */
-/*****************************************************************************/
-
-bool Application::InfoHelp()
-{
-return true;
 }
 
 /*****************************************************************************/
@@ -790,14 +830,14 @@ if (from == s.npos)
 if (bDotStart && s[from] == '.')        /* '.' can allow leading blanks      */
   from++;                               /* (redundant f9dasm behavior)       */
 std::string sout;
-while (from < s.size())                 /* copy the rest, with unescaping    */
+for (; from < s.size(); from++)         /* copy the rest, with unescaping    */
   {
-  if (bUnescape && s[from] == '\\' && from + 1 < s.size())
+  if (bUnescape && s[from] == '\\' && (from + 1) < s.size())
     sout += s[++from];
   else if (bCutComment && s[from] == '*')
     break;
   else
-    sout += s[from++];
+    sout += s[from];
   }
 
 if (sout.empty()) return sout;
@@ -815,9 +855,6 @@ bool Application::LoadInfo
     bool bProcInfo
     )
 {
-if (fileName == "help")                 /* if help is needed                 */
-  return InfoHelp();                    /* give it.                          */
-
 if (!pDasm && bProcInfo)                /* no disassembler, no work.         */
   return false;
                                         /* inhibit recursion                 */
@@ -826,6 +863,16 @@ for (std::vector<std::string>::const_iterator lsi = loadStack.begin();
      lsi++)
   if (*lsi == fileName)
     return false;
+
+if (bProcInfo)                          /* if in processing mode             */
+  {                                     /* assure this is only done once     */
+  for (std::vector<std::string>::const_iterator lsi = saPINames.begin();
+       lsi != saPINames.end();
+       lsi++)
+     if (*lsi == fileName)
+       return false;
+  saPINames.push_back(fileName);
+  }
 
 enum InfoCmd
   {
@@ -1195,15 +1242,23 @@ do
                   pDasm->SetMemType(scanned, Bss, bInfoBus);
                   break;
                 case infoUnused :
+                  {
                   pDasm->SetMemType(scanned, Untyped, bInfoBus);
                   pDasm->SetCellUsed(scanned, false, bInfoBus);
+                  }
                 case infoByte :
                   pDasm->SetCellSize(scanned, 1, bInfoBus);
                   break;
                 case infoWord :
+                  // for compatibility reasons to f9dasm, set type to Data
+                  if (pDasm->GetMemType(scanned, bInfoBus) != Const)
+                    pDasm->SetMemType(scanned, Data, bInfoBus);
                   pDasm->SetCellSize(scanned, 2, bInfoBus);
                   break;
                 case infoDWord :
+                  // for compatibility reasons to f9dasm, set type to Data
+                  if (pDasm->GetMemType(scanned, bInfoBus) != Const)
+                    pDasm->SetMemType(scanned, Data, bInfoBus);
                   pDasm->SetCellSize(scanned, 4, bInfoBus);
                   break;
                 case infoBinary :
@@ -1251,6 +1306,10 @@ do
                     tgtaddr = pDasm->GetUWord(scanned, bInfoBus);
                   else if (sz == 4)
                     tgtaddr = pDasm->GetUDWord(scanned, bInfoBus);
+#if (ADDR_T_SIZE >= 8)
+                  else if (sz == 8)
+                    tgtaddr = pDasm->GetUQWord(scanned, bInfoBus);
+#endif
                   pDasm->AddLabel(tgtaddr, Code,
                                   sformat("Z%0*Xvia%0*X",
                                           sz*2, tgtaddr,
@@ -1269,6 +1328,10 @@ do
                     tgtaddr = pDasm->GetUWord(scanned, bInfoBus);
                   else if (sz == 4)
                     tgtaddr = pDasm->GetUDWord(scanned, bInfoBus);
+#if (ADDR_T_SIZE >= 8)
+                  else if (sz == 8)
+                    tgtaddr = pDasm->GetUQWord(scanned, bInfoBus);
+#endif
                   pDasm->AddLabel(tgtaddr, Code,
                                   sformat("M%0*Xvia%0*X",
                                           sz*2, tgtaddr,
@@ -1630,6 +1693,7 @@ int Application::ParseOption
     )
 {
 std::string lvalue(lowercase(value));
+int iValue = atoi(value.c_str());
 int bnvalue = (lvalue == "off") ? 0 : (lvalue == "on") ? 1 : atoi(value.c_str());
 
 if (bSetDasm)                           /* 1st pass: find only dasm          */
@@ -1649,7 +1713,18 @@ else if (option == "dasm")              /* 2nd pass: ignore dasm             */
   return 1;
 
 if (option == "?" || option == "help")
-  Help();
+  {
+  if (lvalue == "info")
+    {
+    InfoHelp(true);
+    return 1;
+    }
+  else
+    {
+    Help(true);
+    return (lvalue == "options") ? 1 : 0;
+    }
+  }
 else if (option == "out")
   {
   outname = (value == "console") ? "" : value;
@@ -1663,11 +1738,45 @@ else if (option == "info")
   return !!bOK;
   }
 else if (option == "addr")
+  {
   showAddr = !!bnvalue;
+  return 1;
+  }
+else if (option == "noaddr")
+  showAddr = false;
 else if (option == "hex")
+  {
   showHex = !!bnvalue;
+  return 1;
+  }
+else if (option == "nohex")
+  showHex = false;
 else if (option == "asc")
+  {
   showAsc = !!bnvalue;
+  return 1;
+  }
+else if (option == "noasc")
+  showAsc = false;
+else if (option == "unused")
+  {
+  showUnused = !!bnvalue;
+  return 1;
+  }
+else if (option == "nounused")
+  showUnused = false;
+else if (option == "labellen" && iValue > 0 && iValue < 256)
+  labelLen = iValue;
+else if (option == "llabellen" && iValue > 0 && iValue < 256)
+  lLabelLen = iValue;
+else if (option == "mnemolen" && iValue > 0 && iValue < 256)
+  mnemoLen = iValue;
+else if (option == "cparmlen" && iValue > 0 && iValue < 256)
+  cparmLen = iValue;
+else if (option == "uparmlen" && iValue > 0 && iValue < 256)
+  uparmLen = iValue;
+else if (option == "dbcount" && iValue > 0 && iValue < 256)
+  dbCount = iValue;
 else if (pDasm)
   {
   // little special for f9dasm compatibility: "-no{option}" is interpreted
@@ -1689,7 +1798,7 @@ return 0;
 void Application::ParseOptions
     (
     int argc,
-    char* argv[],
+    char *argv[],
     bool bSetDasm
     )
 {
@@ -1698,7 +1807,7 @@ std::string curBegin, curEnd, curOff, curIlv("1");
 // parse command line
 for (int arg = 1; arg < argc; arg++)
   {
-  if (argv[arg][0] == '-')
+  if (argv[arg][0] == '-' && argv[arg][1])
     {
     // allow -option:value or -option=value syntax, too
     std::string s(argv[arg] + 1);
@@ -1795,7 +1904,7 @@ if (pDasm)
          pDasm->GetName().c_str());
 #endif
 printf(":\n");
-ListOptionLine("?|help", "This Help list");
+ListOptionLine("?|help", "[options|info]\tHelp for options or info file");
 ListOptionLine("out", "Output File name", outname.size() ? outname : "console");
 ListOptionLine("dasm", "{code}\tDisassembler to use",
                pDasm ? Disassemblers[iDasm].name : std::string(""));
@@ -1808,10 +1917,18 @@ if (!pDasm)
   }
 else
   {
+  printf("  Output formatting options:\n");
   ListOptionLine("addr", "{off|on}\toutput address dump", showAddr ? "on" : "off");
   ListOptionLine("hex", "{off|on}\toutput hex dump", showHex ? "on" : "off");
   ListOptionLine("asc", "{off|on}\toutput ASCII rendering of code/data", showAsc ? "on" : "off");
-
+  ListOptionLine("unused", "{off|on}\toutput unused defined labels", showUnused ? "on" : "off");
+  ListOptionLine("labellen", "{length}\tspace reserved for labels", sformat("%d", labelLen));
+  ListOptionLine("llabellen", "{length}\tspace reserved for label definition labels", sformat("%d", lLabelLen));
+  ListOptionLine("mnemolen", "{length}\tspace reserved for mnemonics", sformat("%d", mnemoLen));
+  ListOptionLine("cparmlen", "{length}\tspace reserved for commented parameters", sformat("%d", cparmLen));
+  ListOptionLine("uparmlen", "{length}\tspace reserved for uncommented parameters", sformat("%d", uparmLen));
+  ListOptionLine("dbcount", "{num}\tspace reserved for hex/ascii dump bytes",  sformat("%d", dbCount));
+  printf("  %s-specific options:\n", Disassemblers[iDasm].name.c_str());
   for (int i = 0; i < pDasm->GetOptionCount(); i++)
     ListOptionLine(pDasm->GetOptionName(i),
                    pDasm->GetOptionHelp(i),
@@ -1820,7 +1937,8 @@ else
 printf("\nOptions can be given in the following formats:\n"
        "  -option value\n"
        "  -option=value\n"
-       "  -option:value\n");
+       "  -option:value\n"
+       "  -NOoption     (only for off|on options; sets to OFF)\n");
 }
 
 
@@ -1834,8 +1952,134 @@ printf("Usage: dasmfw [-option]* [filename]*\n");
 
 ListOptions();                          /* list options for selected dasm    */
 
-if (bQuit) exit(1);                     /* hard exit                         */
+if (bQuit) abortHelp = true;
+return 1;
+}
 
+/*****************************************************************************/
+/* InfoHelp : pass back help for info files                                  */
+/*****************************************************************************/
+
+int Application::InfoHelp(bool bQuit)
+{
+printf("Info file contents:\n"
+#if RB_VARIANT
+      "\nLabel file comments\n"
+       "\t* comment line\n"
+       "\t; comment line\n"
+      "\nOutput control\n"
+       "\tPREPEND [AFTER] [addr[-addr]] text to be prepended to the output\n"
+       "\tPREPCOMM [AFTER] [addr[-addr]] comment text to be prepended to the output\n"
+      "\nMemory content definitions\n"
+       "\tunused area:        UNUSED from-to\n"
+       "\treserved area:      RMB from-to\n"
+       "\tcode area:          CODE from[-to]\n"
+       "\tdata area:          DATA from[-to] (default: hex byte data)\n"
+       "\tbinary data area:   BIN[ARY] from[-to]\n"
+       "\tdecimal data area:  DEC[IMAL] from[-to]\n"
+       "\thex data area:      HEX[ADECIMAL] from[-to]\n"
+       "\tconstants in memory:CONST from[-to] (like hex)\n"
+       "\tchar data area:     CHAR from[-to] (like hex, but ASCII if possible)\n"
+       "\tword data area:     WORD from[-to] (like hex, but 16 bit)\n"
+       "\tcode vector area:   CVEC[TOR] from[-to]\n" 
+       "\t                    (like WORD, but adds target labels if necessary)\n"
+       "\tdata vector area:   DVEC[TOR] from[-to]\n"
+       "\t                    (like WORD, but adds target labels if necessary)\n"
+      "\nAddressing control\n"
+       "\tforce addressing relative to base:\n"
+       "\t\t\t    REL[ATIVE] addr[-addr] baseaddr\n"
+       "\tunset relative addressing:\n"
+       "\t\t\t    UNREL[ATIVE] addr[-addr]\n"
+       "\tmap memory addresses to different base:\n"
+       "\t\t\t    REMAP addr[-addr] offset\n"
+       "\tmap file contents to different base:\n"
+       "\t\t\t    PHASE addr[-addr] phase\n"
+      "\nLabel control\n"
+       "\tdefine label:       LABEL addr name\n"
+       "\tremove label:       UNLABEL addr[-addr]\n"
+       "\tdon't apply label name to constant but treat it as a number\n"
+       "\t\t\t    CONST from[-to]\n"
+       "\tmark auto-generated label as used\n"
+       "\t\t\t    USED[LABEL] addr\n"
+      "\nCommenting\n"
+       "\tcomment:            COMM[ENT] [AFTER] addr[-addr] text\n"
+       "\tsuppress comments:  UNCOMM[ENT] [AFTER] addr[-addr] text\n"
+       "\tappended comments:  LCOMM[ENT] addr[-addr] text\n"
+       "\tprepended comments: PREPLCOMM[ENT] addr[-addr] text\n"
+       "\tsuppress lcomments: UNLCOMM[ENT] addr[-addr]\n"
+      "\nMisc control\n"
+       "\tinsert byte data:   PATCH addr[-addr] data[...]\n"
+       "\tinsert word data:   PATCHW addr[-addr] data[...]\n"
+       "\tinsert text:        INSERT [AFTER] addr[-addr] embedded line\n"
+       "\tinclude label file: INCLUDE filename\n"
+       "\tload binary file:   FILE filename [baseaddr]\n"
+       "\tstop parsing:       END\n"
+#else
+       "Consists of text records of one of the following formats:\n"
+       "* comment line\n"
+
+       "BUS {code|data}  (only necessary for Hardvard architecture)\n"
+
+       "CODE addr[-addr]\n"
+       "DATA addr[-addr]\n"
+       "CONST from[-to]\n"
+       "CVEC[TOR] [BUS {code|data}] addr[-addr] (forced code vectors)\n"
+       "DVEC[TOR] [BUS {code|data}] addr[-addr] (forced data vectors)\n"
+       "RMB addr[-addr]\n"
+       "UNUSED addr[-addr]\n"
+
+       "BYTE addr[-addr] (forced byte data)\n"
+       "WORD addr[-addr] (forced word data)\n"
+       "DWORD addr[-addr] (forced doubleword data)\n"
+
+       "BIN[ARY] addr[-addr] (forced binary data)\n"
+       "CHAR addr[-addr] (forced character data, only if no WORD area)\n"
+       "OCT[AL] addr[-addr] (forced octal data)\n"
+       "DEC[IMAL] addr[-addr] (forced decimal data)\n"
+       "HEX[ADECIMAL] addr[-addr] (forced hex data)\n"
+       "FLOAT addr[-addr]\n"
+       "DOUBLE addr[-addr]\n"
+       "TENBYTES addr[-addr]\n"
+
+       "BREAK from[-to]\n"
+       "UNBREAK from[-to]\n"
+
+       "REL[ATIVE] addr[-addr] baseaddr\n"
+       "UNREL[ATIVE] addr[-addr]\n"
+
+       "LABEL addr[-addr] name\n"
+       "USED[LABEL] addr[-addr]  (forces label to \"Used\")\n"
+       "UNLABEL addr[-addr]\n"
+
+       "PHASE addr[-addr] [+|-]phase\n"
+       "UNPHASE addr[-addr]\n"
+
+       "INCLUDE filename\n"
+       "OPTION option value (like command line option, without leading -)\n"
+       "FILE filename [baseaddr]\n"
+       "REMAP addr[-addr] offset\n"
+
+       "COMMENT [AFTER] addr[-addr] embedded comment line\n"
+       "PREPCOMM [AFTER] [addr[-addr]] comment text to be prepended to the output\n"
+       "INSERT [AFTER] addr[-addr] embedded line\n"
+       "PREPEND [AFTER] [addr[-addr]] text to be prepended to the output\n"
+       "LCOMMENT addr[-addr] appended line comment\n"
+       "PREPLCOMM[ENT] addr[-addr] prepended line comment\n"
+       "UNCOMMENT [AFTER] addr[-addr]\n"
+       "UNLCOMMENT addr[-addr]\n"
+
+       "END\n"
+#endif
+       );
+
+if (pDasm)
+  {
+  std::string sDasmInfo = pDasm->InfoHelp();
+  if (sDasmInfo.size())
+    printf("\nDisassembler-specific info commands:\n%s", sDasmInfo.c_str());
+  }
+
+if (bQuit) abortHelp = true;
 return 1;
 }
 

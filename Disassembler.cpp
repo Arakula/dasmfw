@@ -64,15 +64,16 @@ if (!pAttr ||
     !pAttr->IsUsed())
   return 0;
 
+MemAttribute::Display display = pAttr->GetDisplay();
 wf = pAttr->cellSize | SHMF_DATA;       /* assemble flags for data byte      */
 
 if (pAttr->GetMemType() == Bss)
   wf |= SHMF_RMB;
 else if (pAttr->GetSize() == 1
 #if RB_VARIANT
-         && pAttr->GetDisplay() == MemAttribute::Char
+         && display == MemAttribute::Char
 #else
-         && pAttr->GetDisplay() != MemAttribute::Binary
+         && display != MemAttribute::Binary
 #endif
          )
   {
@@ -153,7 +154,7 @@ AddOption("ldchar", "{char}\tlabel delimiter character",
 AddOption("loadlabel", "{off|on}\tflag whether to use entry point label",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
-AddOption("pbase", "{number}\tdefault number base for parsing",
+AddOption("pbase", "{number}\tdefault base for parsing numbers",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
 }
@@ -301,10 +302,9 @@ return 1;                               /* option + value consumed           */
 std::string Disassembler::DisassemblerGetOption(std::string lname)
 {
 std::string oval;
-if (lname == "begin") oval = sformat("0x%lx", begin);
-else if (lname == "end") oval = sformat("0x%lx", end);
-else if (lname == "offset")
-  oval = sformat("0x%lx", offset);
+if (lname == "begin") oval = (begin == NO_ADDRESS) ? "-1" : sformat("0x%lx", begin);
+else if (lname == "end") oval = (end == NO_ADDRESS) ? "-1" : sformat("0x%lx", end);
+else if (lname == "offset") oval = (offset == NO_ADDRESS) ? "-1" : sformat("0x%lx", offset);
 else if (lname == "cchar") oval = commentStart;
 else if (lname == "ldchar") oval = labelDelim;
 else if (lname == "loadlabel") oval = bLoadLabel ? "on" : "off";
@@ -325,7 +325,9 @@ std::string Disassembler::Label2String
     )
 {
 std::string sOut;
-addr_t Wrel = value + GetRelative(addr);
+addr_t relative = GetRelative(addr, bDataBus);
+addr_t Wrel = (value + relative) &
+              (bDataBus ? GetHighestDataAddr() : GetHighestCodeAddr());
 std::string sLabel;
                                         /* get label name                    */
 sLabel = (bUseLabel) ? GetLabel(Wrel, Untyped, bDataBus) : "";
@@ -336,27 +338,26 @@ if (Wrel == value && sLabel.size())
 if (sLabel.size())
   sOut = sLabel;
 else if (bUseLabel && IsCLabel(Wrel, bDataBus))
-  sOut = sformat("Z%0*X", GetCodeBits() / 4, Wrel);
+  sOut = UnnamedLabel(Wrel, true, bDataBus);
 else if (bUseLabel && IsDLabel(Wrel, bDataBus))
-  sOut = sformat("M%0*X", GetDataBits() / 4, Wrel);
+  sOut = UnnamedLabel(Wrel, false, bDataBus);
 else
   sOut = Number2String(Wrel, 4, addr, bDataBus).c_str();
 
-if (Wrel != value)                      /* if it's relative addressing       */
+if (relative)                           /* if it's relative addressing       */
   {
   std::string sAdd("-");
   bool bInvert = true;
   int32_t nDiff = Wrel - value;         /* get difference                    */
 
-  Wrel = GetRelative(addr, bDataBus);
                                         /* get base name                     */
-  sLabel = (bUseLabel) ? GetLabel(Wrel, Untyped, bDataBus) : "";
+  sLabel = (bUseLabel) ? GetLabel(relative, Untyped, bDataBus) : "";
   if (sLabel.size())
     sAdd += sLabel;
-  else if (bUseLabel && IsCLabel(Wrel, bDataBus))
-    sAdd += sformat("Z%0*X", GetCodeBits() / 4, Wrel);
-  else if (bUseLabel && IsDLabel(Wrel, bDataBus))
-    sAdd += sformat("M%0*X", GetDataBits() / 4, Wrel);
+  else if (bUseLabel && IsCLabel(relative, bDataBus))
+    sOut = UnnamedLabel(relative, true, bDataBus);
+  else if (bUseLabel && IsDLabel(relative, bDataBus))
+    sOut = UnnamedLabel(relative, false, bDataBus);
   else
     {
     if (nDiff < 0)                      /* if negative displacement          */
@@ -364,9 +365,9 @@ if (Wrel != value)                      /* if it's relative addressing       */
       sAdd = "+";                       /* negative*negative is positive...  */
       bInvert = false;                  /* so invert the sign                */
                                         /* and make the number positive      */
-      Wrel = (addr_t) (-((int32_t)Wrel));
+      relative = (addr_t) (-((int32_t)relative));
       }
-    sAdd += Number2String(Wrel, 4, addr, bDataBus);
+    sAdd += Number2String(relative, 4, addr, bDataBus);
     }
 
   if (bInvert)                          /* if inverting necessary,           */
@@ -411,7 +412,10 @@ int segment = 0;                        /* segment address                   */
 if ((c = fgetc(f)) == EOF)              /* look whether starting with ':'    */
   return false;
 if (c != ':')
-  nBytes = -1;
+  {
+  ungetc(c, f);
+  return false;
+  }
 
 while (!done && (nBytes >= 0))          /* while there are lines             */
   {
@@ -540,7 +544,10 @@ addr_t fend = GetLowestCodeAddr();
 if ((c = fgetc(f)) == EOF)              /* look whether starting with 'S'    */
   return false;
 if (c != 'S')
-  nBytes = -1;
+  {
+  ungetc(c, f);
+  return false;
+  }
 
 while ((!done) && (nBytes >= 0))        /* while there are lines             */
   {
@@ -675,33 +682,45 @@ bool Disassembler::LoadBinary
     )
 {
 int nCurPos = ftell(f);
+// this logic is required, since reads for other file types might have ended
+// with an ungetc() call, which could be ruined by the fseek()/ftell() below
+// if the file is unseekable
+int c = fgetc(f);                       /* read first byte from the file     */
 addr_t i, off;
 fseek(f, 0, SEEK_END);                  /* get file length                   */
 off = ftell(f) - nCurPos;
-fseek(f, nCurPos, SEEK_SET);
-                                        /* restrict to maximum code size     */
-if (offset + (off * interleave) > GetHighestCodeAddr() + 1)
-  off = (GetHighestCodeAddr() + 1) / interleave;
+fseek(f, nCurPos + 1, SEEK_SET);
+
+if (off > 0 &&                          /* restrict to maximum code size     */ 
+    offset + (off * interleave) > GetHighestCodeAddr() + 1)
+  off = ((GetHighestCodeAddr() + 1) / interleave) - offset;
 
 if (begin < 0 || offset < begin)        /* set begin if not specified        */
   begin = offset;
-                                        /* set end if not specified          */
-if (end < offset + (off * interleave) - 1)
-  end = offset + (off * interleave) -1;
-AddMemory(begin, off * interleave);     /* make sure memory is there         */
-                                        /* mark area as used                 */
-for (i = 0; i < off; i++)
+
+if (off > 0)                            /* set end if not specified          */
   {
-  addr_t tgtaddr = offset + (i * interleave);
-  int c = fgetc(f);                     /* read a byte from the file         */
+  if (end < offset + (off * interleave) - 1)
+    end = offset + (off * interleave) -1;
+  AddMemory(begin,                      /* make sure memory is there         */
+            off * interleave);
+  }
+
+for (i = 0; off < 0 || i < off; i++)    /* mark area as used                 */
+  {
   if (c == EOF)                         /* if error, abort reading           */
     {
-    fseek(f, nCurPos, SEEK_SET);
-    return false;
+    if (off > 0)
+      fseek(f, nCurPos, SEEK_SET);
+    return off < 0;
     }
+  addr_t tgtaddr = offset + (i * interleave);
+  if (off < 0)                          /* if reading an unseekable stream   */
+    AddMemory(tgtaddr, interleave);     /* assure memory                     */
   setat(tgtaddr, (uint8_t)c);           /* otherwise add memory byte         */
   SetCellUsed(tgtaddr);                 /* mark as used byte                 */
   SetDisplay(tgtaddr, defaultDisplay);
+  c = fgetc(f);                         /* read next byte from the file      */
   }
 
 sLoadType = "binary";
@@ -737,11 +756,12 @@ bool Disassembler::Load
     )
 {
 sLoadType.clear();
-FILE *pFile = fopen(filename.c_str(), "rb");
+FILE *pFile = (filename == "-") ? stdin : fopen(filename.c_str(), "rb");
 if (pFile == NULL)
   return false;
 bool bOK = LoadFile(filename, pFile, sLoadType, interleave);
-fclose(pFile);
+if (pFile != stdin)
+  fclose(pFile);
 if (bOK)                                /* if loading done,                  */
   offset = end + 1;                     /* prepare for next file             */
 return bOK;

@@ -15,6 +15,11 @@
  * along with this program; if not, write to the Free Software             *
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.               *
  ***************************************************************************/
+/*                          Copyright (C) Hermann Seib                     *
+ * The 6301 disassembler engine is based on contributions to f9dasm        *
+ * by Rainer Buchty, so                                                    *
+ *                    Parts Copyright (C) 2015  Rainer Buchty              *
+ ***************************************************************************/
 
 /*****************************************************************************/
 /* Dasm6301.cpp : 6301 disassembler classes implementation                   */
@@ -171,11 +176,7 @@ const char *I;
 addr_t PC = addr;
 bool bSetLabel;
 
-O = T = GetUByte(PC++);
-I = mnemo[T].mne;
-W = (uint16_t)(T * 2);
-MI = T = codes[W++];
-M = codes[W];
+PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
 
 switch (M)                              /* which mode is this ?              */
   {
@@ -213,17 +214,12 @@ addr_t Dasm6301::DisassembleCode
 uint8_t O, T, M;
 uint16_t W;
 addr_t Wrel;
+int MI;
 const char *I;
 addr_t PC = addr;
 bool bGetLabel;
 
-O = T = GetUByte(PC++);
-W = (uint16_t)(T * 2);
-T = codes[W++];
-I = mnemo[T].mne;
-M = codes[W];
-
-smnemo = I;                             /* initialize mnemonic               */
+PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
 
 switch (M)                              /* which mode is this?               */
   {

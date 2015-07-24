@@ -115,6 +115,20 @@ class Dasm6809 : public Dasm6800
     // return processor long name
     virtual std::string GetName() { return "Motorola 6809"; }
 
+    // print disassembler-specific info file help
+    virtual std::string InfoHelp()
+      {
+      return
+#if RB_VARIANT
+        "\nAddressing control\n"
+        "\tset DP value:       SETDP [addr[-addr]] DP-content\n"
+        "\t                    (without addr, last one is used)\n"
+#else
+        "SETDP [addr[-addr]] DP-content (without addr, last definition is used)\n"
+#endif
+        ;
+      }
+
   // Options handler
   protected:
     int Set6809Option(std::string name, std::string value);
@@ -245,6 +259,7 @@ class Dasm6809 : public Dasm6800
     // must not be called from constructor!
     virtual MemAttributeHandler *CreateAttributeHandler() { return new MemAttribute6809Handler; }
 
+    virtual addr_t FetchInstructionDetails(addr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, std::string *smnemo = NULL);
     virtual addr_t IndexParse(int MI, addr_t pc);
     virtual std::string IndexString(addr_t &pc);
     void AddFlexLabels();

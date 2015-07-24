@@ -15,6 +15,11 @@
  * along with this program; if not, write to the Free Software             *
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.               *
  ***************************************************************************/
+/*                          Copyright (C) Hermann Seib                     *
+ * The 6809 disassembler engine is based on dasm09, last found at          *
+ * http://koti.mbnet.fi/~atjs/mc6809/Disassembler/dasm09.TGZ , so          *
+ *                    Parts Copyright (C) 2000  Arto Salmi                 *
+ ***************************************************************************/
 
 /*****************************************************************************/
 /* Dasm6809.cpp : 6809 disassembler implementation                           */
@@ -591,7 +596,10 @@ if (!bDataBus)
     };
   for (addr_t addr = 0xfff2; addr < 0xfff8; addr += 2)
     {
-    if (GetMemType(addr) != Untyped)    /* if system vector loaded           */
+    MemoryType memType = GetMemType(addr);
+    if (memType != Untyped &&           /* if system vector loaded           */
+        memType != Const &&             /* and not defined as constant       */
+        !FindLabel(addr))               /* and no label set in info file     */
       {
       SetMemType(addr, Data);           /* that's a data word                */
       SetCellSize(addr, 2);
@@ -608,6 +616,52 @@ if (!bDataBus)
 
   }
 return Dasm6800::InitParse(bDataBus);
+}
+
+/*****************************************************************************/
+/* FetchInstructionDetails : fetch details about current instruction         */
+/*****************************************************************************/
+
+addr_t Dasm6809::FetchInstructionDetails
+    (
+    addr_t PC,
+    uint8_t &O,
+    uint8_t &T,
+    uint8_t &M,
+    uint16_t &W,
+    int &MI,
+    const char *&I,
+    std::string *smnemo
+    )
+{
+O = T = GetUByte(PC++);
+if (T == 0x10)
+  {
+  T = GetUByte(PC++);
+  W = T * 2;
+  MI = T = codes10[W++];
+  I = mnemo[T].mne;
+  M = codes10[W];
+  }
+else if (T == 0x11)
+  {
+  T = GetUByte(PC++);
+  W = T * 2;
+  MI = T = codes11[W++];
+  I = mnemo[T].mne;
+  M = codes11[W];
+  }
+else
+  {
+  W = T * 2;
+  MI = T = codes[W++];
+  M = codes[W];
+  I = mnemo[T].mne;
+  }
+
+if (smnemo)
+  *smnemo = I;
+return PC;
 }
 
 /*****************************************************************************/
@@ -933,34 +987,9 @@ addr_t PC = addr;
 bool bSetLabel;
 addr_t dp = GetDirectPage(addr);
 
-
-O = T = GetUByte(PC++);
-if (T == 0x10)
-  {
-  T = GetUByte(PC++);
-  W = T * 2;
-  MI = T = codes10[W++];
-  I = mnemo[T].mne;
-  M = codes10[W];
-  
-  if ((T == _swi2) && os9Patch)
-    return (PC + 1 - addr);
-  }
-else if (T == 0x11)
-  {
-  T = GetUByte(PC++);
-  W = T * 2;
-  MI = T = codes11[W++];
-  I = mnemo[T].mne;
-  M = codes11[W];
-  }
-else
-  {
-  W = T * 2;
-  MI = T = codes[W++];
-  I = mnemo[T].mne;
-  M = codes[W];
-  }
+PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
+if ((T == _swi2) && os9Patch)
+  return (PC + 1 - addr);
 
 switch (M)                              /* which mode is this ?              */
   {
@@ -1020,45 +1049,20 @@ addr_t Dasm6809::DisassembleCode
 {
 uint8_t O, T, M;
 uint16_t W;
+int MI;
 const char *I;
 addr_t PC = addr;
 bool bGetLabel;
 addr_t dp = GetDirectPage(addr);
 
-O = T = GetUByte(PC++);
-if (T == 0x10)
+PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
+if ((T == _swi2) && os9Patch)
   {
   T = GetUByte(PC++);
-  W = T * 2;
-  T = codes10[W++];
-  I = mnemo[T].mne;
-  M = codes10[W];
-  
-  if ((T == _swi2) && os9Patch)
-    {
-    T = GetUByte(PC++);
-    smnemo = "OS9";
-    sparm = os9_codes[T];
-    return PC - addr;
-    }
+  smnemo = "OS9";
+  sparm = os9_codes[T];
+  return PC - addr;
   }
-else if (T == 0x11)
-  {
-  T = GetUByte(PC++);
-  W = T * 2;
-  T = codes11[W++];
-  I = mnemo[T].mne;
-  M = codes11[W];
-  }
-else
-  {
-  W = T * 2;
-  T = codes[W++];
-  M = codes[W];
-  I = mnemo[T].mne;
-  }
-
-smnemo = I;                             /* initialize mnemonic               */
 
 switch (M)                              /* which mode is this?               */
   {
@@ -1119,9 +1123,9 @@ switch (M)                              /* which mode is this?               */
     T = GetUByte(PC);
     if (dp != NO_ADDRESS)
       {
-      uint16_t ow = W = (uint16_t)dp | T;
+      W = (uint16_t)dp | T;
       if (bGetLabel)
-        W = (uint16_t)PhaseInner(ow, PC);
+        W = (uint16_t)PhaseInner(W, PC);
       sparm = Label2String(W, bGetLabel, PC);
       }
     else
@@ -1131,8 +1135,9 @@ switch (M)                              /* which mode is this?               */
 
   case _ext:                            /* extended                          */
     bGetLabel = !IsConst(PC);
+    W = GetUWord(PC);
     if (bGetLabel)
-      W = (uint16_t)PhaseInner(GetUWord(PC), PC);
+      W = (uint16_t)PhaseInner(W, PC);
     PC += 2;
     if (dp != NO_ADDRESS &&
         forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp)

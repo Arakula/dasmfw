@@ -54,12 +54,13 @@
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.3"
+#define DASMFW_VERSION  "0.4"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t caddr_t;               /* container for maximal code address*/
 typedef uint32_t daddr_t;               /* container for maximal data address*/
 typedef uint32_t addr_t;                /* bigger of the 2 above             */
+#define ADDR_T_SIZE 4                   /* sizeof(addr_t)                    */
 
 #define NO_ADDRESS ((addr_t)-1)
 #define DEFAULT_ADDRESS ((addr_t)-2)
@@ -124,12 +125,14 @@ public:
     }
 
 protected:
+  bool LoadFiles();
+  bool LoadInfoFiles();
   bool Parse(int nPass, bool bDataBus = false);
   bool ResolveRelativeLabels(bool bDataBus = false);
   bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, bool bDataBus = false);
   bool DisassembleLabels(std::string sComDel, std::string sComHdr, bool bDataBus = false);
   addr_t DisassembleLine(addr_t addr, std::string sComDel, std::string sComHdr, std::string labelDelim, bool bDataBus = false);
-  bool PrintLine(std::string sLabel = "", std::string smnemo = "", std::string sparm = "", std::string scomment = "");
+  bool PrintLine(std::string sLabel = "", std::string smnemo = "", std::string sparm = "", std::string scomment = "", int labelLen = -1);
   bool LoadInfo(std::string fileName, std::vector<std::string> &loadStack, bool bProcInfo = true);
   int ParseInfoRange(std::string value, addr_t &from, addr_t &to);
   int ParseOption
@@ -146,7 +149,7 @@ protected:
     bool bSetDasm = false               /* flag whether set disassembler     */
     );
   void ListOptions();
-  bool InfoHelp();
+  int InfoHelp(bool bQuit = false);
   int Help(bool bQuit = false);
 #ifdef _DEBUG
   void DumpMem(bool bDataBus);
@@ -202,13 +205,22 @@ protected:
   int iDasm;                            /* index of selected disassembler    */
   std::vector<std::string> saFNames;    /* array of files to load            */
   std::vector<std::string> saINames;    /* array of info files to load       */
+  std::vector<std::string> saPINames;   /* array of processed info files     */
   std::string outname;                  /* output file name                  */
   FILE *out;                            /* output file                       */
 
+  bool abortHelp;                       /* abort after help has been given   */
   bool bInfoBus;                        /* current bus selection             */
   bool showHex;                         /* flag for hex data display         */
   bool showAddr;                        /* flag for address display          */
   bool showAsc;                         /* flag for ASCII content display    */
+  bool showUnused;                      /* flag for showing unused labels    */
+  int labelLen;                         /* minimum label display length      */
+  int lLabelLen;                        /* minimum label len for EQUs        */
+  int mnemoLen;                         /* minimum mnemonics display length  */
+  int cparmLen;                         /* min parm len with lcomment        */
+  int uparmLen;                         /* max parm len without lcomment     */
+  int dbCount;                          /* min bytes for hex/asc dump        */
 
   TMemoryArray<addr_t> remaps[2];       /* remap arrays                      */
   AddrTextArray comments[2][2];         /* comment / line text arrays        */

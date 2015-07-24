@@ -23,4 +23,5 @@ v0.2  2015-07-22 dasmfw roughly has f9dasm's capabilities now, although
                  some minute details have to be specified differently
 v0.3  2015-07-23 phasing implemented
                  dasmfw surpasses f9dasm now (except for processing speed)
-
+v0.4  2015-07-24 Quite some bug fixes, changes and enhancements
+                 dasmfw can correctly disassemble the Wave 2.3 V6 code now

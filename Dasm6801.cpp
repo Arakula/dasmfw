@@ -1,3 +1,29 @@
+/***************************************************************************
+ * dasmfw -- Disassembler Framework                                        *
+ *                                                                         *
+ * This program is free software; you can redistribute it and/or modify    *
+ * it under the terms of the GNU General Public License as published by    *
+ * the Free Software Foundation; either version 2 of the License, or       *
+ * (at your option) any later version.                                     *
+ *                                                                         *
+ * This program is distributed in the hope that it will be useful,         *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ * GNU General Public License for more details.                            *
+ *                                                                         *
+ * You should have received a copy of the GNU General Public License       *
+ * along with this program; if not, write to the Free Software             *
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.               *
+ ***************************************************************************/
+/* The 6801 disassembler engine is based on contributions to f9dasm        *
+ * by Rainer Buchty, so                                                    *
+ *                    Parts Copyright (C) 2014  Rainer Buchty              *
+ ***************************************************************************/
+
+/*****************************************************************************/
+/* Dasm6801.cpp : 6801 disassembler classes implementation                   */
+/*****************************************************************************/
+
 #include "Dasm6801.h"
 
 /*****************************************************************************/
@@ -157,7 +183,10 @@ if (!bDataBus)
     };
   for (addr_t addr = 0xfff0; addr <= GetHighestCodeAddr(); addr += 2)
     {
-    if (GetMemType(addr) != Untyped)    /* if system vector loaded           */
+    MemoryType memType = GetMemType(addr);
+    if (memType != Untyped &&           /* if system vector loaded           */
+        memType != Const &&             /* and not defined as constant       */
+        !FindLabel(addr))               /* and no label set in info file     */
       {
       SetMemType(addr, Data);           /* that's a data word                */
       SetCellSize(addr, 2);

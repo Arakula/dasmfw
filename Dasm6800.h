@@ -101,6 +101,7 @@ class Dasm6800 :
     virtual bool LoadFile(std::string filename, FILE *f, std::string &sLoadType, int interleave = 1);
     virtual bool String2Number(std::string s, addr_t &value);
     virtual std::string Number2String(addr_t value, int nDigits, addr_t addr, bool bDataBus = false);
+    virtual addr_t FetchInstructionDetails(addr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, std::string *smnemo = NULL);
 
   protected:
     // 6800 addressing modes
