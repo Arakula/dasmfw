@@ -54,7 +54,7 @@
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.4"
+#define DASMFW_VERSION  "0.5"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t caddr_t;               /* container for maximal code address*/
@@ -90,10 +90,13 @@ bool RegisterDisassembler(std::string name, Disassembler * (*CreateDisassembler)
 class Comment : public AddrText
   {
   public:
-    Comment(addr_t addr = 0, std::string sline = "")
-      : AddrText(addr, Data, sline)
+    Comment(addr_t addr = 0, std::string sline = "", bool bIsComment = true)
+      : AddrText(addr, Data, sline), bIsComment(bIsComment)
       { }
     virtual ~Comment() { }
+
+    void SetComment(bool bOn = true) { bIsComment = bOn; }
+    bool IsComment() { return bIsComment; }
 
     bool operator<(const Comment &other)
       { return AddrText::operator<((const AddrText &)other); }
@@ -104,6 +107,8 @@ class Comment : public AddrText
     bool operator!=(const Comment &other) { return !operator==(other); }
     bool operator>=(const Comment &other) { return !operator<(other); }
     bool operator>(const Comment &other) { return !operator<=(other); }
+  protected:
+    bool bIsComment;
   };
 
 /*****************************************************************************/
@@ -129,6 +134,7 @@ protected:
   bool LoadInfoFiles();
   bool Parse(int nPass, bool bDataBus = false);
   bool ResolveRelativeLabels(bool bDataBus = false);
+  bool DisassembleComments(addr_t addr, bool bAfterLine, std::string sComDel, bool bDataBus = false);
   bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, bool bDataBus = false);
   bool DisassembleLabels(std::string sComDel, std::string sComHdr, bool bDataBus = false);
   addr_t DisassembleLine(addr_t addr, std::string sComDel, std::string sComHdr, std::string labelDelim, bool bDataBus = false);
@@ -156,9 +162,9 @@ protected:
 #endif
 
   // Comment / Text line handling
-  bool AddComment(addr_t addr, bool bAfter = false, std::string sComment = "", bool bPrepend = false, bool bDataBus = false)
+  bool AddComment(addr_t addr, bool bAfter = false, std::string sComment = "", bool bPrepend = false, bool bIsComment = true, bool bDataBus = false)
     {
-    comments[bDataBus][bAfter].insert(new Comment(addr, sComment), !bPrepend);
+    comments[bDataBus][bAfter].insert(new Comment(addr, sComment, bIsComment), !bPrepend);
     return true;
     }
   Comment *GetFirstComment(addr_t addr, AddrTextArray::iterator &it, bool bAfter = false, bool bDataBus = false)
@@ -215,6 +221,7 @@ protected:
   bool showAddr;                        /* flag for address display          */
   bool showAsc;                         /* flag for ASCII content display    */
   bool showUnused;                      /* flag for showing unused labels    */
+  bool showComments;                    /* flag for showing comments         */
   int labelLen;                         /* minimum label display length      */
   int lLabelLen;                        /* minimum label len for EQUs        */
   int mnemoLen;                         /* minimum mnemonics display length  */

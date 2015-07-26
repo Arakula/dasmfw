@@ -593,30 +593,34 @@ bool Dasm6800::InitParse(bool bDataBus)
 {
 if (!bDataBus)
   {
-  // set up IRQ-RST system vectors
-  static const char *vectbl[] =
+  if (bSetSysVec)
     {
-    "IRQ",                              /* fff8                              */
-    "SWI",                              /* fffa                              */
-    "NMI",                              /* fffc                              */
-    "RST"                               /* fffe                              */
-    };
-  for (addr_t addr = 0xfff8; addr <= GetHighestCodeAddr(); addr+= 2)
-    {
-    MemoryType memType = GetMemType(addr);
-    if (memType != Untyped &&           /* if system vector loaded           */
-        memType != Const &&             /* and not defined as constant       */
-        !FindLabel(addr))               /* and no label set in info file     */
+    // set up IRQ-RST system vectors
+    static const char *vectbl[] =
       {
-      SetMemType(addr, Data);           /* that's a data word                */
-      SetCellSize(addr, 2);
-      addr_t tgtaddr = GetUWord(addr);  /* look whether it points to loaded  */
-      if (GetMemType(tgtaddr) != Untyped)
-        {                               /* if so,                            */
-        SetMemType(tgtaddr, Code);      /* that's code there                 */
-        AddLabel(tgtaddr, Code,         /* and it got a predefined label     */
-                 sformat("vec_%s", vectbl[(addr - 0xfff8) / 2]),
-                 true);
+      "IRQ",                            /* fff8                              */
+      "SWI",                            /* fffa                              */
+      "NMI",                            /* fffc                              */
+      "RST"                             /* fffe                              */
+      };
+    for (addr_t addr = 0xfff8; addr <= GetHighestCodeAddr(); addr+= 2)
+      {
+      MemoryType memType = GetMemType(addr);
+      if (memType != Untyped &&         /* if system vector loaded           */
+          memType != Const &&           /* and not defined as constant       */
+          !FindLabel(addr))             /* and no label set in info file     */
+        {
+        SetMemType(addr, Data);         /* that's a data word                */
+        SetCellSize(addr, 2);
+                                        /* look whether it points to loaded  */
+        addr_t tgtaddr = GetUWord(addr);
+        if (GetMemType(tgtaddr) != Untyped)
+          {                             /* if so,                            */
+          SetMemType(tgtaddr, Code);    /* that's code there                 */
+          AddLabel(tgtaddr, Code,       /* and it got a predefined label     */
+                   sformat("vec_%s", vectbl[(addr - 0xfff8) / 2]),
+                   true);
+          }
         }
       }
     }

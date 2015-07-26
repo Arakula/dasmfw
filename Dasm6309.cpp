@@ -395,22 +395,25 @@ if (!bDataBus)
   if (useFlex)
     AddFlexLabels();
 
-  // set up DIV0 system vector
-  addr_t addr = 0xfff0;
-  MemoryType memType = GetMemType(addr);
-  if (memType != Untyped &&             /* if system vector loaded           */
-      memType != Const &&               /* and not defined as constant       */
-      !FindLabel(addr))                 /* and no label set in info file     */
+  if (bSetSysVec)
     {
-    SetMemType(addr, Data);             /* that's a data word                */
-    SetCellSize(addr, 2);
-    addr_t tgtaddr = GetUWord(addr);    /* look whether it points to loaded  */
-    if (GetMemType(tgtaddr) != Untyped)
-      {                                 /* if so,                            */
-      SetMemType(tgtaddr, Code);        /* that's code there                 */
-      AddLabel(tgtaddr, Code,           /* and it got a predefined label     */
-               sformat("vec_%s", "DIV0"),
-               true);
+    // set up DIV0 system vector
+    addr_t addr = 0xfff0;
+    MemoryType memType = GetMemType(addr);
+    if (memType != Untyped &&           /* if system vector loaded           */
+        memType != Const &&             /* and not defined as constant       */
+        !FindLabel(addr))               /* and no label set in info file     */
+      {
+      SetMemType(addr, Data);           /* that's a data word                */
+      SetCellSize(addr, 2);
+      addr_t tgtaddr = GetUWord(addr);  /* look whether it points to loaded  */
+      if (GetMemType(tgtaddr) != Untyped)
+        {                               /* if so,                            */
+        SetMemType(tgtaddr, Code);      /* that's code there                 */
+        AddLabel(tgtaddr, Code,         /* and it got a predefined label     */
+                 sformat("vec_%s", "DIV0"),
+                 true);
+        }
       }
     }
   }

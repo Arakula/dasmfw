@@ -168,35 +168,45 @@ Dasm6801::~Dasm6801(void)
 bool Dasm6801::InitParse(bool bDataBus)
 {
 Dasm6800::InitParse(bDataBus);          /* let 6800 init go first            */
+// needs to be done before, since we need to override a vector
 if (!bDataBus)
   {
-  static const char *vectbl[] =
+  if (bSetSysVec)
     {
-    "IRQ_SCI",                          /* fff0                              */
-    "IRQ_T0F",                          /* fff2                              */
-    "IRQ_OCF",                          /* fff4                              */
-    "IRQ_ICF",                          /* fff6                              */
-    "IRQ_EXT",                          /* fff8                              */
-    "SWI",                              /* fffa                              */
-    "NMI",                              /* fffc                              */
-    "RST"                               /* fffe                              */
-    };
-  for (addr_t addr = 0xfff0; addr <= GetHighestCodeAddr(); addr += 2)
-    {
-    MemoryType memType = GetMemType(addr);
-    if (memType != Untyped &&           /* if system vector loaded           */
-        memType != Const &&             /* and not defined as constant       */
-        !FindLabel(addr))               /* and no label set in info file     */
+    static const char *vectbl[] =
       {
-      SetMemType(addr, Data);           /* that's a data word                */
-      SetCellSize(addr, 2);
-      addr_t tgtaddr = GetUWord(addr);  /* look whether it points to loaded  */
-      if (GetMemType(tgtaddr) != Untyped)
-        {                               /* if so,                            */
-        SetMemType(tgtaddr, Code);      /* that's code there                 */
-        AddLabel(tgtaddr, Code,         /* and it got a predefined label     */
-                 sformat("vec_%s", vectbl[(addr - 0xfff0) / 2]),
-                 true);
+      "IRQ_SCI",                        /* fff0                              */
+      "IRQ_T0F",                        /* fff2                              */
+      "IRQ_OCF",                        /* fff4                              */
+      "IRQ_ICF",                        /* fff6                              */
+      "IRQ_EXT",                        /* fff8                              */
+      };
+    for (addr_t addr = 0xfff0; addr <= 0xfff8; addr += 2)
+      {
+      if (addr == 0xfff8 &&             /* override IRQ with IRQ_EXT         */
+          FindLabel(addr)->GetText() == "IRQ")
+        {
+        addr_t tgtaddr = GetUWord(addr);
+        Label *pLbl = FindLabel(tgtaddr);
+        if (pLbl && pLbl->GetText() == "vec_IRQ")
+          RemoveLabel(addr);
+        }
+      MemoryType memType = GetMemType(addr);
+      if (memType != Untyped &&         /* if system vector loaded           */
+          memType != Const &&           /* and not defined as constant       */
+          !FindLabel(addr))             /* and no label set in info file     */
+        {
+        SetMemType(addr, Data);         /* that's a data word                */
+        SetCellSize(addr, 2);
+                                        /* look whether it points to loaded  */
+        addr_t tgtaddr = GetUWord(addr);
+        if (GetMemType(tgtaddr) != Untyped)
+          {                             /* if so,                            */
+          SetMemType(tgtaddr, Code);    /* that's code there                 */
+          AddLabel(tgtaddr, Code,       /* and it got a predefined label     */
+                   sformat("vec_%s", vectbl[(addr - 0xfff0) / 2]),
+                   true);
+          }
         }
       }
     }

@@ -251,14 +251,14 @@ class AddrTextArray : public std::vector<AddrText*>
                   mid++;
                 else
                   mid--;
-                } while (mid > 0 && mid <= max && *at(mid) == *pText);
+                } while (mid >= 0 && mid <= max && *at(mid) == *pText);
               }
             break;
             }
           }
-        if (mid <= max && *at(mid) < *pText)
+        if ((mid < 0) || (mid <= max && *at(mid) < *pText))
           mid++;
-        it = (mid > max) ? end() : begin() + mid;
+        it = (mid > max) ? end() : (begin() + mid);
         }
       return std::vector<AddrText*>::insert(it, pText);
       }

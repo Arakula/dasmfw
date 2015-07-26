@@ -133,9 +133,13 @@ labelDelim = "";
 defaultDisplay = MemAttribute::Hex;
 pbase = 16;
 bLoadLabel = true;
+bSetSysVec = true;
 
 // set up options table
 // base class uses one generic option setter/getter pair (not mandatory)
+AddOption("pbase", "{number}\tdefault base for parsing numbers",
+          &Disassembler::DisassemblerSetOption,
+          &Disassembler::DisassemblerGetOption);
 AddOption("begin", "{addr}\tstart disassembly address",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
@@ -154,7 +158,7 @@ AddOption("ldchar", "{char}\tlabel delimiter character",
 AddOption("loadlabel", "{off|on}\tflag whether to use entry point label",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
-AddOption("pbase", "{number}\tdefault base for parsing numbers",
+AddOption("sysvec", "{off|on}\tflag whether to set system vector labels",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
 }
@@ -268,7 +272,10 @@ addr_t avalue;
 String2Number(value, avalue);
 int bnvalue = (lvalue == "off") ? 0 : (lvalue == "on") ? 1 : atoi(value.c_str());
 
-if (lname == "begin" &&
+if (lname == "pbase" &&
+         ivalue >= 2 && ivalue <= 16)
+  pbase = ivalue;
+else if (lname == "begin" &&
     avalue >= GetLowestCodeAddr() &&
     avalue <= GetHighestCodeAddr())
   begin = avalue;
@@ -286,9 +293,8 @@ else if (lname == "ldchar")
   labelDelim = value;
 else if (lname == "loadlabel")
   bLoadLabel = !!bnvalue;
-else if (lname == "pbase" &&
-         ivalue >= 2 && ivalue <= 16)
-  pbase = ivalue;
+else if (lname == "sysvec")
+  bSetSysVec = !!bnvalue;
 else
   return 0;                             /* only option consumed              */
 
@@ -302,13 +308,14 @@ return 1;                               /* option + value consumed           */
 std::string Disassembler::DisassemblerGetOption(std::string lname)
 {
 std::string oval;
-if (lname == "begin") oval = (begin == NO_ADDRESS) ? "-1" : sformat("0x%lx", begin);
+if (lname == "pbase") oval = sformat("%ld", pbase);
+else if (lname == "begin") oval = (begin == NO_ADDRESS) ? "-1" : sformat("0x%lx", begin);
 else if (lname == "end") oval = (end == NO_ADDRESS) ? "-1" : sformat("0x%lx", end);
 else if (lname == "offset") oval = (offset == NO_ADDRESS) ? "-1" : sformat("0x%lx", offset);
 else if (lname == "cchar") oval = commentStart;
 else if (lname == "ldchar") oval = labelDelim;
 else if (lname == "loadlabel") oval = bLoadLabel ? "on" : "off";
-else if (lname == "pbase") oval = sformat("%ld", pbase);
+else if (lname == "sysvec") oval = bSetSysVec ? "on" : "off";
 return oval;
 }
 

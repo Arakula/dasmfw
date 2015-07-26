@@ -472,6 +472,11 @@ class Disassembler
       AddrTextArray::iterator p = Labels[bDataBus].find(addr, memType);
       return (p != Labels[bDataBus].end()) ? (Label *)(*p) : NULL;
       }
+    void RemoveLabel(addr_t addr, MemoryType memType = Untyped, bool bDataBus = false)
+      {
+      AddrTextArray::iterator p = Labels[bDataBus].find(addr, memType);
+      if (p != Labels[bDataBus].end()) Labels[bDataBus].erase(p);
+      }
     int GetLabelCount(bool bDataBus = false) { return Labels[bDataBus].size(); }
     Label *LabelAt(int index, bool bDataBus = false) { return (Label *)Labels[bDataBus].at(index); }
     void RemoveLabelAt(int index, bool bDataBus = false) { Labels[bDataBus].erase(Labels[bDataBus].begin() + index); }
@@ -546,6 +551,8 @@ class Disassembler
     addr_t begin, end, load, offset;
     // flag whether to honor load address
     bool bLoadLabel;
+    // flag whether to set system vector labels
+    bool bSetSysVec;
     // default display format
     MemAttribute::Display defaultDisplay;
     // disassembler-specific comment start character

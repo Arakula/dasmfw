@@ -587,29 +587,33 @@ if (!bDataBus)
   if (useFlex)
     AddFlexLabels();
 
-  // set up SWI3-FIRQ system vectors (rest done by 6800)
-  static const char *vectbl[] =
+  if (bSetSysVec)
     {
-    "SWI3",                             /* fff2                              */
-    "SWI2",                             /* fff4                              */
-    "FIRQ",                             /* fff6                              */
-    };
-  for (addr_t addr = 0xfff2; addr < 0xfff8; addr += 2)
-    {
-    MemoryType memType = GetMemType(addr);
-    if (memType != Untyped &&           /* if system vector loaded           */
-        memType != Const &&             /* and not defined as constant       */
-        !FindLabel(addr))               /* and no label set in info file     */
+    // set up SWI3-FIRQ system vectors (rest done by 6800)
+    static const char *vectbl[] =
       {
-      SetMemType(addr, Data);           /* that's a data word                */
-      SetCellSize(addr, 2);
-      addr_t tgtaddr = GetUWord(addr);  /* look whether it points to loaded  */
-      if (GetMemType(tgtaddr) != Untyped)
-        {                               /* if so,                            */
-        SetMemType(tgtaddr, Code);      /* that's code there                 */
-        AddLabel(tgtaddr, Code,         /* and it got a predefined label     */
-                 sformat("vec_%s", vectbl[(addr - 0xfff2) / 2]),
-                 true);
+      "SWI3",                           /* fff2                              */
+      "SWI2",                           /* fff4                              */
+      "FIRQ",                           /* fff6                              */
+      };
+    for (addr_t addr = 0xfff2; addr < 0xfff8; addr += 2)
+      {
+      MemoryType memType = GetMemType(addr);
+      if (memType != Untyped &&         /* if system vector loaded           */
+          memType != Const &&           /* and not defined as constant       */
+          !FindLabel(addr))             /* and no label set in info file     */
+        {
+        SetMemType(addr, Data);         /* that's a data word                */
+        SetCellSize(addr, 2);
+                                        /* look whether it points to loaded  */
+        addr_t tgtaddr = GetUWord(addr);
+        if (GetMemType(tgtaddr) != Untyped)
+          {                             /* if so,                            */
+          SetMemType(tgtaddr, Code);    /* that's code there                 */
+          AddLabel(tgtaddr, Code,       /* and it got a predefined label     */
+                   sformat("vec_%s", vectbl[(addr - 0xfff2) / 2]),
+                   true);
+          }
         }
       }
     }

@@ -219,6 +219,7 @@ abortHelp = false;                      /* abort after help has been given   */
 bInfoBus = false;                       /* false = code, true = data         */
 showHex = true;                         /* flag for hex data display         */
 showAddr = true;                        /* flag for address display          */
+showComments = true;                    /* flag for comment display          */
 labelLen = 8;                           /* minimum label length              */
 lLabelLen = 8;                          /* minimum EQU label length          */
 mnemoLen = 8;                           /* minimum mnemonics length          */
@@ -342,9 +343,10 @@ if (out != stdout)                      /* if output goes to file            */
        i < (int)saINames.size();
        i++)
   PrintLine(sComDel + " " + saINames[i]);
+  PrintLine();
   }
 
-// #ifdef _DEBUG
+//#ifdef _DEBUG
 #if 0
 PrintLine();
 PrintLine(sComBlk + "After Parsing:");
@@ -355,12 +357,12 @@ PrintLine(sComBlk +
 DumpMem(false);
 DumpMem(true);
 #endif
-
+                                        /* show comments that go in front    */
+DisassembleComments(NO_ADDRESS, false, sComDel);
+DisassembleComments(NO_ADDRESS, false, sComDel, true);
 
 // disassembler-specific initialization
 DisassembleChanges(NO_ADDRESS, NO_ADDRESS, 0, false, false);
-
-AddrTextArray::iterator it;
 
 for (int bus = 0; bus < 2; bus++)
   {
@@ -536,6 +538,32 @@ return true;
 }
 
 /*****************************************************************************/
+/* DisassembleComments : show all comments for this line                     */
+/*****************************************************************************/
+
+bool Application::DisassembleComments
+    (
+    addr_t addr,
+    bool bAfterLine,
+    std::string sComDel,
+    bool bDataBus
+    )
+{
+AddrTextArray::iterator it;
+sComDel += " ";
+Comment *pComment = GetFirstComment(addr, it, bAfterLine, bDataBus);
+while (pComment)
+  {
+  std::string sTxt(pComment->GetText());
+  std::string sHdr((pComment->IsComment() && sTxt.size()) ? sComDel : "");
+  if (showComments || !pComment->IsComment())
+    PrintLine(sHdr + sTxt);
+  pComment = GetNextComment(addr, it, bAfterLine, bDataBus);
+  }
+return true;
+}
+
+/*****************************************************************************/
 /* DisassembleChanges : parses pre-/post-changes for a disassembly line      */
 /*****************************************************************************/
 
@@ -599,18 +627,14 @@ for (int l = 0; l < pDasm->GetLabelCount(bDataBus); l++)
         PrintLine();
         bULHOut = true;
         }
+
       // comments before line
-      pComment = GetFirstComment(laddr, it, false, bDataBus);
-      while (pComment)
-        {
-        PrintLine(pComment->GetText());
-        pComment = GetNextComment(laddr, it, false, bDataBus);
-        }
+      DisassembleComments(laddr, false, sComDel, bDataBus);
 
       std::string slabel = pDasm->Label2String(laddr, true, laddr, bDataBus);
 
       // the line itself
-      pComment = GetFirstLComment(laddr, it, bDataBus);
+      pComment = showComments ? GetFirstLComment(laddr, it, bDataBus) : NULL;
       std::string scomment = pComment ? pComment->GetText() : "";
       if (scomment.size()) scomment = sComBlk + scomment;
       PrintLine(slabel, smnemo, sparm, scomment, lLabelLen);
@@ -621,12 +645,7 @@ for (int l = 0; l < pDasm->GetLabelCount(bDataBus); l++)
         }
 
       // comments after line
-      pComment = GetFirstComment(laddr, it, true, bDataBus);
-      while (pComment)
-        {
-        PrintLine(pComment->GetText());
-        pComment = GetNextComment(laddr, it, true, bDataBus);
-        }
+      DisassembleComments(laddr, true, sComDel, bDataBus);
       }
     }
   }
@@ -653,19 +672,14 @@ Comment *pComment;
 bool bWithComments = showHex || showAsc || showAddr;
 
 // comments before line
-pComment = GetFirstComment(addr, it, false, bDataBus);
-while (pComment)
-  {
-  PrintLine(pComment->GetText());
-  pComment = GetNextComment(addr, it, false, bDataBus);
-  }
+DisassembleComments(addr, false, sComDel, bDataBus);
 
 // the line itself
 Label *p = pDasm->FindLabel(addr, Untyped, bDataBus);
 if (p && p->IsUsed())
   sLabel = pDasm->Label2String(addr, true, addr, bDataBus) +
            labelDelim;
-pComment = GetFirstLComment(addr, it, bDataBus);
+pComment = showComments ? GetFirstLComment(addr, it, bDataBus) : NULL;
 int maxparmlen = (bWithComments || pComment) ? cparmLen : uparmLen;
 addr_t sz = pDasm->Disassemble(addr, sMnemo, sParms, maxparmlen, bDataBus);
 
@@ -712,12 +726,7 @@ if (pComment)
   }
 
 // comments after line
-pComment = GetFirstComment(addr, it, true, bDataBus);
-while (pComment)
-  {
-  PrintLine(pComment->GetText());
-  pComment = GetNextComment(addr, it, true, bDataBus);
-  }
+DisassembleComments(addr, true, sComDel, bDataBus);
 
 return sz;
 }
@@ -1233,12 +1242,36 @@ do
                   pDasm->SetMemType(scanned, Code, bInfoBus);
                   break;
                 case infoData :
+#if 0
+                  // remove all code attributes
+                  if (ty == Code)
+                    {
+                    pDasm->SetCellSize(scanned, 1, bInfoBus);
+                    pDasm->SetDisplay(scanned, MemAttribute::Char, bInfoBus);
+                    }
+#endif
                   pDasm->SetMemType(scanned, Data, bInfoBus);
                   break;
                 case infoConstant :
+#if 0
+                  // remove all code attributes
+                  if (ty == Code)
+                    {
+                    pDasm->SetCellSize(scanned, 1, bInfoBus);
+                    pDasm->SetDisplay(scanned, MemAttribute::Char, bInfoBus);
+                    }
+#endif
                   pDasm->SetMemType(scanned, Const, bInfoBus);
                   break;
                 case infoRMB :
+#if 0
+                  // remove all code attributes
+                  if (ty == Code)
+                    {
+                    pDasm->SetCellSize(scanned, 1, bInfoBus);
+                    pDasm->SetDisplay(scanned, MemAttribute::Char, bInfoBus);
+                    }
+#endif
                   pDasm->SetMemType(scanned, Bss, bInfoBus);
                   break;
                 case infoUnused :
@@ -1251,14 +1284,16 @@ do
                   break;
                 case infoWord :
                   // for compatibility reasons to f9dasm, set type to Data
-                  if (pDasm->GetMemType(scanned, bInfoBus) != Const)
+                  if (ty != Const)
                     pDasm->SetMemType(scanned, Data, bInfoBus);
                   pDasm->SetCellSize(scanned, 2, bInfoBus);
                   break;
                 case infoDWord :
+#if 0
                   // for compatibility reasons to f9dasm, set type to Data
-                  if (pDasm->GetMemType(scanned, bInfoBus) != Const)
+                  if (ty != Const)
                     pDasm->SetMemType(scanned, Data, bInfoBus);
+#endif
                   pDasm->SetCellSize(scanned, 4, bInfoBus);
                   break;
                 case infoBinary :
@@ -1297,7 +1332,11 @@ do
                   break;
                 case infoCVector :
                   // a code vector defines a table of code pointers
-                  pDasm->SetMemType(scanned, Data, bInfoBus);
+                  if (ty != Data)
+                    {
+                    pDasm->SetMemType(scanned, Data, bInfoBus);
+                    pDasm->SetDisplay(scanned, MemAttribute::Hex, bInfoBus);
+                    }
                   sz = pDasm->GetCodePtrSize();
                   pDasm->SetCellSize(scanned, sz, bInfoBus);
                   if (sz == 1)
@@ -1319,7 +1358,11 @@ do
                   break;
                 case infoDVector :
                   // a data vector defines a table of data pointers
-                  pDasm->SetMemType(scanned, Data, bInfoBus);
+                  if (ty != Data)
+                    {
+                    pDasm->SetMemType(scanned, Data, bInfoBus);
+                    pDasm->SetDisplay(scanned, MemAttribute::Hex, bInfoBus);
+                    }
                   sz = pDasm->GetDataPtrSize();
                   pDasm->SetCellSize(scanned, sz, bInfoBus);
                   if (sz == 1)
@@ -1479,9 +1522,9 @@ do
           }
         }
         break;
-      case infoComment :                /* COMMENT addr[-addr] comment       */
+      case infoComment :                /* COMMENT [addr[-addr]] comment     */
       case infoPrepComm :               /* PREPCOMM [addr[-addr]] comment    */
-      case infoInsert :                 /* INSERT addr[-addr] text           */
+      case infoInsert :                 /* INSERT [addr[-addr]] text         */
       case infoPrepend :                /* PREPEND [addr[-addr]] line        */
       case infoLComment :               /* LCOMMENT addr[-addr] [.]lcomment  */
       case infoPrepLComm :              /* PREPLCOMM addr[-addr] [.]lcomment */
@@ -1506,31 +1549,31 @@ do
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
+        // comments/inserts can have NO address, in which case they
+        // are output before anything else
+        if (ParseInfoRange(range, from, to) < 1)
+          idx = 0;
         value = (idx >= value.size()) ? "" :
           triminfo(value.substr(idx), true, true, true);
-        if (bIsComm && value.size())
-          value = pDasm->GetOption("cchar") + " " + value;
-        if (ParseInfoRange(range, from, to) >= 1)
+        for (addr_t scanned = from;
+             scanned >= from && scanned <= to;
+             scanned++)
           {
-          for (addr_t scanned = from;
-               scanned >= from && scanned <= to;
-               scanned++)
-            {
                                         /* make sure comment breaks output   */
-            pDasm->SetBreakBefore(scanned, true, bInfoBus);
-            switch (cmdType)
-              {
-              case infoComment :        /* COMMENT addr[-addr] comment       */
-              case infoPrepComm :       /* PREPCOMM [addr[-addr]] comment    */
-              case infoInsert :         /* INSERT addr[-addr] text           */
-              case infoPrepend :        /* PREPEND [addr[-addr]] line        */
-                AddComment(scanned, bAfter, value, bPrepend, bInfoBus);
-                break;
-              case infoLComment :       /* LCOMMENT addr[-addr] [.]lcomment  */
-              case infoPrepLComm :      /* PREPLCOMM addr[-addr] [.]lcomment */
+          pDasm->SetBreakBefore(scanned, true, bInfoBus);
+          switch (cmdType)
+            {
+            case infoComment :          /* COMMENT addr[-addr] comment       */
+            case infoPrepComm :         /* PREPCOMM [addr[-addr]] comment    */
+            case infoInsert :           /* INSERT addr[-addr] text           */
+            case infoPrepend :          /* PREPEND [addr[-addr]] line        */
+              AddComment(scanned, bAfter, value, bPrepend, bIsComm, bInfoBus);
+              break;
+            case infoLComment :         /* LCOMMENT addr[-addr] [.]lcomment  */
+            case infoPrepLComm :        /* PREPLCOMM addr[-addr] [.]lcomment */
+              if (scanned != NO_ADDRESS)
                 AddLComment(scanned, value, bPrepend, bInfoBus);
-                break;
-              }
+              break;
             }
           }
         }
@@ -1758,6 +1801,13 @@ else if (option == "asc")
   }
 else if (option == "noasc")
   showAsc = false;
+else if (option == "comment")
+  {
+  showComments = !!bnvalue;
+  return 1;
+  }
+else if (option == "nocomment")
+  showComments = false;
 else if (option == "unused")
   {
   showUnused = !!bnvalue;
@@ -1921,6 +1971,7 @@ else
   ListOptionLine("addr", "{off|on}\toutput address dump", showAddr ? "on" : "off");
   ListOptionLine("hex", "{off|on}\toutput hex dump", showHex ? "on" : "off");
   ListOptionLine("asc", "{off|on}\toutput ASCII rendering of code/data", showAsc ? "on" : "off");
+  ListOptionLine("comment", "{off|on}\toutput comments", showComments ? "on" : "off");
   ListOptionLine("unused", "{off|on}\toutput unused defined labels", showUnused ? "on" : "off");
   ListOptionLine("labellen", "{length}\tspace reserved for labels", sformat("%d", labelLen));
   ListOptionLine("llabellen", "{length}\tspace reserved for label definition labels", sformat("%d", lLabelLen));
@@ -2132,20 +2183,22 @@ for (i = 0; i < nLabels; i++)
 int nComments = GetCommentCount(false, bDataBus);
 for (i = 0; i < nComments; i++)
   {
-  Comment *pLabel = CommentAt(false, i, bDataBus);
+  Comment *pComment = CommentAt(false, i, bDataBus);
   PrintLine(sComBlk +
-          sformat("Comment %4d: before addr=%x \"%s\"",
-                  i, pLabel->GetAddress(),
-                  pLabel->GetText().c_str()));
+          sformat("%s %4d: before addr=%x \"%s\"",
+                  pComment->IsComment() ? "Comment" : "Insert ",
+                  i, pComment->GetAddress(),
+                  pComment->GetText().c_str()));
   }
 nComments = GetCommentCount(true, bDataBus);
 for (i = 0; i < nComments; i++)
   {
-  Comment *pLabel = CommentAt(true, i, bDataBus);
+  Comment *pComment = CommentAt(true, i, bDataBus);
   PrintLine(sComBlk +
-          sformat("Comment %4d: after  addr=%x \"%s\"",
-                  i, pLabel->GetAddress(),
-                  pLabel->GetText().c_str()));
+          sformat("%s %4d: after  addr=%x \"%s\"",
+                  pComment->IsComment() ? "Comment" : "Insert ",
+                  i, pComment->GetAddress(),
+                  pComment->GetText().c_str()));
   }
 }
 #endif
