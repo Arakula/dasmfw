@@ -41,15 +41,15 @@ class Dasm6309 : public Dasm6809
     virtual std::string GetName() { return "Hitachi 6309"; }
 
     // Initialize parsing
-    virtual bool InitParse(bool bDataBus = false);
+    virtual bool InitParse(BusType bus = BusCode);
 
   protected:
     // parse instruction at given memory address for labels
-    virtual addr_t ParseCode(addr_t addr, bool bDataBus = false);
+    virtual addr_t ParseCode(addr_t addr, BusType bus = BusCode);
     // disassemble data area at given memory address
-    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, std::string &smnemo, std::string &sparm, int maxparmlen, bool bDataBus = false);
+    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, std::string &smnemo, std::string &sparm, int maxparmlen, BusType bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, bool bDataBus = false);
+    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, BusType bus = BusCode);
 
   protected:
     // additional 6309 addressing modes

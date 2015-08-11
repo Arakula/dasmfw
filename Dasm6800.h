@@ -80,27 +80,29 @@ class Dasm6800 :
 
   protected:
     // parse data area for labels
-    virtual addr_t ParseData(addr_t addr, bool bDataBus = false);
+    virtual addr_t ParseData(addr_t addr, BusType bus = BusCode);
     // parse instruction at given memory address for labels
-    virtual addr_t ParseCode(addr_t addr, bool bDataBus = false);
+    virtual addr_t ParseCode(addr_t addr, BusType bus = BusCode);
     // pass back correct mnemonic and parameters for a label
-    virtual bool DisassembleLabel(addr_t addr, std::string &smnemo, std::string &sparm, bool bDataBus = false);
+    virtual bool DisassembleLabel(Label *label, std::string &slabel, std::string &smnemo, std::string &sparm, BusType bus = BusCode);
     // disassemble data area at given memory address
-    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, std::string &smnemo, std::string &sparm, int maxparmlen, bool bDataBus = false);
+    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, std::string &smnemo, std::string &sparm, int maxparmlen, BusType bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, bool bDataBus = false);
+    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, BusType bus = BusCode);
   public:
     // Initialize parsing
-    virtual bool InitParse(bool bDataBus = false);
+    virtual bool InitParse(BusType bus = BusCode);
     // pass back disassembler-specific state changes before/after a disassembly line
-    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, std::vector<LineChange> &changes, bool bDataBus = false);
+    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, std::vector<LineChange> &changes, BusType bus = BusCode);
 
 
   protected:
     bool LoadFlex(FILE *f, std::string &sLoadType);
     virtual bool LoadFile(std::string filename, FILE *f, std::string &sLoadType, int interleave = 1);
     virtual bool String2Number(std::string s, addr_t &value);
-    virtual std::string Number2String(addr_t value, int nDigits, addr_t addr, bool bDataBus = false);
+    virtual std::string Number2String(addr_t value, int nDigits, addr_t addr, BusType bus = BusCode);
+    virtual std::string Address2String(addr_t addr, BusType bus = BusCode)
+      { return sformat("$%04X", addr); }
     virtual addr_t FetchInstructionDetails(addr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, std::string *smnemo = NULL);
 
   protected:

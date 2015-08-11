@@ -135,27 +135,27 @@ class Dasm6809 : public Dasm6800
     std::string Get6809Option(std::string name);
 
     // Get/Set additional cell information
-    addr_t GetDirectPage(addr_t addr, bool bDataBus = false)
+    addr_t GetDirectPage(addr_t addr, BusType bus = BusCode)
       {
-      addr_t dp = memattr[bDataBus] ? ((MemAttribute6809Handler *)memattr[bDataBus])->GetDirectPage(addr) : DEFAULT_ADDRESS;
+      addr_t dp = memattr[bus] ? ((MemAttribute6809Handler *)memattr[bus])->GetDirectPage(addr) : DEFAULT_ADDRESS;
       if (dp == DEFAULT_ADDRESS)
         dp = dirpage;
       return dp;
       }
-    void SetDirectPage(addr_t addr, addr_t dp, bool bDataBus = false)
-      { if (memattr[bDataBus]) ((MemAttribute6809Handler *)memattr[bDataBus])->SetDirectPage(addr, dp); }
+    void SetDirectPage(addr_t addr, addr_t dp, BusType bus = BusCode)
+      { if (memattr[bus]) ((MemAttribute6809Handler *)memattr[bus])->SetDirectPage(addr, dp); }
 
-    virtual bool InitParse(bool bDataBus = false);
-    virtual bool ProcessInfo(std::string key, std::string value, addr_t &from, addr_t &to, bool bProcInfo = true, bool bDataBus = false);
+    virtual bool InitParse(BusType bus = BusCode);
+    virtual bool ProcessInfo(std::string key, std::string value, addr_t &from, addr_t &to, bool bProcInfo = true, BusType bus = BusCode);
 
   protected:
     // parse instruction at given memory address for labels
-    virtual addr_t ParseCode(addr_t addr, bool bDataBus = false);
+    virtual addr_t ParseCode(addr_t addr, BusType bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, bool bDataBus = false);
+    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, BusType bus = BusCode);
   public:
     // pass back disassembler-specific state changes before/after a disassembly line
-    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, std::vector<LineChange> &changes, bool bDataBus = false);
+    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, std::vector<LineChange> &changes, BusType bus = BusCode);
 
   protected:
 

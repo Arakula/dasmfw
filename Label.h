@@ -31,26 +31,27 @@
 
 enum MemoryType
   {
-  Untyped = -1,                         /* unknown type                      */
+  Untyped,                              /* unknown type                      */
   Code,                                 /* Code                              */
   Data,                                 /* initialized data                  */
   Const,                                /* initialized constant data         */
   Bss,                                  /* uninitialized data                */
+  IOPort,                               /* I/O Port address if separate      */
   };
 
 /*****************************************************************************/
-/* AddrText : a basic Text with address and type                             */
+/* AddrType : a basic address / type combination                             */
 /*****************************************************************************/
 
-class AddrText
+class AddrType
   {
   public:
-    AddrText(addr_t addr = 0, MemoryType memType = Code, std::string stext = "")
-      : addr(addr), memType(memType), stext(stext)
+    AddrType(addr_t addr = 0, MemoryType memType = Code)
+      : addr(addr), memType(memType)
       { }
-    virtual ~AddrText() { }
+    virtual ~AddrType() { }
 
-    bool operator<(const AddrText &other)
+    bool operator<(const AddrType &other)
       {
       if (addr != other.addr)
         return addr < other.addr;
@@ -59,7 +60,7 @@ class AddrText
       MemoryType omt = (other.memType == Untyped) ? imt : other.memType;
       return imt < omt;
       }
-    bool operator<=(const AddrText &other)
+    bool operator<=(const AddrType &other)
       {
       if (addr != other.addr)
         return addr < other.addr;
@@ -68,7 +69,7 @@ class AddrText
       MemoryType omt = (other.memType == Untyped) ? imt : other.memType;
       return imt <= omt;
       }
-    bool operator==(const AddrText &other)
+    bool operator==(const AddrType &other)
       {
       if (addr != other.addr)
         return false;
@@ -77,13 +78,12 @@ class AddrText
       MemoryType omt = (other.memType == Untyped) ? imt : other.memType;
       return imt == omt;
       }
-    bool operator!=(const AddrText &other) { return !operator==(other); }
-    bool operator>=(const AddrText &other) { return !operator<(other); }
-    bool operator>(const AddrText &other) { return !operator<=(other); }
+    bool operator!=(const AddrType &other) { return !operator==(other); }
+    bool operator>=(const AddrType &other) { return !operator<(other); }
+    bool operator>(const AddrType &other) { return !operator<=(other); }
 
   // Attributes
   public:
-    // Label Address
     addr_t GetAddress() const { return addr; }
     void SetAddress(addr_t newAddr = 0) { addr = newAddr; }
     // Label Type
@@ -93,65 +93,34 @@ class AddrText
     bool IsData() { return memType == Data || memType == Const; }
     bool IsConst() { return memType == Const; }
     bool IsBss() { return memType == Bss; }
+    bool IsIOPort() { return memType == IOPort; }
     void SetCode() { memType = Code; }
     void SetData() { memType = Data; }
     void SetConst() { memType = Const; }
-    bool SetBss() { memType = Bss; }
-    // Label Text
-    std::string GetText() const { return stext; }
-    bool SetText(std::string sNewText = "") { stext = sNewText; return true; }
+    void SetBss() { memType = Bss; }
+    void SetIOPort() { memType = IOPort; }
+
+    void CopyUnset(const AddrType &other)
+      {
+      if (addr == NO_ADDRESS) addr = other.addr;
+      if (memType == Untyped) memType = other.memType;
+      }
 
   protected:
     addr_t addr;
-    std::string stext;
     MemoryType memType;
-
   };
 
 /*****************************************************************************/
-/* Label : definition of a label                                             */
+/* AddrTypeArray : array of address/type-sorted structures                   */
 /*****************************************************************************/
 
-class Label : public AddrText
+class AddrTypeArray : public std::vector<AddrType*>
   {
   public:
-    Label(addr_t addr = 0, MemoryType memType = Code, std::string sLabel = "", bool bUsed = false)
-      : AddrText(addr, memType, sLabel), bUsed(bUsed)
-      { }
-    virtual ~Label() { }
-    bool operator<(const Label &other)
-      { return AddrText::operator<((const AddrText &)other); }
-    bool operator<=(const Label &other)
-      { return AddrText::operator<=((const AddrText &)other); }
-    bool operator==(const Label &other)
-      { return AddrText::operator==((const AddrText &)other); }
-    bool operator!=(const Label &other) { return !operator==(other); }
-    bool operator>=(const Label &other) { return !operator<(other); }
-    bool operator>(const Label &other) { return !operator<=(other); }
-
-
-  // Attributes
-  public:
-    // Flag whether it is used
-    bool IsUsed() { return bUsed; }
-    bool SetUsed(bool bSet = true) { bUsed = bSet; return bSet; }
-  
-  protected:
-    bool bUsed;
-
-  };
-
-
-/*****************************************************************************/
-/* AddrTextArray : an array of texts with address and type                   */
-/*****************************************************************************/
-
-class AddrTextArray : public std::vector<AddrText*>
-{
-  public:
-    AddrTextArray(bool bMultipleDefs = false)
+    AddrTypeArray(bool bMultipleDefs = false)
       : bMultipleDefs(bMultipleDefs) { }
-    virtual ~AddrTextArray(void)
+    virtual ~AddrTypeArray(void)
       { clear(); }
 
     void SetMultipleDefs(bool bOn = true) { bMultipleDefs = bOn; }
@@ -164,13 +133,13 @@ class AddrTextArray : public std::vector<AddrText*>
            cit != end();
            cit++)
         {
-        AddrText *p = *cit;
+        AddrType *p = *cit;
         delete p;
         }
-      std::vector<AddrText*>::clear();
+      std::vector<AddrType*>::clear();
       }
     // binary search in sorted array
-    iterator find(const AddrText &l)
+    iterator find(const AddrType &l)
       {
       int lo, hi = size() - 1, mid;
       // little optimization if definitely outside range
@@ -199,31 +168,18 @@ class AddrTextArray : public std::vector<AddrText*>
       }
     // convenience - find code and/or data labels
     iterator find(addr_t addr, MemoryType memType = Untyped)
-      { return find(AddrText(addr, memType)); }
-    // insert into sorted array of labels
-    iterator insert(AddrText *pText, bool bAfter = true)
+      { return find(AddrType(addr, memType)); }
+    // insert into address/type-sorted array
+    iterator insert(AddrType *pNewEl, bool bAfter = true)
       {
       iterator it;
-      // if multiple definitions not allowed, replace old one
-      if (!bMultipleDefs)
-        {
-        it = find(*pText);
-        if (it != end())
-          {
-          if (pText->GetType() == Untyped)
-            pText->SetType((*it)->GetType());
-          if (pText->GetText().empty())
-            pText->SetText((*it)->GetText());
-          delete *it;
-          *it = pText;
-          return it;
-          }
-        }
-
+#if 0
+      // Copying pre-existing element's data is done by template below
+#endif
       int lo, max = size() - 1, hi = max, mid;
-      if (empty() || *pText < *at(0))
+      if (empty() || *pNewEl < *at(0))
         it = begin();
-      else if (*pText > *at(hi))
+      else if (*pNewEl > *at(hi))
         it = end();
       else
         {
@@ -233,9 +189,9 @@ class AddrTextArray : public std::vector<AddrText*>
         while (lo <= hi)
           {
           mid = (hi + lo) / 2;
-          if (*at(mid) < *pText)
+          if (*at(mid) < *pNewEl)
             lo = mid + 1;
-          else if (*at(mid) > *pText)
+          else if (*at(mid) > *pNewEl)
             hi = mid - 1;
           else
             {
@@ -251,23 +207,23 @@ class AddrTextArray : public std::vector<AddrText*>
                   mid++;
                 else
                   mid--;
-                } while (mid >= 0 && mid <= max && *at(mid) == *pText);
+                } while (mid >= 0 && mid <= max && *at(mid) == *pNewEl);
               }
             break;
             }
           }
-        if ((mid < 0) || (mid <= max && *at(mid) < *pText))
+        if ((mid < 0) || (mid <= max && *at(mid) < *pNewEl))
           mid++;
         it = (mid > max) ? end() : (begin() + mid);
         }
-      return std::vector<AddrText*>::insert(it, pText);
+      return std::vector<AddrType*>::insert(it, pNewEl);
       }
     // erase an element
     iterator erase(iterator _Where)
       {
-      AddrText *p = *_Where;
+      AddrType *p = *_Where;
       delete p;
-      return std::vector<AddrText*>::erase(_Where);
+      return std::vector<AddrType*>::erase(_Where);
       }
     iterator erase(iterator _First, iterator _Last)
       {
@@ -275,15 +231,182 @@ class AddrTextArray : public std::vector<AddrText*>
            cit != _Last;
            cit++)
         {
-        AddrText *p = *cit;
+        AddrType *p = *cit;
         delete p;
         }
-      return std::vector<AddrText*>::erase(_First, _Last);
+      return std::vector<AddrType*>::erase(_First, _Last);
       }
 
 
   protected:
     bool bMultipleDefs;  // flag whether multiple definitions possible
-};
+  };
+
+/*****************************************************************************/
+/* TAddrTypeArray : template for an array of address-sorted structures       */
+/*****************************************************************************/
+
+template<class T> class TAddrTypeArray : public AddrTypeArray
+  {
+  public:
+    TAddrTypeArray(bool bMultipleDefs = false)
+      : AddrTypeArray(bMultipleDefs) { }
+    // std::vector<> specializations
+    T const *at(size_type _Pos) const { return (T const *)AddrTypeArray::at(_Pos); }
+    T * at(size_type _Pos) { return (T *)AddrTypeArray::at(_Pos); }
+	T const * operator[](size_type _Pos) const { return at(_Pos); }
+	T *operator[](size_type _Pos) { return at(_Pos); }
+    
+    // insert into address/type-sorted array, allowing copying
+    iterator insert(T *pNewEl, bool bAfter = true)
+      {
+      // if multiple definitions not allowed, replace old one
+      if (!bMultipleDefs)
+        {
+        iterator it = AddrTypeArray::find(*pNewEl);
+        if (it != end())
+          {
+          // copy unset data from pre-existing element
+          pNewEl->CopyUnset((T const &)*(*it));
+          delete *it;
+          *it = pNewEl;
+          return it;
+          }
+        }
+      return AddrTypeArray::insert(pNewEl, bAfter);
+      }
+  };
+
+/*****************************************************************************/
+/* AddrText : a basic Text with address and type                             */
+/*****************************************************************************/
+
+class AddrText : public AddrType
+  {
+  public:
+    AddrText(addr_t addr = 0, MemoryType memType = Code, std::string stext = "")
+      : AddrType(addr, memType), stext(stext)
+      { }
+    virtual ~AddrText() { }
+
+  // Attributes
+  public:
+    // Label Text
+    std::string GetText() const { return stext; }
+    bool SetText(std::string sNewText = "") { stext = sNewText; return true; }
+
+    void CopyUnset(const AddrText &other)
+      {
+      AddrType::CopyUnset((const AddrType &)other);
+      if (stext.empty()) stext = other.stext;
+      }
+
+  protected:
+    std::string stext;
+
+  };
+
+/*****************************************************************************/
+/* AddrTextArray : an array of texts with address and type                   */
+/*****************************************************************************/
+
+class AddrTextArray : public TAddrTypeArray<AddrText>
+  {
+  };
+
+/*****************************************************************************/
+/* Label : definition of a label                                             */
+/*****************************************************************************/
+
+class Label : public AddrText
+  {
+  public:
+    Label(addr_t addr = 0, MemoryType memType = Code, std::string sLabel = "", bool bUsed = false)
+      : AddrText(addr, memType, sLabel), bUsed(bUsed)
+      { }
+    virtual ~Label() { }
+
+  // Attributes
+  public:
+    // Flag whether it is used
+    bool IsUsed() { return bUsed; }
+    bool SetUsed(bool bSet = true) { bUsed = bSet; return bSet; }
+  
+    void CopyUnset(const Label &other)
+      {
+      AddrText::CopyUnset((const AddrText &)other);
+      if (!bUsed) bUsed = other.bUsed;
+      }
+
+  protected:
+    bool bUsed;
+
+  };
+
+/*****************************************************************************/
+/* LabelArray : an array of labels                                           */
+/*****************************************************************************/
+
+class LabelArray : public TAddrTypeArray<Label>
+  {
+  public:
+    Label *Find(addr_t addr, MemoryType memType = Untyped)
+      {
+      LabelArray::iterator p = find(addr, memType);
+      return (p != end()) ? (Label *)(*p) : NULL;
+      }
+  };
+
+/*****************************************************************************/
+/* DefLabel : definition of an definition label (i.e., label plus definition)*/
+/*****************************************************************************/
+
+class DefLabel : public Label
+  {
+  public:
+    DefLabel(addr_t addr = 0, MemoryType memType = Code, std::string sLabel = "", std::string sDefinition = "")
+      : Label(addr, memType, sLabel, true), sDefinition(sDefinition)
+      { }
+
+  // Attributes
+  public:
+    void SetDefinition(std::string sTxt = "") { sDefinition = sTxt; }
+    std::string GetDefinition() { return sDefinition; }
+
+  protected:
+    std::string sDefinition;
+  };
+
+/*****************************************************************************/
+/* DefLabelArray : an array of definition labels                             */
+/*****************************************************************************/
+
+class DefLabelArray : public TAddrTypeArray<DefLabel>
+  {
+  public:
+    DefLabelArray(bool caseSensitive = true)
+      : caseSensitive(caseSensitive),  TAddrTypeArray<DefLabel>(false) { }
+
+    void SetCaseSensitive(bool bOn = true) { caseSensitive = bOn; }
+    bool IsCaseSensitive() { return caseSensitive; }
+
+    DefLabel *Find(std::string sLabel)
+      {
+      // this is not really performant, but I don't think adding
+      // a separate index for the names is necessary
+      if (!caseSensitive) sLabel = lowercase(sLabel);
+      for (LabelArray::iterator p = begin(); p != end(); p++)
+        {
+        std::string sChk(((DefLabel*)*p)->GetText());
+        if (!caseSensitive)
+          sChk = lowercase(sChk);
+        if (sChk == sLabel)
+          return (DefLabel *)(*p);
+        }
+      return NULL;
+      }
+  protected:
+    bool caseSensitive;
+  };
 
 #endif // __Label_h_defined__

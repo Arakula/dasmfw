@@ -261,14 +261,14 @@ struct MemAttribute
 
   enum Type
     {
-    CellUntyped = -1,
+    CellUntyped,
     SignedInt,
     UnsignedInt,
     Float
     };
   enum Display
     {
-    CellUndisplayable = -1,
+    CellUndisplayable,
     Binary,
     Char,
     Octal,

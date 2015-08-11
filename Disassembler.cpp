@@ -39,7 +39,11 @@ for (int i = 0; i < nChars; i++)
     c -= ('a' - 'A');
   if ((!((c >= '0') && (c <= '9'))) &&
       (!((c >= 'A') && (c <= 'F'))))
+    {
+    ungetc(c, f);
     return NO_ADDRESS;
+    }
+  // ASCII-based. Needs rework for other encodings.
   c -= '0';
   if (c > 9)
     c -= 7;
@@ -121,9 +125,14 @@ const Disassembler::Endian Disassembler::prgEndian = (Disassembler::Endian)*((ui
 
 Disassembler::Disassembler()
 {
+int bus;
 begin = load = NO_ADDRESS;
 end = offset = 0;
-memattr[0] = memattr[1] = NULL;
+for (bus = BusCode; bus < BusTypes; bus++)
+  {
+  memattr[bus] = NULL;
+  busorder[bus] = (BusType)bus;
+  }
 commentStart = ";";
 #if RB_VARIANT
 labelDelim = ":";
@@ -328,28 +337,40 @@ std::string Disassembler::Label2String
     addr_t value,
     bool bUseLabel,
     addr_t addr,
-    bool bDataBus
+    BusType bus
     )
 {
 std::string sOut;
-addr_t relative = GetRelative(addr, bDataBus);
-addr_t Wrel = (value + relative) &
-              (bDataBus ? GetHighestDataAddr() : GetHighestCodeAddr());
+addr_t relative = GetRelative(addr, bus);
+addr_t Wrel = (value + relative);
+addr_t hiaddr = ((bus == BusIO) ? GetHighestIOAddr() :
+                 (bus == BusData) ? GetHighestDataAddr() :
+                 GetHighestCodeAddr());
+if (++hiaddr)
+  Wrel %= hiaddr;
+// % might not be the best choice under all circumstances, but works for me...
+
+Label *pLbl = (bUseLabel) ? FindLabel(Wrel, Untyped, bus) : NULL;
 std::string sLabel;
-                                        /* get label name                    */
-sLabel = (bUseLabel) ? GetLabel(Wrel, Untyped, bDataBus) : "";
+if (pLbl)                               /* get label name                    */
+  sLabel = pLbl->GetText();
+MemoryType memType = pLbl ? pLbl->GetType() : Untyped;
+if (pLbl && memType == Untyped)
+  memType = GetMemType(Wrel, bus);
+if (memType == Const || memType == Bss)
+  memType = Data;
                                         /* if there and absolute             */
 if (Wrel == value && sLabel.size())
   return sLabel;                        /* return it                         */
 
 if (sLabel.size())
   sOut = sLabel;
-else if (bUseLabel && IsCLabel(Wrel, bDataBus))
-  sOut = UnnamedLabel(Wrel, true, bDataBus);
-else if (bUseLabel && IsDLabel(Wrel, bDataBus))
-  sOut = UnnamedLabel(Wrel, false, bDataBus);
+else if (bUseLabel && memType == Code)
+  sOut = UnnamedLabel(Wrel, true, bus);
+else if (bUseLabel && memType == Data)
+  sOut = UnnamedLabel(Wrel, false, bus);
 else
-  sOut = Number2String(Wrel, 4, addr, bDataBus).c_str();
+  sOut = Number2String(Wrel, 4, addr, bus).c_str();
 
 if (relative)                           /* if it's relative addressing       */
   {
@@ -358,13 +379,13 @@ if (relative)                           /* if it's relative addressing       */
   int32_t nDiff = Wrel - value;         /* get difference                    */
 
                                         /* get base name                     */
-  sLabel = (bUseLabel) ? GetLabel(relative, Untyped, bDataBus) : "";
+  sLabel = (bUseLabel) ? GetLabel(relative, Untyped, bus) : "";
   if (sLabel.size())
     sAdd += sLabel;
-  else if (bUseLabel && IsCLabel(relative, bDataBus))
-    sOut = UnnamedLabel(relative, true, bDataBus);
-  else if (bUseLabel && IsDLabel(relative, bDataBus))
-    sOut = UnnamedLabel(relative, false, bDataBus);
+  else if (bUseLabel && IsCLabel(relative, bus))
+    sOut = UnnamedLabel(relative, true, bus);
+  else if (bUseLabel && IsDLabel(relative, bus))
+    sOut = UnnamedLabel(relative, false, bus);
   else
     {
     if (nDiff < 0)                      /* if negative displacement          */
@@ -374,14 +395,14 @@ if (relative)                           /* if it's relative addressing       */
                                         /* and make the number positive      */
       relative = (addr_t) (-((int32_t)relative));
       }
-    sAdd += Number2String(relative, 4, addr, bDataBus);
+    sAdd += Number2String(relative, 4, addr, bus);
     }
 
   if (bInvert)                          /* if inverting necessary,           */
     {
     std::string::iterator i = sAdd.begin();
     i++;
-    while (i != sAdd.end())             /* invert eventual signs!            */
+    while (i != sAdd.end())             /* invert signs!                     */
       {
       if (*i == '+')
         *i = '-';
@@ -394,6 +415,55 @@ if (relative)                           /* if it's relative addressing       */
   }
 
 return sOut;
+}
+
+/*****************************************************************************/
+/* SetDefLabel : sets a definition label                                     */
+/*****************************************************************************/
+
+bool Disassembler::SetDefLabel
+    (
+    addr_t value,
+    int nDigits,
+    addr_t addr,
+    BusType bus
+    )
+{
+Label *pLabel = FindLabel(addr, Const, bus);
+if (pLabel)
+  {
+  std::string dname = pLabel->GetText();
+  // combined setter / getter
+  DefLabel *pDefLabel = DefLabels[bus].Find(dname);
+  if (!pDefLabel)
+    return AddDefLabel(dname,
+                       Number2String(value, nDigits, addr, bus),
+                       Const, bus);
+  }
+return false;
+}
+
+/*****************************************************************************/
+/* DefLabel2String : DefLabel or numeric constant to string                  */
+/*****************************************************************************/
+
+std::string Disassembler::DefLabel2String
+    (
+    addr_t value,
+    int nDigits,
+    addr_t addr,
+    BusType bus
+    )
+{
+std::string svalue = Number2String(value, nDigits, addr, bus);
+Label *pLabel = FindLabel(addr, Const, bus);
+if (pLabel)
+  {
+  std::string dname = pLabel->GetText();
+  if (DefLabels[bus].Find(dname))
+    svalue = dname;
+  }
+return svalue;
 }
 
 /*****************************************************************************/

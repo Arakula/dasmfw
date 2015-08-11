@@ -497,10 +497,10 @@ bool Dasm6809::ProcessInfo
     addr_t &from,
     addr_t &to, 
     bool bProcInfo,
-    bool bDataBus
+    BusType bus
     )
 {
-if (!bProcInfo || bDataBus)             /* only if processing code bus...    */
+if (!bProcInfo || bus != BusCode)       /* only if processing code bus...    */
   return false;
 
 enum InfoCmd
@@ -561,7 +561,7 @@ switch (cmdType)
     else for (addr_t scanned = from;
               scanned >= from && scanned <= to;
               scanned++)
-      SetDirectPage(scanned, dp, bDataBus);
+      SetDirectPage(scanned, dp, bus);
     }
     break;
   case infoUnsetDP :                    /* UNSETDP [addr[-addr]]             */
@@ -570,7 +570,7 @@ switch (cmdType)
     else for (addr_t scanned = from;
               scanned >= from && scanned <= to;
               scanned++)
-      SetDirectPage(scanned, 0, bDataBus);
+      SetDirectPage(scanned, 0, bus);
     break;
   }
 return true;
@@ -580,9 +580,9 @@ return true;
 /* InitParse : initialize parsing                                            */
 /*****************************************************************************/
 
-bool Dasm6809::InitParse(bool bDataBus)
+bool Dasm6809::InitParse(BusType bus)
 {
-if (!bDataBus)
+if (bus == BusCode)
   {
   if (useFlex)
     AddFlexLabels();
@@ -619,7 +619,7 @@ if (!bDataBus)
     }
 
   }
-return Dasm6800::InitParse(bDataBus);
+return Dasm6800::InitParse(bus);
 }
 
 /*****************************************************************************/
@@ -980,7 +980,7 @@ return buf;
 addr_t Dasm6809::ParseCode
     (
     addr_t addr,
-    bool bDataBus                       /* ignored for 6800 and derivates    */
+    BusType bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -1034,7 +1034,7 @@ switch (M)                              /* which mode is this ?              */
     break;
 
   default :                             /* anything else is handled by base  */
-    return Dasm6800::ParseCode(addr, bDataBus);
+    return Dasm6800::ParseCode(addr, bus);
   }
 return PC - addr;                       /* pass back # processed bytes       */
 }
@@ -1048,7 +1048,7 @@ addr_t Dasm6809::DisassembleCode
     addr_t addr,
     std::string &smnemo,
     std::string &sparm,
-    bool bDataBus                       /* ignored for 6800 and derivates    */
+    BusType bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -1324,7 +1324,7 @@ switch (M)                              /* which mode is this?               */
     break;
 
   default :                             /* anything else is handled by base  */
-    return Dasm6800::DisassembleCode(addr, smnemo, sparm, bDataBus);
+    return Dasm6800::DisassembleCode(addr, smnemo, sparm, bus);
   }
 return PC - addr;                       /* pass back # processed bytes       */
 }
@@ -1340,33 +1340,33 @@ bool Dasm6809::DisassembleChanges
     addr_t prevsz,
     bool bAfterLine,
     std::vector<LineChange> &changes,
-    bool bDataBus
+    BusType bus
     )
 {
 // init / exit
 if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
   {
   // no specialties here
-  return Dasm6800::DisassembleChanges(addr, prevaddr, prevsz, bAfterLine, changes, bDataBus);
+  return Dasm6800::DisassembleChanges(addr, prevaddr, prevsz, bAfterLine, changes, bus);
   }
 if (!bAfterLine)                        /* if before the address             */
   {
   // report direct page changes
   addr_t dpold =
-      (prevaddr == NO_ADDRESS) ? DEFAULT_ADDRESS : GetDirectPage(prevaddr, bDataBus);
-  addr_t dp = GetDirectPage(addr, bDataBus);
+      (prevaddr == NO_ADDRESS) ? DEFAULT_ADDRESS : GetDirectPage(prevaddr, bus);
+  addr_t dp = GetDirectPage(addr, bus);
   if (!dp && dpold == DEFAULT_ADDRESS) dpold = dp;
   if (dp != dpold)
     {
     LineChange chg;
     changes.push_back(chg);
-    chg.smnemo = "SETDP";
+    chg.oper = "SETDP";
     if (dp != NO_ADDRESS)
-      chg.sparm = sformat("$%02X", dp >> 8);
+      chg.opnds = sformat("$%02X", dp >> 8);
     changes.push_back(chg);
     }
   }
-return Dasm6800::DisassembleChanges(addr, prevaddr, prevsz, bAfterLine, changes, bDataBus);
+return Dasm6800::DisassembleChanges(addr, prevaddr, prevsz, bAfterLine, changes, bus);
 }
 
 /*****************************************************************************/

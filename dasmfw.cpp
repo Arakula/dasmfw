@@ -216,10 +216,11 @@ Application::Application(int argc, char* argv[])
 pDasm = NULL;                           /* selected disassembler             */
 iDasm = -1;                             /* index of selected disassembler    */
 abortHelp = false;                      /* abort after help has been given   */
-bInfoBus = false;                       /* false = code, true = data         */
+infoBus = BusCode;                      /* start with code bus               */
 showHex = true;                         /* flag for hex data display         */
 showAddr = true;                        /* flag for address display          */
 showComments = true;                    /* flag for comment display          */
+f9dasmComp = false;                     /* flag for f9dasm compatibility     */
 labelLen = 8;                           /* minimum label length              */
 lLabelLen = 8;                          /* minimum EQU label length          */
 mnemoLen = 8;                           /* minimum mnemonics length          */
@@ -233,12 +234,6 @@ showAsc = true;                         /* flag for ASCII content display    */
 #endif
 showUnused = false;                     /* don't show unused labels          */
 out = stdout;
-comments[0][0].SetMultipleDefs();       /* allow multi-line comments / lines */
-comments[0][1].SetMultipleDefs();
-comments[1][0].SetMultipleDefs();
-comments[1][1].SetMultipleDefs();
-lcomments[0].SetMultipleDefs();
-lcomments[1].SetMultipleDefs();
 
 // pre-load matching disassembler, if possible
 sDasmName = argv[0];
@@ -288,6 +283,7 @@ defnfo[0] = pHomePath ?
 defnfo[1] = sDasmName + ".nfo";
 
 int i;
+BusType bus;
                                         /* first, just search for "dasm"     */
 for (i = 0; i < _countof(defnfo); i++)
   if (!defnfo[i].empty())
@@ -309,13 +305,22 @@ LoadFiles();                            /* load all data files               */
 LoadInfoFiles();                        /* load all info files               */
 
 // parse labels in 2 passes
-if (pDasm->GetMemoryArrayCount(false)) Parse(0, false);
-if (pDasm->GetMemoryArrayCount(false)) Parse(0, true);
-if (pDasm->GetMemoryArrayCount(true))  Parse(1, false);
-if (pDasm->GetMemoryArrayCount(true))  Parse(1, true);
+for (i = 0; i < BusTypes; i++)
+  {
+  bus = pDasm->GetBus(i);
+  if (pDasm->GetMemoryArrayCount(bus)) Parse(0, bus);
+  }
+for (i = 0; i < BusTypes; i++)
+  {
+  bus = pDasm->GetBus(i);
+  if (pDasm->GetMemoryArrayCount(bus)) Parse(1, bus);
+  }
 // resolve all XXXXXXXX+/-nnnn labels
-ResolveRelativeLabels(false);
-ResolveRelativeLabels(true);
+for (i = 0; i < BusTypes; i++)
+  {
+  bus = pDasm->GetBus(i);
+  ResolveRelativeLabels(bus);
+  }
 
 // set up often used texts and flags
 std::string labelDelim = pDasm->GetOption("ldchar");
@@ -354,29 +359,38 @@ PrintLine(sComBlk +
           sformat("Loaded memory areas: begin=%s, end=%s",
                   pDasm->GetOption("begin").c_str(),
                   pDasm->GetOption("end").c_str()));
-DumpMem(false);
-DumpMem(true);
+DumpMem(BusCode);
+DumpMem(BusData);
+DumpMem(BusIO);
 #endif
                                         /* show comments that go in front    */
-DisassembleComments(NO_ADDRESS, false, sComDel);
-DisassembleComments(NO_ADDRESS, false, sComDel, true);
+for (i = 0; i < BusTypes; i++)
+  {
+  bus = pDasm->GetBus(i);
+  DisassembleComments(NO_ADDRESS, false, sComDel, bus);
+  }
 
 // disassembler-specific initialization
-DisassembleChanges(NO_ADDRESS, NO_ADDRESS, 0, false, false);
+DisassembleChanges(NO_ADDRESS, NO_ADDRESS, 0, false, BusCode);
 
-for (int bus = 0; bus < 2; bus++)
+// output of labels without data
+for (i = 0; i < BusTypes; i++)
   {
-  bool bDataBus = !!bus;
-  if (!pDasm->GetMemoryArrayCount(bDataBus))
+  bus = pDasm->GetBus(i);
+  DisassembleLabels(sComDel, sComHdr, bus);
+  }
+
+// disassemble all memory areas for the busses
+for (i = 0; i < BusTypes; i++)
+  {
+  bus = pDasm->GetBus(i);
+  if (!pDasm->GetMemoryArrayCount(bus))
     continue;
 
-  // output of labels without data
-  DisassembleLabels(sComDel, sComHdr, bDataBus);
-
   addr_t prevaddr = NO_ADDRESS, prevsz = 0;
-  addr_t addr = pDasm->GetMemoryArray(0, bDataBus).GetStart();
-  if (!pDasm->IsCellUsed(addr, bDataBus))
-    addr = pDasm->GetNextAddr(addr, bDataBus);
+  addr_t addr = pDasm->GetMemoryArray(0, bus).GetStart();
+  if (!pDasm->IsCellUsed(addr, bus))
+    addr = pDasm->GetNextAddr(addr, bus);
   bool bBusHdrOut = false;
   while (addr != NO_ADDRESS)
     {
@@ -386,30 +400,32 @@ for (int bus = 0; bus < 2; bus++)
       PrintLine(sComHdr);
       PrintLine(sComBlk +
                 sformat("Program's %s Areas",
-                        (bDataBus) ? "Data Bus Data" : "Code / Data"));
+                        (bus == BusIO) ? "I/O Bus Data" :
+                        (bus == BusData) ? "Data Bus Data" :
+                        "Code / Data"));
       PrintLine(sComHdr);
       PrintLine();
 
       bBusHdrOut = true;
       }
 
-    DisassembleChanges(addr, prevaddr, prevsz, false, bDataBus);
+    DisassembleChanges(addr, prevaddr, prevsz, false, bus);
 
-    addr_t sz = DisassembleLine(addr, sComDel, sComHdr, labelDelim, bDataBus);
+    addr_t sz = DisassembleLine(addr, sComDel, sComHdr, labelDelim, bus);
 
-    DisassembleChanges(addr, prevaddr, prevsz, true, bDataBus);
+    DisassembleChanges(addr, prevaddr, prevsz, true, bus);
 
     prevaddr = addr;
     prevsz = sz;
-    addr = pDasm->GetNextAddr(addr + sz - 1, bDataBus);
+    addr = pDasm->GetNextAddr(addr + sz - 1, bus);
     }
 
   // disassembler-specific end of area handling
-  DisassembleChanges(addr, prevaddr, prevsz, false, bDataBus);
+  DisassembleChanges(addr, prevaddr, prevsz, false, bus);
   }
 
 // disassembler-specific closing
-DisassembleChanges(NO_ADDRESS, NO_ADDRESS, 0, true, true);
+DisassembleChanges(NO_ADDRESS, NO_ADDRESS, 0, true, BusTypes);
 
 if (out != stdout)
   fclose(out);
@@ -483,25 +499,25 @@ return bAllOK;
 /* Parse : go through the loaded memory areas and parse all labels           */
 /*****************************************************************************/
 
-bool Application::Parse(int nPass, bool bDataBus)
+bool Application::Parse(int nPass, BusType bus)
 {
 if (!nPass &&
-    !pDasm->InitParse(bDataBus))
+    !pDasm->InitParse(bus))
   return false;
 
-if (!pDasm->GetMemoryArrayCount(bDataBus))
+if (!pDasm->GetMemoryArrayCount(bus))
   return true;
 
 addr_t prevaddr = NO_ADDRESS;
-addr_t addr = pDasm->GetMemoryArray(0, bDataBus).GetStart();
-if (!pDasm->IsCellUsed(addr, bDataBus))
-  addr = pDasm->GetNextAddr(addr, bDataBus);
+addr_t addr = pDasm->GetMemoryArray(0, bus).GetStart();
+if (!pDasm->IsCellUsed(addr, bus))
+  addr = pDasm->GetNextAddr(addr, bus);
 
 while (addr != NO_ADDRESS)
   {
-  addr_t sz = pDasm->Parse(addr, bDataBus);
+  addr_t sz = pDasm->Parse(addr, bus);
   prevaddr = addr;
-  addr = pDasm->GetNextAddr(addr + sz - 1, bDataBus);
+  addr = pDasm->GetNextAddr(addr + sz - 1, bus);
   }
 
 return true;
@@ -511,11 +527,11 @@ return true;
 /* ResolveRelativeLabels : resolve all XXXXXXXX+/-nnnn labels                */
 /*****************************************************************************/
 
-bool Application::ResolveRelativeLabels(bool bDataBus)
+bool Application::ResolveRelativeLabels(BusType bus)
 {
-for (int i = pDasm->GetLabelCount(bDataBus) - 1; i >= 0; i--)
+for (int i = pDasm->GetLabelCount(bus) - 1; i >= 0; i--)
   {
-  Label *pLbl = pDasm->LabelAt(i, bDataBus);
+  Label *pLbl = pDasm->LabelAt(i, bus);
   if (!pLbl->IsUsed())
     continue;
   std::string s = pLbl->GetText();
@@ -528,7 +544,7 @@ for (int i = pDasm->GetLabelCount(bDataBus) - 1; i >= 0; i--)
     if (s[p] == '+') offs = (addr_t)(-(int32_t)offs);
     pLbl->SetUsed(false);
     pDasm->AddLabel(pLbl->GetAddress() + offs, pLbl->GetType(),
-                    s.substr(0, p), true, bDataBus);
+                    s.substr(0, p), true, bus);
     // this might have caused an insertion, so restart here
     i++;
     }
@@ -546,19 +562,19 @@ bool Application::DisassembleComments
     addr_t addr,
     bool bAfterLine,
     std::string sComDel,
-    bool bDataBus
+    BusType bus
     )
 {
-AddrTextArray::iterator it;
+CommentArray::iterator it;
 sComDel += " ";
-Comment *pComment = GetFirstComment(addr, it, bAfterLine, bDataBus);
+Comment *pComment = GetFirstComment(addr, it, bAfterLine, bus);
 while (pComment)
   {
   std::string sTxt(pComment->GetText());
   std::string sHdr((pComment->IsComment() && sTxt.size()) ? sComDel : "");
   if (showComments || !pComment->IsComment())
     PrintLine(sHdr + sTxt);
-  pComment = GetNextComment(addr, it, bAfterLine, bDataBus);
+  pComment = GetNextComment(addr, it, bAfterLine, bus);
   }
 return true;
 }
@@ -573,7 +589,7 @@ bool Application::DisassembleChanges
     addr_t prevaddr,
     addr_t prevsz,
     bool bAfterLine,
-    bool bDataBus
+    BusType bus
     )
 {
 std::vector<Disassembler::LineChange> changes;
@@ -581,13 +597,13 @@ bool bRC = pDasm->DisassembleChanges(addr,
                                      prevaddr, prevsz,
                                      bAfterLine,
                                      changes,
-                                     bDataBus);
+                                     bus);
 
 for (std::vector<Disassembler::LineChange>::size_type i = 0;
      i < changes.size();
      i++)
   {
-  PrintLine("", changes[i].smnemo.c_str(), changes[i].sparm.c_str());
+  PrintLine("", changes[i].oper.c_str(), changes[i].opnds.c_str());
   }
 return bRC;
 }
@@ -600,22 +616,25 @@ bool Application::DisassembleLabels
     (
     std::string sComDel,
     std::string sComHdr,
-    bool bDataBus
+    BusType bus
     )
 {
 std::string sComBlk(sComDel + " ");
-AddrTextArray::iterator it;
+CommentArray::iterator it;
 Comment *pComment;
-bool bULHOut = false;
-for (int l = 0; l < pDasm->GetLabelCount(bDataBus); l++)
+static bool bULHOut = false;
+for (int l = 0; l < pDasm->GetLabelCount(bus); l++)
   {
-  Label *pLbl = pDasm->LabelAt(l, bDataBus);
+  Label *pLbl = pDasm->LabelAt(l, bus);
   addr_t laddr = pLbl->GetAddress();
-  if ((showUnused || pLbl->IsUsed()) &&
-      pDasm->GetMemType(laddr, bDataBus) == Untyped)
+  bool bShow = showUnused || pLbl->IsUsed();
+  // if (!pLbl->IsConst())
+  MemoryType memType = pDasm->GetMemType(laddr, bus);
+  bShow &= (memType == Untyped);
+  if (bShow)
     {
-    std::string smnemo, sparm;
-    if (pDasm->DisassembleLabel(laddr, smnemo, sparm, bDataBus))
+    std::string slabel, smnemo, sparm;
+    if (pDasm->DisassembleLabel(pLbl, slabel, smnemo, sparm, bus))
       {
       // header, if not yet done
       if (!bULHOut)
@@ -629,23 +648,21 @@ for (int l = 0; l < pDasm->GetLabelCount(bDataBus); l++)
         }
 
       // comments before line
-      DisassembleComments(laddr, false, sComDel, bDataBus);
-
-      std::string slabel = pDasm->Label2String(laddr, true, laddr, bDataBus);
+      DisassembleComments(laddr, false, sComDel, bus);
 
       // the line itself
-      pComment = showComments ? GetFirstLComment(laddr, it, bDataBus) : NULL;
+      pComment = showComments ? GetFirstLComment(laddr, it, bus) : NULL;
       std::string scomment = pComment ? pComment->GetText() : "";
       if (scomment.size()) scomment = sComBlk + scomment;
       PrintLine(slabel, smnemo, sparm, scomment, lLabelLen);
       if (pComment)
         {
-        while ((pComment = GetNextLComment(laddr, it, bDataBus)) != NULL)
+        while ((pComment = GetNextLComment(laddr, it, bus)) != NULL)
           PrintLine("", "", "", sComBlk + pComment->GetText());
         }
 
       // comments after line
-      DisassembleComments(laddr, true, sComDel, bDataBus);
+      DisassembleComments(laddr, true, sComDel, bus);
       }
     }
   }
@@ -663,38 +680,38 @@ addr_t Application::DisassembleLine
     std::string sComDel,
     std::string sComHdr,
     std::string labelDelim,
-    bool bDataBus
+    BusType bus
     )
 {
 std::string sLabel, sMnemo, sParms, sComBlk(sComDel + " ");
-AddrTextArray::iterator it;
+CommentArray::iterator it;
 Comment *pComment;
 bool bWithComments = showHex || showAsc || showAddr;
 
 // comments before line
-DisassembleComments(addr, false, sComDel, bDataBus);
+DisassembleComments(addr, false, sComDel, bus);
 
 // the line itself
-Label *p = pDasm->FindLabel(addr, Untyped, bDataBus);
+Label *p = pDasm->FindLabel(addr, Untyped, bus);
 if (p && p->IsUsed())
-  sLabel = pDasm->Label2String(addr, true, addr, bDataBus) +
+  sLabel = pDasm->Label2String(addr, true, addr, bus) +
            labelDelim;
-pComment = showComments ? GetFirstLComment(addr, it, bDataBus) : NULL;
-int maxparmlen = (bWithComments || pComment) ? cparmLen : uparmLen;
-addr_t sz = pDasm->Disassemble(addr, sMnemo, sParms, maxparmlen, bDataBus);
+pComment = showComments ? GetFirstLComment(addr, it, bus) : NULL;
+int maxparmlen = (bWithComments || pComment) ? (cparmLen - 1) : uparmLen;
+addr_t sz = pDasm->Disassemble(addr, sMnemo, sParms, maxparmlen, bus);
 
 std::string scomment;
 if (showAddr)
   scomment += sformat("%0*X%s",
-                      pDasm->GetCodeBits() / 4, addr,
+                      (pDasm->BusAddressBits(bus) + 3) / 4, addr,
                       (showHex || showAsc) ? ": " : " ");
-if ((showHex || showAsc) && !pDasm->IsBss(addr, bDataBus))
+if ((showHex || showAsc) && !pDasm->IsBss(addr, bus))
   {
   std::string sHex, sAsc("\'");
   addr_t i;
   for (i = 0; i < sz; i++)
     {
-    uint8_t c = pDasm->GetUByte(addr + i, bDataBus);
+    uint8_t c = pDasm->GetUByte(addr + i, bus);
     sHex += sformat("%02X ", c);
     sAsc += (isprint(c)) ? c : '.'; 
     }
@@ -715,18 +732,22 @@ if ((showHex || showAsc) && !pDasm->IsBss(addr, bDataBus))
   if (showAsc)
     scomment += sAsc;
   }
-scomment += pComment ? pComment->GetText() : "";
+if (pComment && pComment->GetText().size())
+  {
+  if (scomment.size()) scomment += " ";
+  scomment += pComment->GetText();
+  }
 if (scomment.size()) scomment = sComBlk + scomment;
 PrintLine(sLabel, sMnemo, sParms, scomment);
 if (pComment)
   {
 // following line comments
-  while ((pComment = GetNextLComment(addr, it, bDataBus)) != NULL)
+  while ((pComment = GetNextLComment(addr, it, bus)) != NULL)
     PrintLine("", "", "", sComBlk + pComment->GetText());
   }
 
 // comments after line
-DisassembleComments(addr, true, sComDel, bDataBus);
+DisassembleComments(addr, true, sComDel, bus);
 
 return sz;
 }
@@ -749,7 +770,13 @@ int nLen = 0;
 int nMinLen = labelLen;
 bool bLastBlank = false;
 if (sLabel.size())
+  {
   nLen += fprintf(out, "%s", sLabel.c_str());
+  if (nLen > labelLen &&  // skip to next line on very long labels
+      smnemo.size())
+    nLen = fprintf(out, "\n%*s", labelLen - 1, "") - 1;
+  }
+
 if (smnemo.size())
   {
   if (nLen > 0) nLen += fprintf(out, " ");
@@ -785,12 +812,15 @@ if (n < 1)
   from = NO_ADDRESS;
 if (from != NO_ADDRESS)
   {
-  addr_t *pmap = remaps[bInfoBus].getat(from);
+  addr_t *pmap = remaps[infoBus].getat(from);
   if (pmap) from += *pmap;
-  if ((bInfoBus &&
+  if ((infoBus == BusIO &&
+       (from < pDasm->GetLowestIOAddr() ||
+        from > pDasm->GetHighestIOAddr())) ||
+      (infoBus == BusData &&
        (from < pDasm->GetLowestDataAddr() ||
         from > pDasm->GetHighestDataAddr())) ||
-      (!bInfoBus &&
+      (infoBus == BusCode &&
        (from < pDasm->GetLowestCodeAddr() ||
         from > pDasm->GetHighestCodeAddr())))
     {
@@ -802,12 +832,15 @@ if (n < 2)
   to = from;
 else if (to != NO_ADDRESS)
   {
-  addr_t *pmap = remaps[bInfoBus].getat(to);
+  addr_t *pmap = remaps[infoBus].getat(to);
   if (pmap) to += *pmap;
-  if ((bInfoBus &&
+  if ((infoBus == BusIO &&
+       (to < pDasm->GetLowestIOAddr() ||
+        to > pDasm->GetHighestIOAddr())) ||
+      (infoBus == BusData &&
        (to < pDasm->GetLowestDataAddr() ||
         to > pDasm->GetHighestDataAddr())) ||
-      (!bInfoBus &&
+      (infoBus == BusCode &&
        (to < pDasm->GetLowestCodeAddr() ||
         to > pDasm->GetHighestCodeAddr())))
     {
@@ -832,7 +865,7 @@ static std::string triminfo
 {
 // copied from trim()
 if (s.empty()) return s;
-std::string::size_type from = s.find_first_not_of(" ");
+std::string::size_type from = s.find_first_not_of(" \t");
 if (from == s.npos)
   return "";
 // up to here. The rest is info-specific
@@ -887,7 +920,7 @@ enum InfoCmd
   {
   infoUnknown = -1,                     /* unknown info command              */
   // bus selection
-  infoBus,                              /* BUS {code|data}                   */
+  infoBusSel,                           /* BUS {code|data}                   */
   // memory types
   infoCode,                             /* CODE addr[-addr]                  */
   infoData,                             /* DATA addr[-addr]                  */
@@ -917,6 +950,8 @@ enum InfoCmd
   infoUnRelative,                       /* UNRELATIVE addr[-addr]            */
   // label handling
   infoLabel,                            /* LABEL addr[-addr] label           */
+  infoDefLabel,                         /* DEFLABEL addr[-addr] label        */
+  infoIOLabel,                          /* IOLABEL addr[-addr] label         */
   infoUsedLabel,                        /* USEDLABEL addr[-addr] [label]     */
   infoUnlabel,                          /* UNLABEL addr[-addr]               */
   // phasing support
@@ -953,7 +988,7 @@ static struct                           /* structure to convert key to type  */
   } sKey[] =
   {
   // bus selection
-  { "BUS",          infoBus },
+  { "BUS",          infoBusSel },
   // memory types
   { "CODE",         infoCode },
   { "DATA",         infoData },
@@ -995,6 +1030,9 @@ static struct                           /* structure to convert key to type  */
   { "UNREL",        infoUnRelative },
   // label handling
   { "LABEL",        infoLabel },
+  { "DEFLABEL",     infoDefLabel },
+  { "IOLABEL",      infoIOLabel },
+  { "IOPORT",       infoIOLabel },
   { "USED",         infoUsedLabel },
   { "USEDLABEL",    infoUsedLabel },
   { "UNLABEL",      infoUnlabel },
@@ -1073,7 +1111,7 @@ do
         break;
         }
 
-    bool bTgtBus = bInfoBus;            /* target bus identification         */
+    BusType tgtBus = infoBus;           /* target bus identification         */
     idx = value.find_first_of(" \t");
     if (idx != value.npos &&
         lowercase(value.substr(0, idx)) == "bus")
@@ -1086,12 +1124,17 @@ do
         bval = trim(bval.substr(idx));
         if (tgtbus == "code" || tgtbus == "0")
           {
-          bTgtBus = false;
+          tgtBus = BusCode;
           value = bval;
           }
         else if (tgtbus == "data" || tgtbus == "1")
           {
-          bTgtBus = true;
+          tgtBus = BusData;
+          value = bval;
+          }
+        else if (tgtbus == "io" || tgtbus == "2")
+          {
+          tgtBus = BusIO;
           value = bval;
           }
         }
@@ -1101,7 +1144,7 @@ do
       {
       addr_t from, to;                  /* address range has to be first!    */
       ParseInfoRange(value, from, to);
-      if (pDasm->ProcessInfo(key, value, from, to, bProcInfo, bInfoBus))
+      if (pDasm->ProcessInfo(key, value, from, to, bProcInfo, infoBus))
         cmdType = infoUnknown;
       }
 
@@ -1120,13 +1163,15 @@ do
 
     switch (cmdType)
       {
-      case infoBus :                    /* BUS {code|data}                   */
+      case infoBusSel :                 /* BUS {code|data}                   */
         {
         std::string s = lowercase(value);
         if (s == "code" || s == "0")
-          bInfoBus = false;
+          infoBus = BusCode;
         else if (s == "data" || s == "1")
-          bInfoBus = true;
+          infoBus = BusData;
+        else if (s == "io" || s == "2")
+          infoBus = BusIO;
         }
         break;
       case infoInclude :                /* INCLUDE filename                  */
@@ -1191,11 +1236,11 @@ do
         if (ParseInfoRange(range, from, to) >= 1 &&
             pDasm->String2Number(value, off))
           {
-          remaps[bInfoBus].AddMemory(from, to + 1 - from);
+          remaps[infoBus].AddMemory(from, to + 1 - from);
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned++)
-            *remaps[bInfoBus].getat(scanned) += off;
+            *remaps[infoBus].getat(scanned) += off;
           }
         }
         break;
@@ -1232,154 +1277,154 @@ do
                scanned >= from && scanned <= to;
                scanned++)
             {
-            MemoryType ty = pDasm->GetMemType(scanned, bInfoBus);
+            MemoryType ty = pDasm->GetMemType(scanned, infoBus);
             int sz;
             if (ty != Untyped)
               {
               switch (cmdType)
                 {
                 case infoCode :
-                  pDasm->SetMemType(scanned, Code, bInfoBus);
+                  pDasm->SetMemType(scanned, Code, infoBus);
                   break;
                 case infoData :
 #if 0
                   // remove all code attributes
                   if (ty == Code)
                     {
-                    pDasm->SetCellSize(scanned, 1, bInfoBus);
-                    pDasm->SetDisplay(scanned, MemAttribute::Char, bInfoBus);
+                    pDasm->SetCellSize(scanned, 1, infoBus);
+                    pDasm->SetDisplay(scanned, MemAttribute::Char, infoBus);
                     }
 #endif
-                  pDasm->SetMemType(scanned, Data, bInfoBus);
+                  pDasm->SetMemType(scanned, Data, infoBus);
                   break;
                 case infoConstant :
 #if 0
                   // remove all code attributes
                   if (ty == Code)
                     {
-                    pDasm->SetCellSize(scanned, 1, bInfoBus);
-                    pDasm->SetDisplay(scanned, MemAttribute::Char, bInfoBus);
+                    pDasm->SetCellSize(scanned, 1, infoBus);
+                    pDasm->SetDisplay(scanned, MemAttribute::Char, infoBus);
                     }
 #endif
-                  pDasm->SetMemType(scanned, Const, bInfoBus);
+                  pDasm->SetMemType(scanned, Const, infoBus);
                   break;
                 case infoRMB :
 #if 0
                   // remove all code attributes
                   if (ty == Code)
                     {
-                    pDasm->SetCellSize(scanned, 1, bInfoBus);
-                    pDasm->SetDisplay(scanned, MemAttribute::Char, bInfoBus);
+                    pDasm->SetCellSize(scanned, 1, infoBus);
+                    pDasm->SetDisplay(scanned, MemAttribute::Char, infoBus);
                     }
 #endif
-                  pDasm->SetMemType(scanned, Bss, bInfoBus);
+                  pDasm->SetMemType(scanned, Bss, infoBus);
                   break;
                 case infoUnused :
                   {
-                  pDasm->SetMemType(scanned, Untyped, bInfoBus);
-                  pDasm->SetCellUsed(scanned, false, bInfoBus);
+                  pDasm->SetMemType(scanned, Untyped, infoBus);
+                  pDasm->SetCellUsed(scanned, false, infoBus);
                   }
                 case infoByte :
-                  pDasm->SetCellSize(scanned, 1, bInfoBus);
+                  pDasm->SetCellSize(scanned, 1, infoBus);
                   break;
                 case infoWord :
                   // for compatibility reasons to f9dasm, set type to Data
                   if (ty != Const)
-                    pDasm->SetMemType(scanned, Data, bInfoBus);
-                  pDasm->SetCellSize(scanned, 2, bInfoBus);
+                    pDasm->SetMemType(scanned, Data, infoBus);
+                  pDasm->SetCellSize(scanned, 2, infoBus);
                   break;
                 case infoDWord :
 #if 0
                   // for compatibility reasons to f9dasm, set type to Data
                   if (ty != Const)
-                    pDasm->SetMemType(scanned, Data, bInfoBus);
+                    pDasm->SetMemType(scanned, Data, infoBus);
 #endif
-                  pDasm->SetCellSize(scanned, 4, bInfoBus);
+                  pDasm->SetCellSize(scanned, 4, infoBus);
                   break;
                 case infoBinary :
-                  pDasm->SetDisplay(scanned, MemAttribute::Binary, bInfoBus);
+                  pDasm->SetDisplay(scanned, MemAttribute::Binary, infoBus);
                   break;
                 case infoChar :
-                  pDasm->SetDisplay(scanned, MemAttribute::Char, bInfoBus);
+                  pDasm->SetDisplay(scanned, MemAttribute::Char, infoBus);
                   break;
                 case infoOct :
-                  pDasm->SetDisplay(scanned, MemAttribute::Octal, bInfoBus);
+                  pDasm->SetDisplay(scanned, MemAttribute::Octal, infoBus);
                   break;
                 case infoDec :
-                  pDasm->SetDisplay(scanned, MemAttribute::Decimal, bInfoBus);
+                  pDasm->SetDisplay(scanned, MemAttribute::Decimal, infoBus);
                   break;
                 case infoHex :
-                  pDasm->SetDisplay(scanned, MemAttribute::Hex, bInfoBus);
+                  pDasm->SetDisplay(scanned, MemAttribute::Hex, infoBus);
                   break;
                 case infoFloat :
-                  pDasm->SetCellSize(scanned, 4, bInfoBus);
-                  pDasm->SetCellType(scanned, MemAttribute::Float, bInfoBus);
+                  pDasm->SetCellSize(scanned, 4, infoBus);
+                  pDasm->SetCellType(scanned, MemAttribute::Float, infoBus);
                   break;
                 case infoDouble :
-                  pDasm->SetCellSize(scanned, 8, bInfoBus);
-                  pDasm->SetCellType(scanned, MemAttribute::Float, bInfoBus);
+                  pDasm->SetCellSize(scanned, 8, infoBus);
+                  pDasm->SetCellType(scanned, MemAttribute::Float, infoBus);
                   break;
                 case infoTenBytes :
-                  pDasm->SetCellSize(scanned, 10, bInfoBus);
-                  pDasm->SetCellType(scanned, MemAttribute::Float, bInfoBus);
+                  pDasm->SetCellSize(scanned, 10, infoBus);
+                  pDasm->SetCellType(scanned, MemAttribute::Float, infoBus);
                   scanned += 9;
                   break;
                 case infoBreak :
-                  pDasm->SetBreakBefore(scanned, true, bInfoBus);
+                  pDasm->SetBreakBefore(scanned, true, infoBus);
                   break;
                 case infoUnBreak:
-                  pDasm->SetBreakBefore(scanned, false, bInfoBus);
+                  pDasm->SetBreakBefore(scanned, false, infoBus);
                   break;
                 case infoCVector :
                   // a code vector defines a table of code pointers
                   if (ty != Data)
                     {
-                    pDasm->SetMemType(scanned, Data, bInfoBus);
-                    pDasm->SetDisplay(scanned, MemAttribute::Hex, bInfoBus);
+                    pDasm->SetMemType(scanned, Data, infoBus);
+                    pDasm->SetDisplay(scanned, MemAttribute::Hex, infoBus);
                     }
                   sz = pDasm->GetCodePtrSize();
-                  pDasm->SetCellSize(scanned, sz, bInfoBus);
+                  pDasm->SetCellSize(scanned, sz, infoBus);
                   if (sz == 1)
-                    tgtaddr = pDasm->GetUByte(scanned, bInfoBus);
+                    tgtaddr = pDasm->GetUByte(scanned, infoBus);
                   else if (sz == 2)
-                    tgtaddr = pDasm->GetUWord(scanned, bInfoBus);
+                    tgtaddr = pDasm->GetUWord(scanned, infoBus);
                   else if (sz == 4)
-                    tgtaddr = pDasm->GetUDWord(scanned, bInfoBus);
+                    tgtaddr = pDasm->GetUDWord(scanned, infoBus);
 #if (ADDR_T_SIZE >= 8)
                   else if (sz == 8)
-                    tgtaddr = pDasm->GetUQWord(scanned, bInfoBus);
+                    tgtaddr = pDasm->GetUQWord(scanned, infoBus);
 #endif
                   pDasm->AddLabel(tgtaddr, Code,
                                   sformat("Z%0*Xvia%0*X",
                                           sz*2, tgtaddr,
                                           sz*2, scanned),
-                                  true, bTgtBus);
+                                  true, tgtBus);
                   scanned += sz - 1;
                   break;
                 case infoDVector :
                   // a data vector defines a table of data pointers
                   if (ty != Data)
                     {
-                    pDasm->SetMemType(scanned, Data, bInfoBus);
-                    pDasm->SetDisplay(scanned, MemAttribute::Hex, bInfoBus);
+                    pDasm->SetMemType(scanned, Data, infoBus);
+                    pDasm->SetDisplay(scanned, MemAttribute::Hex, infoBus);
                     }
                   sz = pDasm->GetDataPtrSize();
-                  pDasm->SetCellSize(scanned, sz, bInfoBus);
+                  pDasm->SetCellSize(scanned, sz, infoBus);
                   if (sz == 1)
-                    tgtaddr = pDasm->GetUByte(scanned, bInfoBus);
+                    tgtaddr = pDasm->GetUByte(scanned, infoBus);
                   else if (sz == 2)
-                    tgtaddr = pDasm->GetUWord(scanned, bInfoBus);
+                    tgtaddr = pDasm->GetUWord(scanned, infoBus);
                   else if (sz == 4)
-                    tgtaddr = pDasm->GetUDWord(scanned, bInfoBus);
+                    tgtaddr = pDasm->GetUDWord(scanned, infoBus);
 #if (ADDR_T_SIZE >= 8)
                   else if (sz == 8)
-                    tgtaddr = pDasm->GetUQWord(scanned, bInfoBus);
+                    tgtaddr = pDasm->GetUQWord(scanned, infoBus);
 #endif
                   pDasm->AddLabel(tgtaddr, Code,
                                   sformat("M%0*Xvia%0*X",
                                           sz*2, tgtaddr,
                                           sz*2, scanned),
-                                  true, bTgtBus);
+                                  true, tgtBus);
                   scanned += sz - 1;
                   break;
                 }
@@ -1399,11 +1444,11 @@ do
         if (ParseInfoRange(range, from, to) >= 1 &&
             pDasm->String2Number(value, rel))
           {
-          pDasm->AddRelative(from, to - from + 1, NULL, bInfoBus);
+          pDasm->AddRelative(from, to - from + 1, NULL, infoBus);
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned++)
-           pDasm->SetRelative(scanned, rel, bInfoBus);
+           pDasm->SetRelative(scanned, rel, infoBus);
           }
         }
         break;
@@ -1415,11 +1460,13 @@ do
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned++)
-           pDasm->SetRelative(scanned, 0, bInfoBus);
+           pDasm->SetRelative(scanned, 0, infoBus);
           }
         }
         break;
       case infoLabel :                  /* LABEL addr[-addr] label           */
+      case infoDefLabel :               /* DEFLABEL addr[-addr] label        */
+      case infoIOLabel :                /* IOLABEL addr[-addr] label         */
       case infoUsedLabel :              /* USEDLABEL addr[-addr] [label]     */
         {
         addr_t from, to;
@@ -1432,20 +1479,25 @@ do
         if (idx != value.npos)
           value = trim(value.substr(0, idx));
         bool bTextOk = (cmdType == infoUsedLabel) || value.size();
+        MemoryType memType =
+            (cmdType == infoDefLabel) ? Const :
+            (cmdType == infoIOLabel) ? IOPort :
+            Untyped;
+        bool bUsed = (/* cmdType == infoDefLabel || */ cmdType == infoUsedLabel);
         if (ParseInfoRange(range, from, to) >= 1 && bTextOk)
           {
+          bool bNoDelta = cmdType == infoUsedLabel && value.empty();
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned++)
             {
             pDasm->AddLabel(
-                scanned, Untyped, 
-                (scanned == from ||
-                 (cmdType == infoUsedLabel && value.empty())) ?
+                scanned, memType, 
+                (scanned == from || bNoDelta) ?
                      value :
                      sformat("%s+%d", value.c_str(), scanned - from),
-                cmdType == infoUsedLabel,
-                bInfoBus);
+                bUsed,
+                infoBus);
             }
           }
         }
@@ -1455,12 +1507,12 @@ do
         addr_t from, to;
         if (ParseInfoRange(value, from, to) >= 1)
           {
-          for (int i = pDasm->GetLabelCount(bInfoBus) - 1; i >= 0; i--)
+          for (int i = pDasm->GetLabelCount(infoBus) - 1; i >= 0; i--)
             {
-            addr_t laddr = pDasm->LabelAt(i, bInfoBus)->GetAddress();
+            addr_t laddr = pDasm->LabelAt(i, infoBus)->GetAddress();
             if (laddr < from) break;
             if (laddr >= from && laddr <= to)
-              pDasm->RemoveLabelAt(i, bInfoBus);
+              pDasm->RemoveLabelAt(i, infoBus);
             }
           }
         }
@@ -1482,29 +1534,29 @@ do
           // different phase are specified. Well, so be it. Don't do it.
           // The alternative would be to reallocate the phase area for each
           // and every byte.
-          TMemory<addr_t, addr_t> *pFrom = pDasm->FindPhase(from, bInfoBus);
-          TMemory<addr_t, addr_t> *pTo = pDasm->FindPhase(to, bInfoBus);
+          TMemory<addr_t, addr_t> *pFrom = pDasm->FindPhase(from, infoBus);
+          TMemory<addr_t, addr_t> *pTo = pDasm->FindPhase(to, infoBus);
           if (!pFrom || !pTo)
             {
             // presumably, it's the same phase as others, so make sure
             // to create a unique area
-            pDasm->AddPhase(from, to - from + 1, NO_ADDRESS, bInfoBus);
-            pFrom = pDasm->FindPhase(from, bInfoBus);
+            pDasm->AddPhase(from, to - from + 1, NO_ADDRESS, infoBus);
+            pFrom = pDasm->FindPhase(from, infoBus);
             pFrom->SetType(phase);
             }
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned++)
             {
-            TMemory<addr_t, addr_t> *pArea = pDasm->FindPhase(scanned, bInfoBus);
+            TMemory<addr_t, addr_t> *pArea = pDasm->FindPhase(scanned, infoBus);
             if (pArea)
               {
               if (pArea->GetType() == phase)
-                pDasm->SetPhase(scanned, NO_ADDRESS, bInfoBus);
+                pDasm->SetPhase(scanned, NO_ADDRESS, infoBus);
               else
                 pDasm->SetPhase(scanned,
                                 bSigned ? pArea->GetType() - phase : phase,
-                                bInfoBus);
+                                infoBus);
               }
             }
           }
@@ -1518,7 +1570,7 @@ do
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned++)
-            pDasm->SetPhase(scanned, DEFAULT_ADDRESS, bInfoBus);
+            pDasm->SetPhase(scanned, DEFAULT_ADDRESS, infoBus);
           }
         }
         break;
@@ -1560,19 +1612,19 @@ do
              scanned++)
           {
                                         /* make sure comment breaks output   */
-          pDasm->SetBreakBefore(scanned, true, bInfoBus);
+          pDasm->SetBreakBefore(scanned, true, infoBus);
           switch (cmdType)
             {
             case infoComment :          /* COMMENT addr[-addr] comment       */
             case infoPrepComm :         /* PREPCOMM [addr[-addr]] comment    */
             case infoInsert :           /* INSERT addr[-addr] text           */
             case infoPrepend :          /* PREPEND [addr[-addr]] line        */
-              AddComment(scanned, bAfter, value, bPrepend, bIsComm, bInfoBus);
+              AddComment(scanned, bAfter, value, bPrepend, bIsComm, infoBus);
               break;
             case infoLComment :         /* LCOMMENT addr[-addr] [.]lcomment  */
             case infoPrepLComm :        /* PREPLCOMM addr[-addr] [.]lcomment */
               if (scanned != NO_ADDRESS)
-                AddLComment(scanned, value, bPrepend, bInfoBus);
+                AddLComment(scanned, value, bPrepend, infoBus);
               break;
             }
           }
@@ -1597,24 +1649,24 @@ do
           int i;
           if (cmdType == infoUncomment)
             {
-            for (i = (int)comments[bInfoBus][bAfter].size() - 1; i >= 0; i--)
+            for (i = (int)comments[infoBus][bAfter].size() - 1; i >= 0; i--)
               {
-              AddrText *c = comments[bInfoBus][bAfter].at(i);
+              AddrText *c = comments[infoBus][bAfter].at(i);
               addr_t caddr = c->GetAddress();
               if (caddr < from) break;
               if (caddr >= from && caddr <= to)
-                comments[bInfoBus][bAfter].erase(comments[bInfoBus][bAfter].begin() + i);
+                comments[infoBus][bAfter].erase(comments[infoBus][bAfter].begin() + i);
               }
             }
           else
             {
-            for (i = (int)lcomments[bInfoBus].size() - 1; i >= 0; i--)
+            for (i = (int)lcomments[infoBus].size() - 1; i >= 0; i--)
               {
-              AddrText *c = lcomments[bInfoBus].at(i);
+              AddrText *c = lcomments[infoBus].at(i);
               addr_t caddr = c->GetAddress();
               if (caddr < from) break;
               if (caddr >= from && caddr <= to)
-                lcomments[bInfoBus].erase(lcomments[bInfoBus].begin() + i);
+                lcomments[infoBus].erase(lcomments[infoBus].begin() + i);
               }
             }
           }
@@ -1650,9 +1702,9 @@ do
               case infoPatch :          /* PATCH addr [byte]*                */
                 if (sscanf(item.c_str(), "%x", &to) == 1)
                   {
-                  if (pDasm->GetMemIndex(from, bInfoBus) == NO_ADDRESS)
-                    pDasm->AddMemory(from, 1, Code, NULL, bInfoBus);
-                  pDasm->SetUByte(from++, (uint8_t)to, bInfoBus);
+                  if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
+                    pDasm->AddMemory(from, 1, Code, NULL, infoBus);
+                  pDasm->SetUByte(from++, (uint8_t)to, infoBus);
                   }
                 else
                   from = NO_ADDRESS;
@@ -1660,9 +1712,9 @@ do
               case infoPatchWord :      /* PATCHW addr [word]*               */
                 if (sscanf(item.c_str(), "%x", &to) == 1)
                   {
-                  if (pDasm->GetMemIndex(from, bInfoBus) == NO_ADDRESS)
-                    pDasm->AddMemory(from, 2, Data, NULL, bInfoBus);
-                  pDasm->SetUWord(from, (uint16_t)to, bInfoBus);
+                  if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
+                    pDasm->AddMemory(from, 2, Data, NULL, infoBus);
+                  pDasm->SetUWord(from, (uint16_t)to, infoBus);
                   from += 2;
                   }
                 else
@@ -1671,9 +1723,9 @@ do
               case infoPatchDWord :     /* PATCHDW addr [dword]*             */
                 if (sscanf(item.c_str(), "%x", &to) == 1)
                   {
-                  if (pDasm->GetMemIndex(from, bInfoBus) == NO_ADDRESS)
-                    pDasm->AddMemory(from, 4, Data, NULL, bInfoBus);
-                  pDasm->SetUDWord(from, (uint32_t)to, bInfoBus);
+                  if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
+                    pDasm->AddMemory(from, 4, Data, NULL, infoBus);
+                  pDasm->SetUDWord(from, (uint32_t)to, infoBus);
                   from += 4;
                   }
                 else
@@ -1685,17 +1737,17 @@ do
                 if (sscanf(item.c_str(), "%lf", &d) == 1)
                   {
                   int sz;
-                  if (pDasm->GetMemIndex(from, bInfoBus) == NO_ADDRESS)
+                  if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
                     {
-                    pDasm->AddMemory(from, 4, Data, NULL, bInfoBus);
+                    pDasm->AddMemory(from, 4, Data, NULL, infoBus);
                     sz = 4;
                     }
                   else
-                    sz = pDasm->GetCellSize(from, bInfoBus);
+                    sz = pDasm->GetCellSize(from, infoBus);
                   if (sz == 4)
-                    pDasm->SetFloat(from, (float)d, bInfoBus);
+                    pDasm->SetFloat(from, (float)d, infoBus);
                   else if (sz == 8)
-                    pDasm->SetDouble(from, d, bInfoBus);
+                    pDasm->SetDouble(from, d, infoBus);
                   // Tenbytes ... no, sorry. Not yet. Maybe never.
                   else
                     from = NO_ADDRESS;
@@ -1817,13 +1869,13 @@ else if (option == "nounused")
   showUnused = false;
 else if (option == "labellen" && iValue > 0 && iValue < 256)
   labelLen = iValue;
-else if (option == "llabellen" && iValue > 0 && iValue < 256)
+else if (option == "eqlbllen" && iValue > 0 && iValue < 256)
   lLabelLen = iValue;
-else if (option == "mnemolen" && iValue > 0 && iValue < 256)
+else if (option == "opcodelen" && iValue > 0 && iValue < 256)
   mnemoLen = iValue;
-else if (option == "cparmlen" && iValue > 0 && iValue < 256)
+else if (option == "copndlen" && iValue > 0 && iValue < 256)
   cparmLen = iValue;
-else if (option == "uparmlen" && iValue > 0 && iValue < 256)
+else if (option == "uopndlen" && iValue > 0 && iValue < 256)
   uparmLen = iValue;
 else if (option == "dbcount" && iValue > 0 && iValue < 256)
   dbCount = iValue;
@@ -1974,10 +2026,10 @@ else
   ListOptionLine("comment", "{off|on}\toutput comments", showComments ? "on" : "off");
   ListOptionLine("unused", "{off|on}\toutput unused defined labels", showUnused ? "on" : "off");
   ListOptionLine("labellen", "{length}\tspace reserved for labels", sformat("%d", labelLen));
-  ListOptionLine("llabellen", "{length}\tspace reserved for label definition labels", sformat("%d", lLabelLen));
-  ListOptionLine("mnemolen", "{length}\tspace reserved for mnemonics", sformat("%d", mnemoLen));
-  ListOptionLine("cparmlen", "{length}\tspace reserved for commented parameters", sformat("%d", cparmLen));
-  ListOptionLine("uparmlen", "{length}\tspace reserved for uncommented parameters", sformat("%d", uparmLen));
+  ListOptionLine("eqlbllen", "{length}\tspace reserved for equ labels", sformat("%d", lLabelLen));
+  ListOptionLine("opcodelen", "{length}\tspace reserved for opcodes", sformat("%d", mnemoLen));
+  ListOptionLine("copndlen", "{length}\tspace reserved for commented operands", sformat("%d", cparmLen));
+  ListOptionLine("uopndlen", "{length}\tspace reserved for uncommented operands", sformat("%d", uparmLen));
   ListOptionLine("dbcount", "{num}\tspace reserved for hex/ascii dump bytes",  sformat("%d", dbCount));
   printf("  %s-specific options:\n", Disassemblers[iDasm].name.c_str());
   for (int i = 0; i < pDasm->GetOptionCount(); i++)
@@ -2139,40 +2191,42 @@ return 1;
 /*****************************************************************************/
 
 #ifdef _DEBUG
-void Application::DumpMem(bool bDataBus)
+void Application::DumpMem(BusType bus)
 {
 if (!pDasm) return;
 
 std::string sComBlk = pDasm->GetOption("cchar") + " ";
 
-int mac = pDasm->GetMemoryArrayCount(bDataBus);
-int maac = pDasm->GetMemAttrArrayCount(bDataBus);
+int mac = pDasm->GetMemoryArrayCount(bus);
+int maac = pDasm->GetMemAttrArrayCount(bus);
 PrintLine(sComBlk +
           sformat("%s Bus: %d memory areas, %d memory attribute areas",
-                  bDataBus ? "Data" : "Code", mac, maac));
+                  (bus == BusIO) ? "I/O" :
+                  (bus == BusData) ?"Data" : "Code",
+                  mac, maac));
 int i;
 for (i = 0; i < mac; i++)
   {
-  TMemory<uint8_t, MemoryType> &area = pDasm->GetMemoryArray(i, bDataBus);
+  TMemory<uint8_t, MemoryType> &area = pDasm->GetMemoryArray(i, bus);
   PrintLine(sComBlk +
           sformat("Memory area %2d: start=%x size=%x", i,
                   area.GetStart(),
                   area.size()));
   }
-MemAttributeHandler *pmah = pDasm->GetMemoryAttributeHandler(bDataBus);
+MemAttributeHandler *pmah = pDasm->GetMemoryAttributeHandler(bus);
 for (i = 0; i < maac; i++)
   {
-  TMemory<uint8_t, MemoryType> &area = pDasm->GetMemoryArray(i, bDataBus);
+  TMemory<uint8_t, MemoryType> &area = pDasm->GetMemoryArray(i, bus);
   PrintLine(sComBlk +
             sformat("Memory attribute area %2d: start=%x size=%x", i,
                     pmah->GetStart(i),
                     pmah->size(i)));
   }
 
-int nLabels = pDasm->GetLabelCount(bDataBus);
+int nLabels = pDasm->GetLabelCount(bus);
 for (i = 0; i < nLabels; i++)
   {
-  Label *pLabel = pDasm->LabelAt(i, bDataBus);
+  Label *pLabel = pDasm->LabelAt(i, bus);
   PrintLine(sComBlk +
           sformat("Label %4d: addr=%x type=%d \"%s\" %sused",
                   i, pLabel->GetAddress(), pLabel->GetType(),
@@ -2180,20 +2234,20 @@ for (i = 0; i < nLabels; i++)
                   pLabel->IsUsed() ? "" : "un"));
   }
 
-int nComments = GetCommentCount(false, bDataBus);
+int nComments = GetCommentCount(false, bus);
 for (i = 0; i < nComments; i++)
   {
-  Comment *pComment = CommentAt(false, i, bDataBus);
+  Comment *pComment = CommentAt(false, i, bus);
   PrintLine(sComBlk +
           sformat("%s %4d: before addr=%x \"%s\"",
                   pComment->IsComment() ? "Comment" : "Insert ",
                   i, pComment->GetAddress(),
                   pComment->GetText().c_str()));
   }
-nComments = GetCommentCount(true, bDataBus);
+nComments = GetCommentCount(true, bus);
 for (i = 0; i < nComments; i++)
   {
-  Comment *pComment = CommentAt(true, i, bDataBus);
+  Comment *pComment = CommentAt(true, i, bus);
   PrintLine(sComBlk +
           sformat("%s %4d: after  addr=%x \"%s\"",
                   pComment->IsComment() ? "Comment" : "Insert ",

@@ -521,7 +521,13 @@ return Disassembler::String2Number(s, value);
 /* Number2String : converts a number to a string in a variety of formats     */
 /*****************************************************************************/
 
-std::string Dasm6800::Number2String(addr_t value, int nDigits, addr_t addr, bool bDataBus)
+std::string Dasm6800::Number2String
+    (
+    addr_t value,
+    int nDigits,
+    addr_t addr,
+    BusType bus
+    )
 {
 std::string s;
 
@@ -589,9 +595,9 @@ return s;                               /* pass back generated string        */
 /* InitParse : initialize parsing                                            */
 /*****************************************************************************/
 
-bool Dasm6800::InitParse(bool bDataBus)
+bool Dasm6800::InitParse(BusType bus)
 {
-if (!bDataBus)
+if (bus == BusCode)
   {
   if (bSetSysVec)
     {
@@ -625,7 +631,7 @@ if (!bDataBus)
       }
     }
   }
-return Disassembler::InitParse(bDataBus);
+return Disassembler::InitParse(bus);
 }
 
 /*****************************************************************************/
@@ -635,7 +641,7 @@ return Disassembler::InitParse(bDataBus);
 addr_t Dasm6800::ParseData
     (
     addr_t addr,
-    bool bDataBus                       /* ignored for 6800 and derivates    */
+    BusType bus                         /* ignored for 6800 and derivates    */
     )
 {
 int csz = GetCellSize(addr);
@@ -685,7 +691,7 @@ return PC;
 addr_t Dasm6800::ParseCode
     (
     addr_t addr,
-    bool bDataBus                       /* ignored for 6800 and derivates    */
+    BusType bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -770,21 +776,19 @@ return PC - addr;                       /* pass back # processed bytes       */
 
 bool Dasm6800::DisassembleLabel
     (
-    addr_t addr,
+    Label *label,
+    std::string &slabel,
     std::string &smnemo,
     std::string &sparm,
-    bool bDataBus
+    BusType bus
     )
 {
-Label *pLabel;
-std::string s;
-
-if (/* !IsCellUsed(addr) && */ // to be done externally!
-    (pLabel = FindLabel(addr)) != NULL &&
-    pLabel->GetText().find_first_of("+-") == std::string::npos)
+if (label->GetText().find_first_of("+-") == std::string::npos)
   {
+  addr_t laddr = label->GetAddress();
+  slabel = Label2String(laddr, true, laddr, bus);
   smnemo = "EQU";
-  sparm = sformat("$%04X", addr);
+  sparm = Address2String(laddr, bus);
   return true;
   }
 return false;
@@ -802,10 +806,9 @@ addr_t Dasm6800::DisassembleData
     std::string &smnemo,
     std::string &sparm,
     int maxparmlen,
-    bool bDataBus                       /* ignored for 6800 and derivates    */
+    BusType bus                         /* ignored for 6800 and derivates    */
     )
 {
-std::string::size_type max = 24; //(nComment ? 24 : 52);
 addr_t done;
 
 if (flags & SHMF_RMB)                   /* if reserved memory block          */
@@ -872,7 +875,7 @@ addr_t Dasm6800::DisassembleCode
     addr_t addr,
     std::string &smnemo,
     std::string &sparm,
-    bool bDataBus                       /* ignored for 6800 and derivates    */
+    BusType bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -991,7 +994,7 @@ bool Dasm6800::DisassembleChanges
     addr_t prevsz,
     bool bAfterLine,
     std::vector<LineChange> &changes,
-    bool bDataBus
+    BusType bus
     )
 {
 // init / exit
@@ -1004,14 +1007,14 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
     {
     LineChange chg;
     changes.push_back(chg);             /* append empty line before END      */
-    chg.smnemo = "END";
+    chg.oper = "END";
     if (load != NO_ADDRESS &&           /* if entry point address given      */
         bLoadLabel)                     /* and labelling wanted              */
-      chg.sparm = Label2String(load, true, load);
+      chg.opnds = Label2String(load, true, load);
     changes.push_back(chg);
     }
   }
-else if (!bDataBus)                     /* no Harvard architecture here.     */
+else if (bus == BusCode)                /* no Harvard architecture here.     */
   {
   addr_t org = DephaseOuter(addr, addr);
   addr_t prevorg = DephaseOuter(prevaddr, prevaddr);
@@ -1030,14 +1033,14 @@ else if (!bDataBus)                     /* no Harvard architecture here.     */
       changes.push_back(chg);
       if (prevphase != NO_ADDRESS && prevphstart != curphstart)
         {
-        chg.smnemo = "DEPHASE";
+        chg.oper = "DEPHASE";
         changes.push_back(chg);
         changes.push_back(LineChange());
         }
       if (addr != NO_ADDRESS)
         {
-        chg.smnemo = "ORG";
-        chg.sparm = Number2String(addr, 4, NO_ADDRESS);
+        chg.oper = "ORG";
+        chg.opnds = Number2String(addr, 4, NO_ADDRESS);
         changes.push_back(chg);
         if (curphase != NO_ADDRESS &&
             prevphstart != curphstart
@@ -1045,8 +1048,8 @@ else if (!bDataBus)                     /* no Harvard architecture here.     */
 //          && curphase != addr
             )
           {
-          chg.smnemo = "PHASE";
-          chg.sparm = Number2String(curphase, 4, NO_ADDRESS);
+          chg.oper = "PHASE";
+          chg.opnds = Number2String(curphase, 4, NO_ADDRESS);
           changes.push_back(chg);
           }
         changes.push_back(LineChange());
@@ -1055,5 +1058,5 @@ else if (!bDataBus)                     /* no Harvard architecture here.     */
     }
   }
 
-return Disassembler::DisassembleChanges(addr, prevaddr, prevsz, bAfterLine, changes, bDataBus);
+return Disassembler::DisassembleChanges(addr, prevaddr, prevsz, bAfterLine, changes, bus);
 }

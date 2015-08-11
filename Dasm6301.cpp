@@ -166,7 +166,7 @@ Dasm6301::~Dasm6301(void)
 addr_t Dasm6301::ParseCode
     (
     addr_t addr,
-    bool bDataBus                       /* ignored for 6800 and derivates    */
+    BusType bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -194,7 +194,7 @@ switch (M)                              /* which mode is this ?              */
       }
     break;
   default :                             /* anything else is handled by base  */
-    return Dasm6801::ParseCode(addr, bDataBus);
+    return Dasm6801::ParseCode(addr, bus);
   }
 return PC - addr;                       /* pass back # processed bytes       */
 }
@@ -208,7 +208,7 @@ addr_t Dasm6301::DisassembleCode
     addr_t addr,
     std::string &smnemo,
     std::string &sparm,
-    bool bDataBus                       /* ignored for 6800 and derivates    */
+    BusType bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -251,7 +251,7 @@ switch (M)                              /* which mode is this?               */
                     Label2String(W, bGetLabel, PC - 1).c_str());
     break;
   default :                             /* anything else is handled by base  */
-    return Dasm6801::DisassembleCode(addr, smnemo, sparm, bDataBus);
+    return Dasm6801::DisassembleCode(addr, smnemo, sparm, bus);
   }
 return PC - addr;                       /* pass back # processed bytes       */
 }
