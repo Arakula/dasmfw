@@ -28,3 +28,8 @@ v0.5  2015-07-26 "comment" option added to allow suppressing comments
                  insert|prepend|comment|prepcom without address range
                  can be used to insert text before the output
 v0.6  2015-08-02 AVR8 disassembler added
+v0.7  2015-08-18 Quite some bug fixes, changes and enhancements
+                 signed|unsigned option added
+                 multilabel option added
+                 deflabel directive added
+                 reglabel directive added for AVR8 info files

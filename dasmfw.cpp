@@ -177,6 +177,19 @@ return sout;
 }
 
 /*****************************************************************************/
+/* ltrim : remove leading blanks from string                                 */
+/*****************************************************************************/
+
+std::string ltrim(std::string s)
+{
+if (s.empty()) return s;
+std::string::size_type from = s.find_first_not_of(" ");
+if (from == s.npos)
+  return "";
+return from ? s.substr(from) : s;
+}
+
+/*****************************************************************************/
 /* trim : remove leading and trailing blanks from string                     */
 /*****************************************************************************/
 
@@ -315,11 +328,12 @@ for (i = 0; i < BusTypes; i++)
   bus = pDasm->GetBus(i);
   if (pDasm->GetMemoryArrayCount(bus)) Parse(1, bus);
   }
-// resolve all XXXXXXXX+/-nnnn labels
+
+// resolve all XXXXXXXX+/-nnnn labels and DefLabels
 for (i = 0; i < BusTypes; i++)
   {
   bus = pDasm->GetBus(i);
-  ResolveRelativeLabels(bus);
+  pDasm->ResolveLabels(bus);
   }
 
 // set up often used texts and flags
@@ -373,11 +387,12 @@ for (i = 0; i < BusTypes; i++)
 // disassembler-specific initialization
 DisassembleChanges(NO_ADDRESS, NO_ADDRESS, 0, false, BusCode);
 
-// output of labels without data
+// output of (def)labels without data
 for (i = 0; i < BusTypes; i++)
   {
   bus = pDasm->GetBus(i);
   DisassembleLabels(sComDel, sComHdr, bus);
+  DisassembleDefLabels(sComDel, sComHdr, bus);
   }
 
 // disassemble all memory areas for the busses
@@ -464,9 +479,14 @@ for (int i = 0;                         /* load file(s) given on commandline */
                           saFNames[i].c_str());
     if (nInterleave != 1)
       saFNames[i] += sformat(" (interleave=%d)", nInterleave);
+#ifndef _DEBUG
     printf("%s\n", saFNames[i].c_str());
+#endif
     bAllOK &= bOK;
     }
+#ifdef _DEBUG
+  printf("%s\n", saFNames[i].c_str());
+#endif
   }
 
 return bAllOK;
@@ -524,36 +544,6 @@ return true;
 }
 
 /*****************************************************************************/
-/* ResolveRelativeLabels : resolve all XXXXXXXX+/-nnnn labels                */
-/*****************************************************************************/
-
-bool Application::ResolveRelativeLabels(BusType bus)
-{
-for (int i = pDasm->GetLabelCount(bus) - 1; i >= 0; i--)
-  {
-  Label *pLbl = pDasm->LabelAt(i, bus);
-  if (!pLbl->IsUsed())
-    continue;
-  std::string s = pLbl->GetText();
-  std::string::size_type p = s.find_first_of("+-");
-  addr_t offs;
-  if (p != s.npos &&
-//    pDasm->String2Number(s.substr(p + 1), offs))
-      sscanf(s.substr(p + 1).c_str(), "%d", &offs) == 1)
-    {
-    if (s[p] == '+') offs = (addr_t)(-(int32_t)offs);
-    pLbl->SetUsed(false);
-    pDasm->AddLabel(pLbl->GetAddress() + offs, pLbl->GetType(),
-                    s.substr(0, p), true, bus);
-    // this might have caused an insertion, so restart here
-    i++;
-    }
-  }
-
-return true;
-}
-
-/*****************************************************************************/
 /* DisassembleComments : show all comments for this line                     */
 /*****************************************************************************/
 
@@ -603,7 +593,7 @@ for (std::vector<Disassembler::LineChange>::size_type i = 0;
      i < changes.size();
      i++)
   {
-  PrintLine("", changes[i].oper.c_str(), changes[i].opnds.c_str());
+  PrintLine(changes[i].label, changes[i].oper, changes[i].opnds);
   }
 return bRC;
 }
@@ -623,6 +613,7 @@ std::string sComBlk(sComDel + " ");
 CommentArray::iterator it;
 Comment *pComment;
 static bool bULHOut = false;
+addr_t paddr = NO_ADDRESS;
 for (int l = 0; l < pDasm->GetLabelCount(bus); l++)
   {
   Label *pLbl = pDasm->LabelAt(l, bus);
@@ -648,10 +639,12 @@ for (int l = 0; l < pDasm->GetLabelCount(bus); l++)
         }
 
       // comments before line
-      DisassembleComments(laddr, false, sComDel, bus);
+      if (laddr != paddr)
+        DisassembleComments(laddr, false, sComDel, bus);
 
       // the line itself
-      pComment = showComments ? GetFirstLComment(laddr, it, bus) : NULL;
+      pComment = (showComments && laddr != paddr) ?
+                     GetFirstLComment(laddr, it, bus) : NULL;
       std::string scomment = pComment ? pComment->GetText() : "";
       if (scomment.size()) scomment = sComBlk + scomment;
       PrintLine(slabel, smnemo, sparm, scomment, lLabelLen);
@@ -662,8 +655,51 @@ for (int l = 0; l < pDasm->GetLabelCount(bus); l++)
         }
 
       // comments after line
-      DisassembleComments(laddr, true, sComDel, bus);
+      if (laddr != paddr)
+        DisassembleComments(laddr, true, sComDel, bus);
+
+      paddr = laddr;
       }
+    }
+  }
+
+return true;
+}
+
+/*****************************************************************************/
+/* DisassembleDefLabels : disassemble all used DefLabels                     */
+/*****************************************************************************/
+
+bool Application::DisassembleDefLabels
+    (
+    std::string sComDel,
+    std::string sComHdr,
+    BusType bus
+    )
+{
+std::string sComBlk(sComDel + " ");
+
+static bool bULHOut = false;
+for (int l = 0; l < pDasm->GetDefLabelCount(bus); l++)
+  {
+  DefLabel *pLbl = pDasm->DefLabelAt(l, bus);
+  std::string slabel, smnemo, sparm;
+  // DefLabels got no comments ATM
+  if (pLbl &&
+      pDasm->DisassembleDefLabel(pLbl, slabel, smnemo, sparm, bus))
+    {
+    // header, if not yet done
+    if (!bULHOut)
+      {
+      PrintLine();
+      PrintLine(sComHdr);
+      PrintLine(sComBlk + "Used Definitions");
+      PrintLine(sComHdr);
+      PrintLine();
+      bULHOut = true;
+      }
+    // and no line comments
+    PrintLine(slabel, smnemo, sparm, "", lLabelLen);
     }
   }
 
@@ -692,8 +728,24 @@ bool bWithComments = showHex || showAsc || showAddr;
 DisassembleComments(addr, false, sComDel, bus);
 
 // the line itself
-Label *p = pDasm->FindLabel(addr, Untyped, bus);
-if (p && p->IsUsed())
+// in case of multiple labels, it's always the last one that's used
+// for the "real" code/data line, so prepend all others
+LabelArray::iterator lit;
+Label *p = NULL, *pNext = pDasm->GetFirstLabel(addr, lit, Untyped, bus);
+while (pNext)
+  {
+  if (pNext->IsUsed() && !pNext->IsConst())
+    p = pNext;
+  pNext = pDasm->GetNextLabel(addr, lit, Untyped, bus);
+  // multiple labels get their own lines
+  if (p != pNext && pNext && pNext->IsUsed() && !pNext->IsConst())
+    {
+    std::string s = p->GetText();
+    if (s.size())
+      PrintLine(s + labelDelim);
+    }
+  }
+if (p && p->IsUsed() && !p->IsConst())
   sLabel = pDasm->Label2String(addr, true, addr, bus) +
            labelDelim;
 pComment = showComments ? GetFirstLComment(addr, it, bus) : NULL;
@@ -807,7 +859,7 @@ return nLen > 0;
 
 int Application::ParseInfoRange(std::string value, addr_t &from, addr_t &to)
 {
-int n = pDasm->String2Range(value, from, to);
+int n = pDasm ? pDasm->String2Range(value, from, to) : 0;
 if (n < 1)
   from = NO_ADDRESS;
 if (from != NO_ADDRESS)
@@ -855,12 +907,12 @@ return n;
 /* triminfo : trims an info line's value, cutting at comment character       */
 /*****************************************************************************/
 
-static std::string triminfo
+std::string triminfo
     (
     std::string s,
-    bool bCutComment = true,
-    bool bUnescape = true,
-    bool bDotStart = false
+    bool bCutComment,
+    bool bUnescape,
+    bool bDotStart
     )
 {
 // copied from trim()
@@ -894,7 +946,8 @@ bool Application::LoadInfo
     (
     std::string fileName,
     std::vector<std::string> &loadStack,
-    bool bProcInfo
+    bool bProcInfo,
+    bool bSetDasm
     )
 {
 if (!pDasm && bProcInfo)                /* no disassembler, no work.         */
@@ -939,6 +992,8 @@ enum InfoCmd
   infoOct,                              /* OCT addr[-addr]                   */
   infoDec,                              /* DEC addr[-addr]                   */
   infoHex,                              /* HEX addr[-addr]                   */
+  infoSigned,                           /* SIGNED addr[-addr]                */
+  infoUnsigned,                         /* UNSIGNED addr[-addr]              */
   infoFloat,                            /* FLOAT addr[-addr]                 */
   infoDouble,                           /* DOUBLE addr[-addr]                */
   infoTenBytes,                         /* TENBYTES addr[-addr]              */
@@ -951,7 +1006,6 @@ enum InfoCmd
   // label handling
   infoLabel,                            /* LABEL addr[-addr] label           */
   infoDefLabel,                         /* DEFLABEL addr[-addr] label        */
-  infoIOLabel,                          /* IOLABEL addr[-addr] label         */
   infoUsedLabel,                        /* USEDLABEL addr[-addr] [label]     */
   infoUnlabel,                          /* UNLABEL addr[-addr]               */
   // phasing support
@@ -961,7 +1015,7 @@ enum InfoCmd
   // handled outside disassembler engine:
   infoInclude,                          /* INCLUDE infofilename              */
   infoOption,                           /* OPTION name data                  */
-  infoFile,                             /* FILE filename                     */
+  infoFile,                             /* FILE filename [offset]            */
   infoRemap,                            /* REMAP addr[-addr] offs            */
   // comment handling
   infoComment,                          /* COMMENT addr[-addr] comment       */
@@ -1017,6 +1071,8 @@ static struct                           /* structure to convert key to type  */
   { "HEXADECIMAL",  infoHex },
   { "SEDECIMAL",    infoHex },
   { "HEX",          infoHex },
+  { "SIGNED",       infoSigned },
+  { "UNSIGNED",     infoUnsigned },
   { "FLOAT",        infoFloat },
   { "DOUBLE",       infoDouble },
   { "TENBYTES",     infoTenBytes },
@@ -1031,8 +1087,6 @@ static struct                           /* structure to convert key to type  */
   // label handling
   { "LABEL",        infoLabel },
   { "DEFLABEL",     infoDefLabel },
-  { "IOLABEL",      infoIOLabel },
-  { "IOPORT",       infoIOLabel },
   { "USED",         infoUsedLabel },
   { "USEDLABEL",    infoUsedLabel },
   { "UNLABEL",      infoUnlabel },
@@ -1140,7 +1194,7 @@ do
         }
       }
 
-    if (pDasm)                          /* let disassembler have a go at it  */
+    if (pDasm && !bSetDasm)             /* let disassembler have a go at it  */
       {
       addr_t from, to;                  /* address range has to be first!    */
       ParseInfoRange(value, from, to);
@@ -1154,6 +1208,8 @@ do
           cmdType != infoOption &&
           cmdType != infoFile)
         cmdType = infoUnknown;          /* ignore all unwanted command types */
+      if (cmdType == infoFile && bSetDasm)
+        cmdType = infoUnknown;
       }
     else                                /* if processing complete file       */
       {
@@ -1187,7 +1243,7 @@ do
         for (; i < value.size() && value[i] != delim1 && value[i] != delim2; i++)
           fn += value[i];
         loadStack.push_back(fileName);
-        LoadInfo(fn, loadStack, bProcInfo);
+        LoadInfo(fn, loadStack, bProcInfo, bSetDasm);
         loadStack.pop_back();
         }
         break;
@@ -1262,6 +1318,9 @@ do
       case infoOct :                    /* OCT addr[-addr]                   */
       case infoDec :                    /* DEC addr[-addr]                   */
       case infoHex :                    /* HEX addr[-addr]                   */
+      // cell types
+      case infoSigned :                 /* SIGNED addr[-addr]                */
+      case infoUnsigned :               /* UNSIGNED addr[-addr]              */
       // combined size + type
       case infoFloat :                  /* FLOAT addr[-addr]                 */
       case infoDouble :                 /* DOUBLE addr[-addr]                */
@@ -1356,6 +1415,12 @@ do
                 case infoHex :
                   pDasm->SetDisplay(scanned, MemAttribute::Hex, infoBus);
                   break;
+                case infoSigned :
+                  pDasm->SetCellType(scanned, MemAttribute::SignedInt, infoBus);
+                  break;
+                case infoUnsigned :
+                  pDasm->SetCellType(scanned, MemAttribute::UnsignedInt, infoBus);
+                  break;
                 case infoFloat :
                   pDasm->SetCellSize(scanned, 4, infoBus);
                   pDasm->SetCellType(scanned, MemAttribute::Float, infoBus);
@@ -1384,16 +1449,7 @@ do
                     }
                   sz = pDasm->GetCodePtrSize();
                   pDasm->SetCellSize(scanned, sz, infoBus);
-                  if (sz == 1)
-                    tgtaddr = pDasm->GetUByte(scanned, infoBus);
-                  else if (sz == 2)
-                    tgtaddr = pDasm->GetUWord(scanned, infoBus);
-                  else if (sz == 4)
-                    tgtaddr = pDasm->GetUDWord(scanned, infoBus);
-#if (ADDR_T_SIZE >= 8)
-                  else if (sz == 8)
-                    tgtaddr = pDasm->GetUQWord(scanned, infoBus);
-#endif
+                  tgtaddr = pDasm->GetTypedInt(scanned, infoBus);
                   pDasm->AddLabel(tgtaddr, Code,
                                   sformat("Z%0*Xvia%0*X",
                                           sz*2, tgtaddr,
@@ -1410,16 +1466,7 @@ do
                     }
                   sz = pDasm->GetDataPtrSize();
                   pDasm->SetCellSize(scanned, sz, infoBus);
-                  if (sz == 1)
-                    tgtaddr = pDasm->GetUByte(scanned, infoBus);
-                  else if (sz == 2)
-                    tgtaddr = pDasm->GetUWord(scanned, infoBus);
-                  else if (sz == 4)
-                    tgtaddr = pDasm->GetUDWord(scanned, infoBus);
-#if (ADDR_T_SIZE >= 8)
-                  else if (sz == 8)
-                    tgtaddr = pDasm->GetUQWord(scanned, infoBus);
-#endif
+                  tgtaddr = pDasm->GetTypedInt(scanned, infoBus);
                   pDasm->AddLabel(tgtaddr, Code,
                                   sformat("M%0*Xvia%0*X",
                                           sz*2, tgtaddr,
@@ -1466,7 +1513,6 @@ do
         break;
       case infoLabel :                  /* LABEL addr[-addr] label           */
       case infoDefLabel :               /* DEFLABEL addr[-addr] label        */
-      case infoIOLabel :                /* IOLABEL addr[-addr] label         */
       case infoUsedLabel :              /* USEDLABEL addr[-addr] [label]     */
         {
         addr_t from, to;
@@ -1481,7 +1527,6 @@ do
         bool bTextOk = (cmdType == infoUsedLabel) || value.size();
         MemoryType memType =
             (cmdType == infoDefLabel) ? Const :
-            (cmdType == infoIOLabel) ? IOPort :
             Untyped;
         bool bUsed = (/* cmdType == infoDefLabel || */ cmdType == infoUsedLabel);
         if (ParseInfoRange(range, from, to) >= 1 && bTextOk)
@@ -1827,7 +1872,7 @@ else if (option == "out")
   }
 else if (option == "info")
   {
-  bool bOK = LoadInfo(value, bProcInfo);
+  bool bOK = LoadInfo(value, bProcInfo, bSetDasm);
   if (bOK && !bSetDasm && !bProcInfo)
     saINames.push_back(value);
   return !!bOK;
@@ -2007,7 +2052,6 @@ if (pDasm)
 #endif
 printf(":\n");
 ListOptionLine("?|help", "[options|info]\tHelp for options or info file");
-ListOptionLine("out", "Output File name", outname.size() ? outname : "console");
 ListOptionLine("dasm", "{code}\tDisassembler to use",
                pDasm ? Disassemblers[iDasm].name : std::string(""));
 
@@ -2019,6 +2063,8 @@ if (!pDasm)
   }
 else
   {
+  ListOptionLine("out", "Output File name", outname.size() ? outname : "console");
+  ListOptionLine("info", "Info File name");
   printf("  Output formatting options:\n");
   ListOptionLine("addr", "{off|on}\toutput address dump", showAddr ? "on" : "off");
   ListOptionLine("hex", "{off|on}\toutput hex dump", showHex ? "on" : "off");
@@ -2074,6 +2120,7 @@ printf("Info file contents:\n"
        "\tPREPEND [AFTER] [addr[-addr]] text to be prepended to the output\n"
        "\tPREPCOMM [AFTER] [addr[-addr]] comment text to be prepended to the output\n"
       "\nMemory content definitions\n"
+       "\tBus definition:     BUS {code|data|io}\n"
        "\tunused area:        UNUSED from-to\n"
        "\treserved area:      RMB from-to\n"
        "\tcode area:          CODE from[-to]\n"
@@ -2081,6 +2128,8 @@ printf("Info file contents:\n"
        "\tbinary data area:   BIN[ARY] from[-to]\n"
        "\tdecimal data area:  DEC[IMAL] from[-to]\n"
        "\thex data area:      HEX[ADECIMAL] from[-to]\n"
+       "\tsigned data area:   SIGNED from[-to]\n"
+       "\tunsigned data area: UNSIGNED from[-to]\n"
        "\tconstants in memory:CONST from[-to] (like hex)\n"
        "\tchar data area:     CHAR from[-to] (like hex, but ASCII if possible)\n"
        "\tword data area:     WORD from[-to] (like hex, but 16 bit)\n"
@@ -2113,6 +2162,8 @@ printf("Info file contents:\n"
       "\nMisc control\n"
        "\tinsert byte data:   PATCH addr[-addr] data[...]\n"
        "\tinsert word data:   PATCHW addr[-addr] data[...]\n"
+       "\tinsert dword data:  PATCHDW addr[-addr] data[...]\n"
+       "\tinsert float data:  PATCHF addr[-addr] data[...]\n"
        "\tinsert text:        INSERT [AFTER] addr[-addr] embedded line\n"
        "\tinclude label file: INCLUDE filename\n"
        "\tload binary file:   FILE filename [baseaddr]\n"
@@ -2121,7 +2172,7 @@ printf("Info file contents:\n"
        "Consists of text records of one of the following formats:\n"
        "* comment line\n"
 
-       "BUS {code|data}  (only necessary for Hardvard architecture)\n"
+       "BUS {code|data|io}\n"
 
        "CODE addr[-addr]\n"
        "DATA addr[-addr]\n"
@@ -2140,9 +2191,11 @@ printf("Info file contents:\n"
        "OCT[AL] addr[-addr] (forced octal data)\n"
        "DEC[IMAL] addr[-addr] (forced decimal data)\n"
        "HEX[ADECIMAL] addr[-addr] (forced hex data)\n"
-       "FLOAT addr[-addr]\n"
-       "DOUBLE addr[-addr]\n"
-       "TENBYTES addr[-addr]\n"
+       "SIGNED addr[-addr] (data is signed integer)\n"
+       "UNSIGNED addr[-addr] (data is unsigned integer)\n"
+       "FLOAT addr[-addr] (data is 32bit floating point)\n"
+       "DOUBLE addr[-addr] (data is 64bit floating point)\n"
+       "TENBYTES addr[-addr] (data is 80bir floating point)\n"
 
        "BREAK from[-to]\n"
        "UNBREAK from[-to]\n"
@@ -2151,7 +2204,8 @@ printf("Info file contents:\n"
        "UNREL[ATIVE] addr[-addr]\n"
 
        "LABEL addr[-addr] name\n"
-       "USED[LABEL] addr[-addr]  (forces label to \"Used\")\n"
+       "DEFLABEL addr[-addr] name\n"
+       "USED[LABEL] addr[-addr] [name]  (forces label to \"Used\")\n"
        "UNLABEL addr[-addr]\n"
 
        "PHASE addr[-addr] [+|-]phase\n"
@@ -2170,6 +2224,11 @@ printf("Info file contents:\n"
        "PREPLCOMM[ENT] addr[-addr] prepended line comment\n"
        "UNCOMMENT [AFTER] addr[-addr]\n"
        "UNLCOMMENT addr[-addr]\n"
+
+       "PATCH addr [byte]*\n"
+       "PATCHW addr [word]*\n"
+       "PATCHDW addr [word]*\n"
+       "PATCHF addr [float]*\n"
 
        "END\n"
 #endif

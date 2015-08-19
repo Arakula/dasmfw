@@ -63,29 +63,32 @@ uint32_t GetBasicDisassemblyFlags(MemAttribute *pAttr, uint8_t mem, Label *plbl)
 {
 // should be sufficient for most, if not all, disassemblers
 uint32_t wf = 0;
+MemoryType mt = pAttr ? pAttr->GetMemType() : Untyped;
 if (!pAttr ||
-    pAttr->GetMemType() == Code ||
+    mt == Code ||
     !pAttr->IsUsed())
   return 0;
 
 MemAttribute::Display display = pAttr->GetDisplay();
 wf = pAttr->cellSize | SHMF_DATA;       /* assemble flags for data byte      */
 
-if (pAttr->GetMemType() == Bss)
-  wf |= SHMF_RMB;
-else if (pAttr->GetSize() == 1
+if (pAttr->GetSize() != 1 ||
 #if RB_VARIANT
-         && display == MemAttribute::Char
+     (display != MemAttribute::Char ||
 #else
-         && display != MemAttribute::Binary
+     (display == MemAttribute::Binary ||
 #endif
-         )
+      mt == Const))
+  wf |= SHMF_NOTXT;
+
+if (mt == Bss)
+  wf |= SHMF_RMB;
+else if (!(wf & SHMF_NOTXT))
   {
   // NB: this is totally ASCII-centric, but as long as we don't
   // have to deal with other encodings, it should be OK.
   if ((mem >= 0x20) && (mem <= 0x7e) &&
-      (mem != '&') && (mem != '\"') &&
-      (pAttr->GetMemType() != Const))
+      (mem != '&') && (mem != '\"'))
     wf |= SHMF_TXT;
   }
 if (pAttr->GetBreakBefore())
@@ -99,12 +102,6 @@ if (plbl && plbl->IsUsed())
   if (s.find('-') == s.npos && s.find('+') == s.npos)
     wf |= SHMF_BREAK;
   }
-
-#if 0
-// Should be done outside
-if ((commentlines[pc]) || (lcomments[pc]))
-    wf |= SHMF_COMMENT;
-#endif
 
 return wf;
 }
@@ -141,12 +138,17 @@ labelDelim = "";
 #endif
 defaultDisplay = MemAttribute::Hex;
 pbase = 16;
+disassemblyFlagMask = (uint32_t)-1;
 bLoadLabel = true;
 bSetSysVec = true;
+bMultiLabel = false;
 
 // set up options table
 // base class uses one generic option setter/getter pair (not mandatory)
 AddOption("pbase", "{number}\tdefault base for parsing numbers",
+          &Disassembler::DisassemblerSetOption,
+          &Disassembler::DisassemblerGetOption);
+AddOption("defdisp", "{bin|char|oct|dec|hex}\tdefault number output format",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
 AddOption("begin", "{addr}\tstart disassembly address",
@@ -164,10 +166,13 @@ AddOption("cchar", "{char}\tcomment start character",
 AddOption("ldchar", "{char}\tlabel delimiter character",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
-AddOption("loadlabel", "{off|on}\tflag whether to use entry point label",
+AddOption("loadlabel", "{off|on}\tuse entry point label",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
-AddOption("sysvec", "{off|on}\tflag whether to set system vector labels",
+AddOption("multilabel", "{off|on}\tallow multiple labels for an address",
+          &Disassembler::DisassemblerSetOption,
+          &Disassembler::DisassemblerGetOption);
+AddOption("sysvec", "{off|on}\tset system vector labels",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
 }
@@ -284,6 +289,22 @@ int bnvalue = (lvalue == "off") ? 0 : (lvalue == "on") ? 1 : atoi(value.c_str())
 if (lname == "pbase" &&
          ivalue >= 2 && ivalue <= 16)
   pbase = ivalue;
+else if (lname == "defdisp")
+  {
+  MemAttribute::Display disp = MemAttribute::DefaultDisplay;
+  if (lvalue == "bin")
+    disp = MemAttribute::Binary;
+  else if (lvalue == "char")
+    disp = MemAttribute::Char;
+  else if (lvalue == "oct")
+    disp = MemAttribute::Octal;
+  else if (lvalue == "dec")
+    disp = MemAttribute::Decimal;
+  else if (lvalue == "hex")
+    disp = MemAttribute::Hex;
+  if (disp != MemAttribute::DefaultDisplay)
+    SetDisplay(disp);
+  }
 else if (lname == "begin" &&
     avalue >= GetLowestCodeAddr() &&
     avalue <= GetHighestCodeAddr())
@@ -302,6 +323,12 @@ else if (lname == "ldchar")
   labelDelim = value;
 else if (lname == "loadlabel")
   bLoadLabel = !!bnvalue;
+else if (lname == "multilabel")
+  {
+  bMultiLabel = !!bnvalue;
+  for (int i = 0; i < BusTypes; i++)
+    Labels[i].SetMultipleDefs(bMultiLabel);
+  }
 else if (lname == "sysvec")
   bSetSysVec = !!bnvalue;
 else
@@ -318,12 +345,30 @@ std::string Disassembler::DisassemblerGetOption(std::string lname)
 {
 std::string oval;
 if (lname == "pbase") oval = sformat("%ld", pbase);
+else if (lname == "defdisp")
+  {
+#if 0
+AddOption("defdisp", "{bin|char|dec|oct|hex|}\tdefault number output format",
+          &Disassembler::DisassemblerSetOption,
+          &Disassembler::DisassemblerGetOption);
+#endif
+  MemAttribute::Display disp = GetDisplay();
+  switch (GetDisplay())
+    {
+    case MemAttribute::Binary :  oval = "bin"; break;
+    case MemAttribute::Char :    oval = "char"; break;
+    case MemAttribute::Octal :   oval = "oct"; break;
+    case MemAttribute::Decimal : oval = "dec"; break;
+    case MemAttribute::Hex :     oval = "hex"; break;
+    }
+  }
 else if (lname == "begin") oval = (begin == NO_ADDRESS) ? "-1" : sformat("0x%lx", begin);
 else if (lname == "end") oval = (end == NO_ADDRESS) ? "-1" : sformat("0x%lx", end);
 else if (lname == "offset") oval = (offset == NO_ADDRESS) ? "-1" : sformat("0x%lx", offset);
 else if (lname == "cchar") oval = commentStart;
 else if (lname == "ldchar") oval = labelDelim;
 else if (lname == "loadlabel") oval = bLoadLabel ? "on" : "off";
+else if (lname == "multilabel") oval = bMultiLabel ? "on" : "off";
 else if (lname == "sysvec") oval = bSetSysVec ? "on" : "off";
 return oval;
 }
@@ -350,8 +395,15 @@ if (++hiaddr)
   Wrel %= hiaddr;
 // % might not be the best choice under all circumstances, but works for me...
 
+// NB: this always uses the LAST found label for this address.
+// There's no way to find out which should be used for multiples.
 Label *pLbl = (bUseLabel) ? FindLabel(Wrel, Untyped, bus) : NULL;
 std::string sLabel;
+// DefLabel is independent of bUseLabel and is used if no normal label is there
+#if 1
+if (!pLbl)
+  pLbl = FindLabel(Wrel, Const, bus);
+#endif
 if (pLbl)                               /* get label name                    */
   sLabel = pLbl->GetText();
 MemoryType memType = pLbl ? pLbl->GetType() : Untyped;
@@ -379,13 +431,17 @@ if (relative)                           /* if it's relative addressing       */
   int32_t nDiff = Wrel - value;         /* get difference                    */
 
                                         /* get base name                     */
-  sLabel = (bUseLabel) ? GetLabel(relative, Untyped, bus) : "";
+  pLbl = (bUseLabel) ? FindLabel(relative, Untyped, bus) : NULL;
+  // DefLabel overrides normal labels and is independent of bUseLabel
+  if (!pLbl)
+    pLbl = FindLabel(relative, Const, bus);
+  sLabel = (pLbl) ? pLbl->GetText() : "";
   if (sLabel.size())
     sAdd += sLabel;
   else if (bUseLabel && IsCLabel(relative, bus))
-    sOut = UnnamedLabel(relative, true, bus);
+    sAdd += UnnamedLabel(relative, true, bus);
   else if (bUseLabel && IsDLabel(relative, bus))
-    sOut = UnnamedLabel(relative, false, bus);
+    sAdd += UnnamedLabel(relative, false, bus);
   else
     {
     if (nDiff < 0)                      /* if negative displacement          */
@@ -418,29 +474,180 @@ return sOut;
 }
 
 /*****************************************************************************/
-/* SetDefLabel : sets a definition label                                     */
+/* AddLabel : adds (or replaces) a label                                     */
 /*****************************************************************************/
 
-bool Disassembler::SetDefLabel
+bool Disassembler::AddLabel
     (
-    addr_t value,
-    int nDigits,
     addr_t addr,
+    MemoryType memType,
+    std::string sLabel,
+    bool bUsed,
     BusType bus
     )
 {
-Label *pLabel = FindLabel(addr, Const, bus);
-if (pLabel)
+#if 1
+LabelArray::iterator it;
+Label *pLbl = GetFirstLabel(addr, it, Untyped, bus);
+
+if (pLbl)
   {
-  std::string dname = pLabel->GetText();
-  // combined setter / getter
-  DefLabel *pDefLabel = DefLabels[bus].Find(dname);
-  if (!pDefLabel)
-    return AddDefLabel(dname,
-                       Number2String(value, nDigits, addr, bus),
-                       Const, bus);
+  bool bHasTxt = !!sLabel.size();
+  bool bMulti = Labels[bus].HasMultipleDefs();
+  bool bInsert = true /*!bMulti*/;
+  do
+    {
+    MemoryType oType = pLbl->GetType();
+#if 0
+    if (bMulti)
+      {
+#endif
+      bool oHasTxt = pLbl->HasText();
+      if ((bHasTxt && sLabel == pLbl->GetText()) ||
+          ((!bHasTxt || !oHasTxt) && oType != Const))
+        {
+        if (!oHasTxt && bHasTxt)
+          pLbl->SetText(sLabel);
+        // This should deal with "used xxxx / label xxxx txt"
+        if (!bHasTxt || !pLbl->IsUsed())
+          pLbl->SetUsed(bUsed);         /* just set new used state           */
+        if (oType == Untyped &&         /* and new type if none set yet      */
+            memType != Const &&
+            oType != memType)
+          pLbl->SetType(memType);
+        bInsert = false;
+        }
+#if 0
+      }
+    else
+      {
+      // In theory, this would also work in Label::CopyUnset(), like this:
+      //   if (other.memType != Untyped) memType = other.memType;
+      // but since it's more LabelArray- than Label-specific, I'll leave it here
+      // override incoming type if already set
+      if (oType != Untyped /* && oType != memType */)
+        memType = oType;
+      }
+#endif
+    pLbl = GetNextLabel(addr, it, Untyped, bus);
+    } while (pLbl);
+
+  if (!bInsert)
+    return true;
   }
-return false;
+#endif
+
+Labels[bus].insert(new Label(addr, memType, sLabel, bUsed),
+                   true,
+                   (memType == Const));
+return true;
+}
+
+/*****************************************************************************/
+/* FindLabel : find label of a given address and type                        */
+/*****************************************************************************/
+
+Label *Disassembler::FindLabel
+    (
+    addr_t addr,
+    MemoryType memType,
+    BusType bus
+    )
+{
+LabelArray::iterator it;
+
+// "Untyped" really means "anything but Const" -
+// Const is reserved for DefLabels, which have to be searched with that type
+
+// search rules:
+// .) if searching for Untyped, return last non-Const
+// .) if searching for Const, return last Const
+// .) if searching for Code/Data, return last matching or Untyped
+
+Label *found = NULL;
+Label *lbl = Labels[bus].GetFirst(addr, it, memType);
+while (lbl)
+  {
+  switch (memType)
+    {
+    case Const :
+      if (lbl->IsConst())
+#if 1
+        // return LAST matching label (single-def-compatibe)
+        found = lbl;
+#else
+        // return FIRST matching label
+        return lbl;
+#endif
+      break;
+    // case Untyped :
+    default :
+      if (!lbl->IsConst())
+#if 1
+        // return LAST matching label (single-def-compatibe)
+        found = lbl;
+#else
+        // return FIRST matching label
+        return lbl;
+#endif
+      break;
+    }
+
+  lbl = Labels[bus].GetNext(addr, it, memType);
+  }
+return found;
+}
+
+/*****************************************************************************/
+/* ResolveLabels : resolve all XXXXXXXX+/-nnnn and definition labels         */
+/*****************************************************************************/
+
+bool Disassembler::ResolveLabels(BusType bus)
+{
+for (int i = GetLabelCount(bus) - 1; i >= 0; i--)
+  {
+  Label *pLbl = LabelAt(i, bus);
+  std::string s = pLbl->GetText();
+  std::string::size_type p = s.find_first_of("+-");
+  if (!pLbl->IsUsed())
+    continue;
+  // first, check for +/-nnnn offset
+  addr_t offs;
+  if (p != s.npos &&
+//    String2Number(s.substr(p + 1), offs))
+      sscanf(s.substr(p + 1).c_str(), "%d", &offs) == 1)
+    {
+    if (s[p] == '+') offs = (addr_t)(-(int32_t)offs);
+    pLbl->SetUsed(false);
+    addr_t addaddr = pLbl->GetAddress() + offs;
+    AddLabel(addaddr, pLbl->GetType(),
+             s.substr(0, p), true, bus);
+    // this might have caused an insertion, so restart here
+    i++;
+    continue;
+    }
+  // then, resolve DefLabels without value
+  if (pLbl->IsConst())
+    {
+    addr_t addr = pLbl->GetAddress();
+    MemoryType memType = GetMemType(addr, bus);
+    int sz = GetCellSize(addr, bus);
+    if (memType != Untyped && memType != Code && !IsFloat(addr, bus))
+      {
+      if (s.size() > 0)
+        {
+        addr_t value = GetTypedInt(addr, bus);
+        // insert with last found value
+        AddDefLabel(addr,
+                    s,
+                    Number2String(value, sz * 2, addr, bus),
+                    Const, bus);
+        }
+      }
+    }
+  }
+
+return true;
 }
 
 /*****************************************************************************/
@@ -456,6 +663,8 @@ std::string Disassembler::DefLabel2String
     )
 {
 std::string svalue = Number2String(value, nDigits, addr, bus);
+// NB: this always uses the FIRST found label for this address.
+// There's no way to find out which should be used for multiples.
 Label *pLabel = FindLabel(addr, Const, bus);
 if (pLabel)
   {
@@ -464,6 +673,71 @@ if (pLabel)
     svalue = dname;
   }
 return svalue;
+}
+
+/*****************************************************************************/
+/* GetTypedInt : get memory from given address defined by cell type/size     */
+/*****************************************************************************/
+
+addr_t Disassembler::GetTypedInt(addr_t addr, BusType bus)
+{
+MemoryType memType = GetMemType(addr, bus);
+int sz = GetCellSize(addr, bus);
+if (memType == Untyped || IsFloat(addr, bus)) return 0;
+bool bSigned = IsSigned(addr, bus);
+switch (sz)
+  {
+  case 1 : return bSigned ? GetSByte(addr, bus) : GetUByte(addr, bus);
+  case 2 : return bSigned ? GetSWord(addr, bus) : GetUWord(addr, bus);
+  case 4 : return bSigned ? GetSDWord(addr, bus) : GetUDWord(addr, bus);
+#if (ADDR_T_SIZE >= 8)
+  case 8 : return bSigned ? GetSQWord(addr, bus) : GetUQWord(addr, bus);
+#endif
+  default :
+    return 0;
+  }
+}
+
+/*****************************************************************************/
+/* GetTypedInt : set memory at given address defined by cell type/size       */
+/*****************************************************************************/
+
+void Disassembler::SetTypedInt(addr_t value, addr_t addr, BusType bus)
+{
+MemoryType memType = GetMemType(addr, bus);
+int sz = GetCellSize(addr, bus);
+bool bSigned = IsSigned(addr, bus);
+if (memType == Untyped || IsFloat(addr, bus)) return;
+
+switch (sz)
+  {
+  case 1 :
+    if (bSigned)
+      SetSByte(addr, (int8_t)value, bus);
+    else
+      SetUByte(addr, (uint8_t)value, bus);
+    break;
+  case 2 :
+    if (bSigned)
+      SetSWord(addr, (int16_t)value, bus);
+    else
+      SetUWord(addr, (uint16_t)value, bus);
+    break;
+  case 4 :
+    if (bSigned)
+      SetSDWord(addr, (int32_t)value, bus);
+    else
+      SetUDWord(addr, (uint32_t)value, bus);
+    break;
+#if (ADDR_T_SIZE >= 8)
+  case 8 :
+    if (bSigned)
+      SetSQWord(addr, (int64_t)value, bus);
+    else
+      SetUQWord(addr, (uint64_t)value, bus);
+    break;
+#endif
+  }
 }
 
 /*****************************************************************************/
@@ -779,7 +1053,7 @@ if (off > 0)                            /* set end if not specified          */
   {
   if (end < offset + (off * interleave) - 1)
     end = offset + (off * interleave) -1;
-  AddMemory(begin,                      /* make sure memory is there         */
+  AddMemory(offset,                     /* make sure memory is there         */
             off * interleave);
   }
 

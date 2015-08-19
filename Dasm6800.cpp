@@ -492,6 +492,7 @@ bool Dasm6800::String2Number(std::string s, addr_t &value)
    - an octal constant has a leading @
    - a hex constant has a leading $
 */
+s = ltrim(s);
 if (s[0] == '$')
   return (sscanf(s.substr(1).c_str(), "%x", &value) == 1);
 else if (s[0] == '@')
@@ -543,15 +544,15 @@ MemoryType memType = GetMemType(addr);
 MemAttribute::Display disp;
 bool bSigned = false;
 if (memType == MemAttribute::CellUntyped)
-  {
-#pragma message("Define default type!")
-  disp = MemAttribute::Hex;
-  }
+  disp = MemAttribute::DefaultDisplay;
 else
   {
   disp = GetDisplay(addr);
   bSigned = IsSigned(addr);
   }
+
+if (disp == MemAttribute::DefaultDisplay)
+  disp = defaultDisplay;
 
 if ((nDigits == 2) &&                   /* if 2-digit value                  */
     (disp == MemAttribute::Char))       /* and character output requested    */
@@ -644,16 +645,13 @@ addr_t Dasm6800::ParseData
     BusType bus                         /* ignored for 6800 and derivates    */
     )
 {
+SetLabelUsed(addr, Const, bus);         /* mark DefLabels as used            */
+
 int csz = GetCellSize(addr);
 if (csz == 2)                           /* if WORD data                      */
   {
   if (!IsConst(addr))
-    {
-    addr_t wo = GetUWord(addr);
-    Label *pLabel = FindLabel(wo);      /* if there's a label for the addr   */
-    if (pLabel)
-      pLabel->SetUsed();                /* mark it as used                   */
-    }
+    SetLabelUsed(GetUWord(addr));
   }
 return csz;
 }
@@ -700,12 +698,16 @@ int MI;
 const char *I;
 addr_t PC = addr;
 bool bSetLabel;
+Label *lbl;
 
 PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
 
 switch (M)                              /* which mode is this ?              */
   {
   case _nom:                            /* no mode                           */
+    lbl = FindLabel(PC, Const, bus);
+    if (lbl)
+     lbl->SetUsed();
     PC = addr + 1;
     break;
 
@@ -713,11 +715,18 @@ switch (M)                              /* which mode is this ?              */
     break;
 
   case _imb:                            /* immediate byte                    */
+    lbl = FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
     PC++;
     break;
 
   case _imw:                            /* immediate word                    */
     bSetLabel = !IsConst(PC);
+    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
+    SetCellSize(PC, 2);
     W = GetUWord(PC);
     if (bSetLabel)
       {
@@ -729,6 +738,9 @@ switch (M)                              /* which mode is this ?              */
 
   case _dir:                            /* direct                            */
     bSetLabel = !IsConst(PC);
+    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
     T = GetUByte(PC);
     if (bSetLabel)
       {
@@ -741,6 +753,10 @@ switch (M)                              /* which mode is this ?              */
 
   case _ext:                            /* extended                          */
     bSetLabel = !IsConst(PC);
+    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
+    SetCellSize(PC, 2);
     if (bSetLabel)
       {
       W = GetUWord(PC);
@@ -751,11 +767,16 @@ switch (M)                              /* which mode is this ?              */
     break;
     
   case _ix8:                            /* indexed for 6800 (unsigned)       */
+    bSetLabel = !IsConst(PC);
+    lbl = (bSetLabel || GetRelative(PC)) ? NULL : FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
     PC++;
     break;
 
   case _reb:                            /* relative byte                     */
     bSetLabel = !IsConst(PC);
+    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
     T = GetUByte(PC); PC++;
     W = (uint16_t)(PC + (signed char)T);
     if (bSetLabel)
@@ -783,15 +804,38 @@ bool Dasm6800::DisassembleLabel
     BusType bus
     )
 {
-if (label->GetText().find_first_of("+-") == std::string::npos)
+std::string lbltxt = label->GetText();
+if (lbltxt.find_first_of("+-") == std::string::npos)
   {
   addr_t laddr = label->GetAddress();
-  slabel = Label2String(laddr, true, laddr, bus);
+  if (lbltxt.size() && !GetRelative(laddr, bus))
+    slabel = lbltxt;
+  else
+    slabel = Label2String(laddr, true, laddr, bus);
   smnemo = "EQU";
   sparm = Address2String(laddr, bus);
   return true;
   }
 return false;
+}
+
+/*****************************************************************************/
+/* DisassembleDefLabel : pass back mnemonic and parameters for a DefLabel    */
+/*****************************************************************************/
+
+bool Dasm6800::DisassembleDefLabel
+    (
+    DefLabel *label,
+    std::string &slabel,
+    std::string &smnemo,
+    std::string &sparm,
+    BusType bus
+    )
+{
+slabel = label->GetText();
+smnemo = "EQU";
+sparm = label->GetDefinition();
+return true;
 }
 
 /*****************************************************************************/
@@ -810,6 +854,8 @@ addr_t Dasm6800::DisassembleData
     )
 {
 addr_t done;
+if (FindLabel(addr, Const, bus))
+  flags &= ~SHMF_TXT;
 
 if (flags & SHMF_RMB)                   /* if reserved memory block          */
   {
@@ -823,7 +869,8 @@ else if (useFCC && (flags & SHMF_TXT))  /* if FCC (text) allowed             */
   sparm = '"';                          /* start the game                    */
   for (done = addr; done < end; done++) /* assemble as many as possible      */
     {                                   /* if this would become too long     */
-    if (sparm.size() + 2 > (std::string::size_type)maxparmlen)
+    if (sparm.size() + 2 > (std::string::size_type)maxparmlen ||
+        FindLabel(done, Const, bus))    /* or a DefLabel chimes in           */
       break;                            /* terminate the loop                */
     sparm += *getat(done);
     }
@@ -852,7 +899,12 @@ else                                    /* if FCB (hex or binary)            */
                                         /* assemble as many as possible      */
   for (done = addr; done < end; done++)
     {
-    std::string s = Number2String(*getat(done), 2, done);
+    Label *deflbl = FindLabel(done, Const, bus);
+    std::string s;
+    if (deflbl)
+      s = deflbl->GetText();
+    else
+      s = Number2String(*getat(done), 2, done);
     if (sparm.size())                   /* if already something there        */
       {                                 /* if this would become too long     */
       if (sparm.size() + s.size() + 1 > (std::string::size_type)maxparmlen)
@@ -885,6 +937,7 @@ int MI;
 const char *I;
 addr_t PC = addr;
 bool bGetLabel;
+Label *lbl;
 
 PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
 
@@ -892,12 +945,14 @@ switch (M)                              /* which mode is this?               */
   {
   case _nom:                            /* no mode                           */
     smnemo = "FCB";
-    sparm = Number2String(O, 2, PC++);
+    lbl = FindLabel(PC, Const, bus);
+    sparm = lbl ? lbl->GetText() : Number2String(O, 2, PC);
+    PC++;
     break;
 
   case _imp:                            /* inherent/implied                  */
     if (useConvenience &&
-        !IsLabel(PC))                   /* not if 2nd byte has a label!      */
+        !IsCLabel(PC))                  /* not if 2nd byte has a code label! */
       {
       switch ((uint16_t)(O << 8) | GetUByte(PC))
         {
@@ -912,57 +967,68 @@ switch (M)                              /* which mode is this?               */
     break;
 
   case _imb:                            /* immediate byte                    */
-    T = GetUByte(PC++);
-    sparm = "#" + Number2String(T, 2, PC - 1);
+    lbl = FindLabel(PC, Const, bus);
+    T = GetUByte(PC);
+    sparm = "#" + (lbl ? lbl->GetText() : Number2String(T, 2, PC));
+    PC++;
     break;
 
   case _imw:                            /* immediate word                    */
     bGetLabel = !IsConst(PC);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     W = GetUWord(PC);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
-    sparm = "#" + Label2String(W, bGetLabel, PC);
+    sparm = "#" + (lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC));
     PC += 2;
     break;
 
   case _dir:                            /* direct                            */
     bGetLabel = !IsConst(PC);
-    T = GetUByte(PC++);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
+    T = GetUByte(PC);
     W = (uint16_t)T;
     if (bGetLabel)
-      W = (uint16_t)PhaseInner(W, PC - 1);
-    sparm = Label2String(W, bGetLabel, PC - 1);
+      W = (uint16_t)PhaseInner(W, PC);
+    sparm = Label2String(W, bGetLabel, PC);
+    PC++;
     break;
 
   case _ext:                            /* extended                          */
     bGetLabel = !IsConst(PC);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     W = GetUWord(PC);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
-    PC += 2;
     if (forceExtendedAddr && (W & (uint16_t)0xff00) == 0)
-      sparm = ">" + Label2String(W, bGetLabel, PC - 2);
+      sparm = ">" + (lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC));
     else
-      sparm = Label2String(W, bGetLabel, PC - 2);
+      sparm = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+    PC += 2;
     break;
     
   case _ix8:                            /* indexed for 6800 (unsigned)       */
     bGetLabel = !IsConst(PC);
-    T = GetUByte(PC++);
-    Wrel = GetRelative(PC - 1);
+    Wrel = GetRelative(PC);
+    T = GetUByte(PC);
+    lbl = (bGetLabel || Wrel) ? NULL : FindLabel(PC, Const, bus);
     if (Wrel)
       {
       W = (int)((unsigned char)T) + (uint16_t)Wrel;
-      sparm = Label2String((addr_t)((int)((unsigned char)T)), bGetLabel, PC - 1) + ",X";
+      sparm = Label2String((addr_t)((int)((unsigned char)T)), bGetLabel, PC) + ",X";
       }
+    else if (lbl)
+      sparm = lbl->GetText() + ",X";
     else if (!T && !showIndexedModeZeroOperand)
       sparm = ",X";   /* omit '$00', unless the user has set the 'showzero' option */
     else
-      sparm = Number2String(T, 2, PC - 1) + ",X";
+      sparm = Number2String(T, 2, PC) + ",X";
+    PC++;
     break;
 
   case _reb:                            /* relative byte                     */
     bGetLabel = !IsConst(PC);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     T = GetUByte(PC++);
     if (bGetLabel)
       {
@@ -974,9 +1040,9 @@ switch (M)                              /* which mode is this?               */
       {
       int nDiff = (int)(int8_t)T;
       sparm = "*";
-      if (nDiff >= 0)
+      if (nDiff >= 0 || lbl)
         sparm += "+";
-      sparm += SignedNumber2String(nDiff + 2, 2, PC - 1);
+      sparm += lbl ? lbl->GetText() : SignedNumber2String(nDiff + 2, 2, PC - 1);
       }
     break;
   }

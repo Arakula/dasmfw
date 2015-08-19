@@ -184,7 +184,7 @@ if (bus == BusCode)
     for (addr_t addr = 0xfff0; addr <= 0xfff8; addr += 2)
       {
       if (addr == 0xfff8 &&             /* override IRQ with IRQ_EXT         */
-          FindLabel(addr)->GetText() == "IRQ")
+          GetLabel(addr) == "IRQ")
         {
         addr_t tgtaddr = GetUWord(addr);
         Label *pLbl = FindLabel(tgtaddr);

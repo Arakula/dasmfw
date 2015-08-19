@@ -175,23 +175,40 @@ int MI;
 const char *I;
 addr_t PC = addr;
 bool bSetLabel;
+Label *lbl;
 
 PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
 
 switch (M)                              /* which mode is this ?              */
   {
   case _bi :                            /* Bit Manipulation indexed          */
-    PC += 2;
+    lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
+    if (lbl)
+      lbl->SetUsed();
+    PC++;
+    bSetLabel = !IsConst(PC);
+    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
+    PC++;
     break;
   case _bd :                            /* Bit Manipulation direct           */
-    T = GetUByte(PC++);
+    T = GetUByte(PC);
+    lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
+    if (lbl)
+      lbl->SetUsed();
+    PC++;
     bSetLabel = !IsConst(PC);
-    W = GetUByte(PC++);
+    W = GetUByte(PC);
+    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
     if (bSetLabel)
       {
-      W = (uint16_t)PhaseInner(W, PC - 1);
+      W = (uint16_t)PhaseInner(W, PC);
       AddLabel(W, mnemo[MI].memType, "", true);
       }
+    PC++;
     break;
   default :                             /* anything else is handled by base  */
     return Dasm6801::ParseCode(addr, bus);
@@ -218,37 +235,51 @@ int MI;
 const char *I;
 addr_t PC = addr;
 bool bGetLabel;
+Label *lbl;
 
 PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
 
 switch (M)                              /* which mode is this?               */
   {
   case _bi :                            /* Bit Manipulation indexed          */
-    T = GetUByte(PC++);
-    sparm = Number2String(T, 2, PC - 1) + ",";
+    T = GetUByte(PC);
+    lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
+    sparm = (lbl ? lbl->GetText() : Number2String(T, 2, PC)) + ",";
+    PC++;
     bGetLabel = !IsConst(PC);
-    T = GetUByte(PC++);
-    Wrel = GetRelative(PC - 1);
+    T = GetUByte(PC);
+    Wrel = GetRelative(PC);
+    lbl = (bGetLabel || Wrel) ? NULL : FindLabel(PC, Const, bus);
     if (Wrel)
       {
       W = (int)((unsigned char)T) + (uint16_t)Wrel;
-      sparm += Label2String((addr_t)((int)((unsigned char)T)), bGetLabel, PC - 1) + ",X";
+      sparm += Label2String((addr_t)((int)((unsigned char)T)), bGetLabel, PC) + ",X";
       }
+    else if (lbl)
+      sparm += lbl->GetText() + ",X";
     else if (!T && !showIndexedModeZeroOperand)
       sparm += ",X";   /* omit '$00', unless the user has set the 'showzero' option */
     else
-      sparm += Number2String(T, 2, PC - 1) + ",X";
+      sparm += Number2String(T, 2, PC) + ",X";
+    PC++;
     break;
   case _bd :                            /* Bit Manipulation direct           */
-    M = GetUByte(PC++);
+    {
+    lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
+    M = GetUByte(PC);
+    std::string snum = lbl ? lbl->GetText() : Number2String(M, 2, PC);
+    PC++;
     bGetLabel = !IsConst(PC);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     W = GetUByte(PC);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
-    PC++;
+    std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
     sparm = sformat("#%s,%s", 
-                    Number2String(M, 2, PC - 2).c_str(),
-                    Label2String(W, bGetLabel, PC - 1).c_str());
+                    snum.c_str(),
+                    slbl.c_str());
+    PC++;
+    }
     break;
   default :                             /* anything else is handled by base  */
     return Dasm6801::DisassembleCode(addr, smnemo, sparm, bus);

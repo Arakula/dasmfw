@@ -87,7 +87,7 @@ class AddrType
     addr_t GetAddress() const { return addr; }
     void SetAddress(addr_t newAddr = 0) { addr = newAddr; }
     // Label Type
-    MemoryType GetType() { return memType; }
+    MemoryType GetType() const { return memType; }
     void SetType(MemoryType newType = Untyped) { memType = newType; }
     bool IsCode() { return memType == Code; }
     bool IsData() { return memType == Data || memType == Const; }
@@ -139,7 +139,7 @@ class AddrTypeArray : public std::vector<AddrType*>
       std::vector<AddrType*>::clear();
       }
     // binary search in sorted array
-    iterator find(const AddrType &l)
+    iterator find(const AddrType &l, bool bTypeMatch = false)
       {
       int lo, hi = size() - 1, mid;
       // little optimization if definitely outside range
@@ -155,22 +155,30 @@ class AddrTypeArray : public std::vector<AddrType*>
           hi = mid - 1;
         else
           {
-          if (bMultipleDefs)
+          // override "Untyped" if specially requested
+          if (bTypeMatch && (int)at(mid)->GetType() != (int)l.GetType())
+            {
+            if (at(mid)->GetType() < l.GetType())
+              lo = mid + 1;
+            else
+              hi = mid - 1;
+            }
+          else
             {
             // return 1st match for multiple definitions
             while (mid > 0 && *at(mid - 1) == l)
               mid--;
+            return begin() + mid;
             }
-          return begin() + mid;
           }
         }
       return end();
       }
     // convenience - find code and/or data labels
-    iterator find(addr_t addr, MemoryType memType = Untyped)
-      { return find(AddrType(addr, memType)); }
+    iterator find(addr_t addr, MemoryType memType = Untyped, bool bTypeMatch = false)
+      { return find(AddrType(addr, memType), bTypeMatch); }
     // insert into address/type-sorted array
-    iterator insert(AddrType *pNewEl, bool bAfter = true)
+    iterator insert(AddrType *pNewEl, bool bAfter = true, bool bTypeMatch = false)
       {
       iterator it;
 #if 0
@@ -195,25 +203,47 @@ class AddrTypeArray : public std::vector<AddrType*>
             hi = mid - 1;
           else
             {
-            if (bMultipleDefs)
+            // override "Untyped" if specially requested
+            if (bTypeMatch && at(mid)->GetType() != pNewEl->GetType())
               {
-              // we found an existing label for this address,
-              // so we /might/ check the label name to assure
-              // alphanumerically sorted labelling.
-              // For now, simply insert as last one (order by sequence).
-              do
-                {
-                if (bAfter)
-                  mid++;
-                else
-                  mid--;
-                } while (mid >= 0 && mid <= max && *at(mid) == *pNewEl);
+              if (at(mid)->GetType() < pNewEl->GetType())
+                lo = mid + 1;
+              else
+                hi = mid - 1;
               }
-            break;
+            else
+              {
+              if (bMultipleDefs)
+                {
+                // we found an existing label for this address,
+                // so we /might/ check the label name to assure
+                // alphanumerically sorted labelling.
+                // For now, simply insert as last one (order by sequence).
+                do
+                  {
+                  if (bAfter)
+                    mid++;
+                  else
+                    mid--;
+                  if (bTypeMatch && at(mid)->GetType() != pNewEl->GetType())
+                    break;
+                  } while (mid >= 0 && mid <= max && *at(mid) == *pNewEl);
+                }
+              break;
+              }
             }
           }
-        if ((mid < 0) || (mid <= max && *at(mid) < *pNewEl))
+        if (mid < 0)
           mid++;
+        else if (mid <= max)
+          {
+          if (bTypeMatch && 
+              *at(mid) == *pNewEl &&
+              at(mid)->GetType() < pNewEl->GetType())
+            mid++;
+          else if (*at(mid) < *pNewEl)
+            mid++;
+          }
         it = (mid > max) ? end() : (begin() + mid);
         }
       return std::vector<AddrType*>::insert(it, pNewEl);
@@ -258,12 +288,12 @@ template<class T> class TAddrTypeArray : public AddrTypeArray
 	T *operator[](size_type _Pos) { return at(_Pos); }
     
     // insert into address/type-sorted array, allowing copying
-    iterator insert(T *pNewEl, bool bAfter = true)
+    iterator insert(T *pNewEl, bool bAfter = true, bool bTypeMatch = false)
       {
       // if multiple definitions not allowed, replace old one
       if (!bMultipleDefs)
         {
-        iterator it = AddrTypeArray::find(*pNewEl);
+        iterator it = AddrTypeArray::find(*pNewEl, bTypeMatch);
         if (it != end())
           {
           // copy unset data from pre-existing element
@@ -273,7 +303,7 @@ template<class T> class TAddrTypeArray : public AddrTypeArray
           return it;
           }
         }
-      return AddrTypeArray::insert(pNewEl, bAfter);
+      return AddrTypeArray::insert(pNewEl, bAfter, bTypeMatch);
       }
   };
 
@@ -294,6 +324,7 @@ class AddrText : public AddrType
     // Label Text
     std::string GetText() const { return stext; }
     bool SetText(std::string sNewText = "") { stext = sNewText; return true; }
+    bool HasText() const { return !!stext.size(); }
 
     void CopyUnset(const AddrText &other)
       {
@@ -350,10 +381,27 @@ class Label : public AddrText
 class LabelArray : public TAddrTypeArray<Label>
   {
   public:
+    LabelArray(bool bMultipleDefs = false) : TAddrTypeArray<Label>(bMultipleDefs) { }
+
+    Label *GetFirst(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped)
+      {
+      it = find(addr, memType);
+      return (it != end()) ? (Label *)(*it) : NULL;
+      }
+    // only makes sense if the label array allows multiples
+    Label *GetNext(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped)
+      {
+      it++;
+      bool bStill = (it != end() && (*it)->GetAddress() == addr);
+      if (bStill)
+        bStill &= (memType == Untyped || (*it)->GetType() == memType);
+      return bStill ? (Label *)(*it) : NULL;
+      }
+    // little helper for single label arrays
     Label *Find(addr_t addr, MemoryType memType = Untyped)
       {
-      LabelArray::iterator p = find(addr, memType);
-      return (p != end()) ? (Label *)(*p) : NULL;
+      LabelArray::iterator p;
+      return GetFirst(addr, p, memType);
       }
   };
 
@@ -364,7 +412,7 @@ class LabelArray : public TAddrTypeArray<Label>
 class DefLabel : public Label
   {
   public:
-    DefLabel(addr_t addr = 0, MemoryType memType = Code, std::string sLabel = "", std::string sDefinition = "")
+    DefLabel(addr_t addr = 0, MemoryType memType = Const, std::string sLabel = "", std::string sDefinition = "")
       : Label(addr, memType, sLabel, true), sDefinition(sDefinition)
       { }
 
@@ -390,6 +438,12 @@ class DefLabelArray : public TAddrTypeArray<DefLabel>
     void SetCaseSensitive(bool bOn = true) { caseSensitive = bOn; }
     bool IsCaseSensitive() { return caseSensitive; }
 
+    // this one is definitely one label per address, so no GetFirst()/GetNext()
+    DefLabel *Find(addr_t addr, MemoryType memType = Untyped)
+      {
+      DefLabelArray::iterator p = find(addr, memType);
+      return (p != end()) ? (DefLabel *)(*p) : NULL;
+      }
     DefLabel *Find(std::string sLabel)
       {
       // this is not really performant, but I don't think adding

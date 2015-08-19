@@ -487,6 +487,23 @@ return "";
 }
 
 /*****************************************************************************/
+/* InfoHelp : print disassembler-specific info file help                     */
+/*****************************************************************************/
+
+std::string Dasm6809::InfoHelp()
+{
+return
+#if RB_VARIANT
+        "\nAddressing control\n"
+        "\tset DP value:       SETDP [addr[-addr]] DP-content\n"
+        "\t                    (without addr, last one is used)\n"
+#else
+        "SETDP [addr[-addr]] DP-content (without addr, last definition is used)\n"
+#endif
+        ;
+}
+
+/*****************************************************************************/
 /* ProcessInfo : process an info file line                                   */
 /*****************************************************************************/
 
@@ -680,6 +697,7 @@ uint16_t Wrel;
 char R;
 addr_t PC = pc;
 bool bSetLabel = true;
+Label *lbl;
 
 T = GetUByte(PC++);
 R = reg[(T >> 5) & 0x03];
@@ -705,6 +723,9 @@ if (T & 0x80)
       break;
     case 0x0C:
       bSetLabel = !IsConst(PC);
+      lbl = bSetLabel ? NULL : FindLabel(PC, Const);
+      if (lbl)
+        lbl->SetUsed();
       T = GetUByte(PC++);
       if (bSetLabel)
         AddLabel((uint16_t)((int)((char)T) + PC), mnemo[MI].memType, "", true);
@@ -716,37 +737,58 @@ if (T & 0x80)
         {
         W = (uint16_t)((int)((char)T));
         bSetLabel = !IsConst(PC);
+        lbl = (bSetLabel || Wrel) ? NULL : FindLabel(PC, Const);
         if (bSetLabel)
           AddLabel((uint16_t)(W + Wrel), mnemo[MI].memType, "", true);
         }
+      else
+        lbl = FindLabel(PC, Const);
+      if (lbl)
+        lbl->SetUsed();
       PC++;
       break;
     case 0x18:
     case 0x1C:
-      T = GetUByte(PC++);
+      lbl = FindLabel(PC, Const);
+      if (lbl)
+        lbl->SetUsed();
+      PC++;
       break;
     case 0x0D:
       bSetLabel = !IsConst(PC);
+      lbl = bSetLabel ? NULL : FindLabel(PC, Const);
+      if (lbl)
+        lbl->SetUsed();
+      SetCellSize(PC, 2);
       W = GetUWord(PC); PC += 2;
       if (bSetLabel)
         AddLabel((uint16_t)(W + PC), mnemo[MI].memType, "", true);
       break;
     case 0x09:
       bSetLabel = !IsConst(PC);
+      Wrel = (uint16_t)GetRelative(PC);
+      lbl = (bSetLabel || Wrel) ? NULL : FindLabel(PC, Const);
+      if (lbl)
+        lbl->SetUsed();
+      SetCellSize(PC, 2);
       W = GetUWord(PC);
-      Wrel = W + (uint16_t)GetRelative(PC);
+      Wrel += W;
       PC += 2;
                                         /* no labels in indirect addressing! */
                                         /* ...except when they are explicitly*/
                                         /* given in the info file, of course */
-      if (W != Wrel ||                  /* if it's relative, or              */
-          FindLabel(Wrel))              /* if there's a label given there    */
+      if (W != Wrel ||                  /* if it's relative, or label's there*/
+          FindLabel(Wrel))
         AddLabel(Wrel,                  /* mark it as used                   */
                  mnemo[MI].memType, "", true);
       break;
     case 0x19:
     case 0x1D:
       bSetLabel = !IsConst(PC);
+      lbl = bSetLabel ? NULL : FindLabel(PC, Const);
+      if (lbl)
+        lbl->SetUsed();
+      SetCellSize(PC, 2);
       W = GetUWord(PC); PC += 2;
       if (bSetLabel)
         AddLabel(W, mnemo[MI].memType, "", true);
@@ -756,6 +798,10 @@ if (T & 0x80)
       if (T == 0x9F)
         {
         bSetLabel = !IsConst(PC);
+        lbl = bSetLabel ? NULL : FindLabel(PC, Const);
+        if (lbl)
+          lbl->SetUsed();
+        SetCellSize(PC, 2);
         W = GetUWord(PC); PC += 2;
         if (bSetLabel)
           AddLabel(W, mnemo[MI].memType, "", true);
@@ -772,10 +818,15 @@ else
   if (Wrel)
     {
     bSetLabel = !IsConst(PC - 1);
+    lbl = bSetLabel ? NULL : FindLabel(PC - 1, Const);
     W = (uint16_t)(c + Wrel);
     if (bSetLabel)
       AddLabel(W, mnemo[MI].memType, "", true);
     }
+  else
+    lbl = FindLabel(PC - 1, Const);
+  if (lbl)
+    lbl->SetUsed();
   }
 return PC;
 }
@@ -792,6 +843,7 @@ char R;
 std::string buf;
 addr_t PC = pc;
 bool bGetLabel;
+Label *lbl;
 
 T = GetUByte(PC++);
 R = reg[(T >> 5) & 0x03];
@@ -830,41 +882,56 @@ if (T & 0x80)
       break;
     case 0x08:
       bGetLabel = !IsConst(PC);
-      T = GetUByte(PC++);
-      Wrel = (uint16_t)GetRelative(PC - 1);
+      T = GetUByte(PC);
+      Wrel = (uint16_t)GetRelative(PC);
+      lbl = (bGetLabel || Wrel) ? NULL : FindLabel(PC, Const);
+      PC++;
       if (Wrel)
         {
         W = (int)((char)T) + Wrel;
+        std::string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)((int)((char)T)), bGetLabel, PC - 1);
                                         /* "<" needed for forward declaration*/
         buf = sformat(
                 ((W > PC) || (Wrel > PC)) ? "<%s,%c" : "%s,%c",
-                Label2String((uint16_t)((int)((char)T)), bGetLabel, PC - 1).c_str(),
+                slbl.c_str(),
                 R);
         }
       else
+        {
+        std::string slbl = lbl ? lbl->GetText() : SignedNumber2String((int)((char)T), 2, PC - 1);
         buf = sformat("%s,%c",
-                SignedNumber2String((int)((char)T), 2, PC - 1).c_str(),
+                slbl.c_str(),
                 R);
+        }
       break;
     case 0x09:
       bGetLabel = !IsConst(PC);
       W = GetUWord(PC);
       Wrel = W + (uint16_t)GetRelative(PC);
-      PC += 2;
+      lbl = (bGetLabel || Wrel) ? NULL : FindLabel(PC, Const);
       if ((Wrel != W) || (FindLabel(Wrel)))
         {
+        std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
         if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
-          buf = sformat(">%s,%c", Label2String(W, bGetLabel, PC - 2).c_str(), R);
+          buf = sformat(">%s,%c", slbl.c_str(), R);
         else
-          buf = sformat("%s,%c", Label2String(W, bGetLabel, PC - 2).c_str(), R);
+          buf = sformat("%s,%c", slbl.c_str(), R);
         }
       else
         {
+        std::string slbl;
         if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
-          buf = sformat(">%s,%c", SignedNumber2String((int)(short)W, 4, PC - 2).c_str(), R);
+          {
+          slbl = lbl ? lbl->GetText() : SignedNumber2String((int)(short)W, 4, PC);
+          buf = sformat(">%s,%c", slbl.c_str(), R);
+          }
         else
-          buf = sformat("%s,%c", Number2String((uint16_t)(int)(short)W, 4, PC - 2).c_str(), R);  /* RB: this was "signed_string" */
+          {
+          slbl = lbl ? lbl->GetText() : Number2String((uint16_t)(int)(short)W, 4, PC);  /* RB: this was "signed_string" */
+          buf = sformat("%s,%c", slbl.c_str(), R);
+          }
         }
+      PC += 2;
       break;
     case 0x0B:
       buf = sformat("D,%c", R);
@@ -872,24 +939,32 @@ if (T & 0x80)
     case 0x0C:
       T = GetUByte(PC);
       bGetLabel = !IsConst(PC);
-      PC++;
 #if 0
-      sprintf(buf,"$%s,PC",signed_string((int)(char)T, 2, (word)(PC - 1)));
+      sprintf(buf,"$%s,PC",signed_string((int)(char)T, 2, (word)PC));
 #else
       if (bGetLabel)
-        buf = Label2String((uint16_t)((int)((char)T) + PC), bGetLabel, PC - 1) + ",PCR";
+        buf = Label2String((uint16_t)((int)((char)T) + PC + 1), bGetLabel, PC) + ",PCR";
       else
-        buf = Number2String((uint16_t)(int)(char)T, 2, PC - 1) + ",PC";
+        {
+        lbl = FindLabel(PC, Const);
+        std::string slbl = lbl ? lbl->GetText() : Number2String((uint16_t)(int)(char)T, 2, PC);
+        buf = slbl + ",PC";
+        }
 #endif
+      PC++;
       break;
     case 0x0D:
+      {
       bGetLabel = !IsConst(PC);
+      lbl = bGetLabel ? NULL : FindLabel(PC, Const);
       W = GetUWord(PC);
       PC += 2;
+      std::string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)(W + PC), bGetLabel, PC - 2);
       if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
-        buf = sformat(">%s,PCR", Label2String((uint16_t)(W + PC), bGetLabel, PC - 2).c_str());
+        buf = sformat(">%s,PCR", slbl.c_str());
       else
-        buf = sformat("%s,PCR", Label2String((uint16_t)(W + PC), bGetLabel, PC - 2).c_str());
+        buf = sformat("%s,PCR", slbl.c_str());
+      }
       break;
     case 0x11:
       buf = sformat("[,%c++]", R);
@@ -907,29 +982,47 @@ if (T & 0x80)
       buf = sformat("[A,%c]", R);
       break;
     case 0x18:
-      T = GetUByte(PC++);
+      {
+      lbl = FindLabel(PC, Const);
+      T = GetUByte(PC);
+      std::string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
       buf = sformat("[%s,%c]",
-              Number2String(T, 2, PC - 1).c_str(),
+              slbl.c_str(),
               R);
+      PC++;
+      }
       break;
     case 0x19:
+      {
       bGetLabel = !IsConst(PC);
+      lbl = bGetLabel ? NULL : FindLabel(PC, Const);
       W = GetUWord(PC);
+      std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+      buf = sformat("[%s,%c]", slbl.c_str(), R);
       PC += 2;
-      buf = sformat("[%s,%c]", Label2String(W, bGetLabel, PC - 2).c_str(),R);
+      }
       break;
     case 0x1B:
       buf = sformat("[D,%c]", R);
       break;
     case 0x1C:
-      T = GetUByte(PC++);
-      buf = sformat("[%s,PC]", Number2String(T, 2, PC - 1).c_str());
+      {
+      lbl = FindLabel(PC, Const);
+      T = GetUByte(PC);
+      std::string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
+      buf = sformat("[%s,PC]", slbl.c_str());
+      PC++;
+      }
       break;
     case 0x1D:
+      {
       bGetLabel = !IsConst(PC);
+      lbl = bGetLabel ? NULL : FindLabel(PC, Const);
       W = GetUWord(PC);
+      std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+      buf = sformat("[%s,PC]", slbl.c_str());
       PC += 2;
-      buf = sformat("[%s,PC]", Label2String(W, bGetLabel, PC - 2).c_str());
+      }
       break;
     case 0x07:
     case 0x17:
@@ -944,9 +1037,11 @@ if (T & 0x80)
       if (T == 0x9F)
         {
         bGetLabel = !IsConst(PC);
+        lbl = bGetLabel ? NULL : FindLabel(PC, Const);
         W = GetUWord(PC);
+        std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+        buf = sformat("[%s]", slbl.c_str());
         PC += 2;
-        buf = sformat("[%s]", Label2String(W, bGetLabel, PC - 2).c_str());
         }
       else
         buf = "???";
@@ -963,10 +1058,16 @@ else
   if (Wrel)
     {
     bGetLabel = !IsConst(PC - 1);
-    buf = sformat("%s,%c", Label2String((uint16_t)c, bGetLabel, PC - 1).c_str(), R);
+    lbl = bGetLabel ? NULL : FindLabel(PC - 1, Const);
+    std::string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)c, bGetLabel, PC - 1);
+    buf = sformat("%s,%c", slbl.c_str(), R);
     }
   else
-    buf = sformat("%s,%c", SignedNumber2String(c, 2, PC - 1).c_str(), R);
+    {
+    lbl = FindLabel(PC - 1, Const);
+    std::string slbl = lbl ? lbl->GetText() : SignedNumber2String(c, 2, PC - 1);
+    buf = sformat("%s,%c", slbl.c_str(), R);
+    }
   }
 
 pc = PC;
@@ -990,6 +1091,7 @@ const char *I;
 addr_t PC = addr;
 bool bSetLabel;
 addr_t dp = GetDirectPage(addr);
+Label *lbl;
 
 PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
 if ((T == _swi2) && os9Patch)
@@ -999,16 +1101,20 @@ switch (M)                              /* which mode is this ?              */
   {
   case _dir:                            /* direct                            */
     bSetLabel = !IsConst(PC);
-    T = GetUByte(PC); PC++;
+    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
     if (dp != NO_ADDRESS)
       {
+      T = GetUByte(PC);
       if (bSetLabel)
         {
         W = (uint16_t)dp | T;
-        W = (uint16_t)PhaseInner(W, PC - 1);
+        W = (uint16_t)PhaseInner(W, PC);
         AddLabel(W, mnemo[MI].memType, "", true);
         }
       }
+    PC++;
     break;
 
   case _ind:                            /* indexed                           */
@@ -1017,6 +1123,10 @@ switch (M)                              /* which mode is this ?              */
     
   case _rew:                            /* relative word                     */
     bSetLabel = !IsConst(PC);
+    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
+    SetCellSize(PC, 2);
     W = GetUWord(PC); PC += 2;
     W += (uint16_t)PC;
     W = (uint16_t)DephaseOuter(W, PC - 2);
@@ -1058,6 +1168,7 @@ const char *I;
 addr_t PC = addr;
 bool bGetLabel;
 addr_t dp = GetDirectPage(addr);
+Label *lbl;
 
 PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
 if ((T == _swi2) && os9Patch)
@@ -1071,7 +1182,7 @@ if ((T == _swi2) && os9Patch)
 switch (M)                              /* which mode is this?               */
   {
   case _imb:                            /* immediate byte                    */
-    T = GetUByte(PC++);
+    T = GetUByte(PC);
     if (useConvenience)
       W = (uint16_t)(O << 8) | T;
     else
@@ -1118,36 +1229,43 @@ switch (M)                              /* which mode is this?               */
         smnemo = mnemo[_wai].mne;
         break;
       default :
-        sparm = "#" + Number2String(T, 2, PC - 1);
+        lbl = FindLabel(PC, Const, bus);
+        sparm = "#" + (lbl ? lbl->GetText() : Number2String(T, 2, PC));
       }
+    PC++;
     break;
 
   case _dir:                            /* direct                            */
     bGetLabel = !IsConst(PC);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     T = GetUByte(PC);
     if (dp != NO_ADDRESS)
       {
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC);
-      sparm = Label2String(W, bGetLabel, PC);
+      sparm = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
       }
     else
-      sparm = "<" + Number2String(T, 2, PC);
+      sparm = "<" + (lbl ? lbl->GetText() : Number2String(T, 2, PC));
     PC++;
     break;
 
   case _ext:                            /* extended                          */
+    {
     bGetLabel = !IsConst(PC);
     W = GetUWord(PC);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
-    PC += 2;
+    std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
     if (dp != NO_ADDRESS &&
         forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp)
-      sparm = ">" + Label2String(W, bGetLabel, PC - 2);
+      sparm = ">" + slbl;
     else
-      sparm = Label2String(W, bGetLabel, PC - 2);
+      sparm = slbl;
+    PC += 2;
+    }
     break;
     
   case _ind:                            /* indexed                           */
@@ -1189,11 +1307,12 @@ switch (M)                              /* which mode is this?               */
     
   case _rew:                            /* relative word                     */
     bGetLabel = !IsConst(PC);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     W = GetUWord(PC);
     PC += 2;
     W += (uint16_t)PC;
     W = (uint16_t)DephaseOuter(W, PC - 2);
-    sparm = Label2String(W, bGetLabel, PC - 2);
+    sparm = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC - 2);
     break;
     
   case _r1:                             /* tfr/exg mode                      */

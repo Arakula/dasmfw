@@ -85,6 +85,8 @@ class Dasm6800 :
     virtual addr_t ParseCode(addr_t addr, BusType bus = BusCode);
     // pass back correct mnemonic and parameters for a label
     virtual bool DisassembleLabel(Label *label, std::string &slabel, std::string &smnemo, std::string &sparm, BusType bus = BusCode);
+    // pass back correct mnemonic and parameters for a DefLabel
+    virtual bool DisassembleDefLabel(DefLabel *label, std::string &slabel, std::string &smnemo, std::string &sparm, BusType bus = BusCode);
     // disassemble data area at given memory address
     virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, std::string &smnemo, std::string &sparm, int maxparmlen, BusType bus = BusCode);
     // disassemble instruction at given memory address

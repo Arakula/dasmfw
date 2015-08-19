@@ -431,6 +431,7 @@ uint16_t W;
 char R;
 addr_t PC = pc;
 bool bSetLabel = true;
+Label *lbl;
 
 T = GetUByte(PC++);
 R = reg[(T >> 5) & 0x03];
@@ -452,6 +453,10 @@ if (T & 0x80)
         case 0xAF:
         case 0xB0:
           bSetLabel = !IsConst(PC);
+          lbl = bSetLabel ? NULL : FindLabel(PC, Const);
+          if (lbl)
+            lbl->SetUsed();
+          SetCellSize(PC, 2);
           W = GetUWord(PC); PC += 2;
           if (bSetLabel)
             AddLabel(W, mnemo[MI].memType, "", true);
@@ -475,6 +480,7 @@ char R;
 std::string buf;
 addr_t PC = pc;
 bool bGetLabel;
+Label *lbl;
 
 T = GetUByte(PC++);
 R = reg[(T >> 5) & 0x03];
@@ -511,16 +517,24 @@ if (T & 0x80)
           buf = sformat("[,W]");
           break;
         case 0xAF:
+          {
           bGetLabel = !IsConst(PC);
+          lbl = bGetLabel ? NULL : FindLabel(PC, Const);
           W = GetUWord(PC);
+          std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+          buf = sformat("%s,W", slbl.c_str());
           PC += 2;
-          buf = sformat("%s,W", Label2String(W, bGetLabel, PC - 2).c_str());
+          }
           break;
         case 0xB0:
+          {
           bGetLabel = !IsConst(PC);
+          lbl = bGetLabel ? NULL : FindLabel(PC, Const);
           W = GetUWord(PC);
+          std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+          buf = sformat("[%s,W]", slbl.c_str());
           PC += 2;
-          buf = sformat("[%s,W]", Label2String(W, bGetLabel, PC - 2).c_str());
+          }
           break;
         case 0xCF:
           buf = sformat(",W++");
@@ -563,6 +577,7 @@ const char *I;
 addr_t PC = addr;
 bool bSetLabel;
 addr_t dp = GetDirectPage(addr);
+Label *lbl;
 
 PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
 #if 1
@@ -574,39 +589,63 @@ if ((T == _swi2) && os9Patch)
 switch (M)                              /* which mode is this ?              */
   {
   case _bd:                             /* Bit Manipulation direct           */
-    M = GetUByte(PC++);
+    lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
+    if (lbl)
+      lbl->SetUsed();
+    PC++;
     bSetLabel = !IsConst(PC);
-    T = GetUByte(PC++);
+    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
+    T = GetUByte(PC);
     if (dp >= 0)
       {
       W = (uint16_t)dp | T;
       if (bSetLabel)
         {
-        W = (uint16_t)PhaseInner(W, PC - 1);
+        W = (uint16_t)PhaseInner(W, PC);
         AddLabel(W, mnemo[MI].memType, "", true);
         }
       }
+    PC++;
     break;
 
   case _bi:                             /* Bit Manipulation index            */
-    T = GetUByte(PC++);
+    T = GetUByte(PC);
+    lbl = FindLabel(PC, Const);
+    if (lbl)
+      lbl->SetUsed();
+    PC++;
     PC = IndexParse(MI, PC);
     break;
 
   case _be:                             /* Bit Manipulation extended         */
-    T = GetUByte(PC++);
+    lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
+    if (lbl)
+      lbl->SetUsed();
+    PC++;
     bSetLabel = !IsConst(PC);
-    W = GetUWord(PC);
+    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
+    SetCellSize(PC, 2);
     if (bSetLabel)
       {
-      W = (uint16_t)PhaseInner(W, PC);
+      W = (uint16_t)PhaseInner(GetUWord(PC), PC);
       AddLabel(W, mnemo[MI].memType, "", true);
       }
     PC += 2;
     break;
     
   case _bt:                             /* Bit Transfers direct              */
-    PC += 2;
+    lbl = FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
+    PC++;
+    lbl = FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
+    PC++;
     break;
 
   case _t1:                             /* Block Transfer r0+,r1+            */
@@ -617,6 +656,10 @@ switch (M)                              /* which mode is this ?              */
     break;
     
   case _iml:                            /* immediate 32-bit                  */
+    lbl = FindLabel(PC, Const, bus);
+    if (lbl)
+      lbl->SetUsed();
+    SetCellSize(PC, 4);                 /* make sure to get full data        */
     PC += 4;
     break;
     
@@ -685,6 +728,7 @@ const char *I;
 addr_t PC = addr;
 bool bGetLabel;
 addr_t dp = GetDirectPage(addr);
+Label *lbl;
 
 PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
 #if 1
@@ -701,65 +745,94 @@ if ((T == _swi2) && os9Patch)
 switch (M)                              /* which mode is this?               */
   {
   case _imp:                            /* inherent/implied                  */
-    // override 6800 code, since the convenience mnemonics LSRD and ASLD
-    // are real opcodes on a 6309!
+    // override 6800 code, since the 6800 convenience mnemonics
+    // LSRD and ASLD are real opcodes on a 6309!
     break;
 
   case _bd:                             /* Bit Manipulation direct           */
-    M = GetUByte(PC++);
+    {
+    lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
+    M = GetUByte(PC);
+    std::string snum = lbl ? lbl->GetText() : Number2String(M, 2, PC);
+    PC++;
     bGetLabel = !IsConst(PC);
-    T = GetUByte(PC++);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
+    T = GetUByte(PC);
     if (dp != NO_ADDRESS)
       {
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC - 1);
+      std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
       sparm = sformat("#%s,%s",
-                      Number2String(M, 2, PC - 2).c_str(),
-                      Label2String(W, bGetLabel, PC - 1));
+                      snum.c_str(),
+                      slbl.c_str());
       }
     else
       {
+      std::string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
       sparm = sformat("#%s,<%s",
-                      Number2String(M, 2, PC - 2).c_str(),
-                      Number2String(T, 2, PC - 1).c_str());
+                      snum.c_str(),
+                      slbl.c_str());
       }
+    PC++;
+    }
     break;
 
   case _bi:                             /* Bit Manipulation index            */
-    T = GetUByte(PC++);
-    sparm = sformat("#%s,", I, Number2String(T, 2, PC - 1).c_str());
+    {
+    T = GetUByte(PC);
+    lbl = FindLabel(PC, Const);
+    std::string scn = lbl ? lbl->GetText() : Number2String(T, 2, PC);
+    PC++;
+    sparm = sformat("#%s,", I, scn.c_str());
     sparm += IndexString(PC);
+    }
     break;
 
   case _be:                             /* Bit Manipulation extended         */
-    T = GetUByte(PC++);
+    {
+    lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
+    T = GetUByte(PC);
+    std::string snum = lbl ? lbl->GetText() : Number2String(T, 2, PC);
+    PC++;
     bGetLabel = !IsConst(PC);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     W = GetUWord(PC);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, addr);
-    PC += 2;
+    std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
     if ((dp != NO_ADDRESS) &&
         ((W & (uint16_t)0xff00) == (uint16_t)dp) &&
         (forceExtendedAddr))
       sparm = sformat("#%s,>%s",
-                      Number2String(T, 2, PC - 3).c_str(),
-                      Label2String(W, bGetLabel, PC - 2).c_str());
+                      snum.c_str(),
+                      slbl.c_str());
     else
       sparm = sformat("#%s,%s",
-                      Number2String(T, 2, PC - 3).c_str(),
-                      Label2String(W, bGetLabel, PC - 2).c_str());
+                      snum.c_str(),
+                      slbl.c_str());
+    PC += 2;
+    }
     break;
     
   case _bt:                             /* Bit Transfers direct              */
-    M = GetUByte(PC++);
-    T = GetUByte(PC++);
-    sparm = sformat("%s,%d,%d,%s%s",
+    {
+    lbl = FindLabel(PC, Const, bus);
+    M = GetUByte(PC);
+    std::string snum = lbl ? lbl->GetText() : sformat("%d", M & 7);
+    PC++;
+    lbl = FindLabel(PC, Const, bus);
+    T = GetUByte(PC);
+    std::string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
+    sparm = sformat("%s,%d,%s,%s%s",
                     bit_r[M >> 6],
                     (M >> 3) & 7,
-                    M & 7,
+                    snum.c_str(),
                     forceDirectAddr ? "<" : "",
-                    Number2String(T, 2, PC - 1).c_str());
+                    slbl.c_str());
+    PC++;
+    }
     break;
 
   case _t1:                             /* Block Transfer r0+,r1+            */
@@ -783,7 +856,9 @@ switch (M)                              /* which mode is this?               */
     break;
     
   case _iml:                            /* immediate 32-bit                  */
-    sparm = sformat("#$%08X", GetUDWord(PC)); PC += 4;
+    lbl = FindLabel(PC, Const, bus);
+    sparm = lbl ? lbl->GetText() : sformat("#$%08X", GetUDWord(PC));
+    PC += 4;
     break;
 
   default :                             /* anything else is handled by base  */

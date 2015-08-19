@@ -44,7 +44,7 @@ class MemAttributeHandler
     virtual int GetCellSize(addr_t addr) = 0;
     virtual void SetCellSize(addr_t addr, int newSize = 1) = 0;
     virtual MemAttribute::Display GetDisplay(addr_t addr) = 0;
-    virtual void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::Hex) = 0;
+    virtual void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay) = 0;
     virtual bool GetBreakBefore(addr_t addr) = 0;
     virtual void SetBreakBefore(addr_t addr, bool bOn = true) = 0;
     virtual uint32_t GetDisassemblyFlags(addr_t addr, uint8_t mem, Label *plbl) = 0;
@@ -66,8 +66,9 @@ enum BasicDataDisassemblyFlags
   SHMF_RMB   = (SHMF_DATA << 1),        /* no defined contents               */
   SHMF_TXT   = (SHMF_RMB  << 1),        /* Textual display possible          */
   SHMF_BREAK = (SHMF_TXT << 1),         /* mandatory break before            */
+  SHMF_NOTXT = (SHMF_BREAK << 1),       /* definitely no textual display     */
 
-  SHMF_BasicSetMax = SHMF_BREAK
+  SHMF_BasicSetMax = SHMF_NOTXT
   };
 
 uint32_t GetBasicDisassemblyFlags(MemAttribute *pAttr, uint8_t mem, Label *plbl);
@@ -99,7 +100,7 @@ class BasicMemAttributeHandler : public MemAttributeHandler
       { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetSize(newSize); }
     virtual MemAttribute::Display GetDisplay(addr_t addr)
       { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->GetDisplay() : MemAttribute::CellUndisplayable; }
-    virtual void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::Hex)
+    virtual void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay)
       { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetDisplay(newDisp); }
     virtual bool GetBreakBefore(addr_t addr)
       { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->GetBreakBefore() : false; }
@@ -273,9 +274,9 @@ class Disassembler
               nextAddr = nextStart;
               break;
               }
-            if (!pNext)
-              return NO_ADDRESS;
             }
+          if (!pNext)
+            return NO_ADDRESS;
           }
         else
           nextAddr++;
@@ -283,6 +284,9 @@ class Disassembler
       return nextAddr;
       }
 
+    // Get/Set integer memory as defined by cell type / size
+    addr_t GetTypedInt(addr_t addr, BusType bus = BusCode);
+    void SetTypedInt(addr_t value, addr_t addr, BusType bus = BusCode);
     // Get/Set memory byte
     int8_t GetSByte(addr_t addr, BusType bus = BusCode)
       { return (int8_t)*getat(addr, bus); }
@@ -366,7 +370,7 @@ class Disassembler
       { if (memattr[bus]) memattr[bus]->SetCellSize(addr, newSize); }
     MemAttribute::Display GetDisplay(addr_t addr, BusType bus = BusCode)
       { return memattr[bus] ? memattr[bus]->GetDisplay(addr) : MemAttribute::CellUndisplayable; }
-    void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::Hex, BusType bus = BusCode)
+    void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay, BusType bus = BusCode)
       { if (memattr[bus]) memattr[bus]->SetDisplay(addr, newDisp); }
     bool GetBreakBefore(addr_t addr, BusType bus = BusCode)
       { return memattr[bus] ? memattr[bus]->GetBreakBefore(addr) : false; }
@@ -380,6 +384,7 @@ class Disassembler
       {
       uint8_t *mem = getat(addr, bus);
       if (!mem) return 0;
+      // NB: this uses the LAST label for that address
       Label *plbl = FindLabel(addr, Untyped, bus);
       return memattr[bus] ? memattr[bus]->GetDisassemblyFlags(addr, *mem, plbl) : 0;
       }
@@ -393,7 +398,7 @@ class Disassembler
     bool IsChar(addr_t addr, BusType bus = BusCode) { return GetDisplay(addr, bus) == MemAttribute::Char; }
     bool IsOctal(addr_t addr, BusType bus = BusCode) { return GetDisplay(addr, bus) == MemAttribute::Octal; }
     bool IsDecimal(addr_t addr, BusType bus = BusCode) { return GetDisplay(addr, bus) == MemAttribute::Decimal; }
-    bool IsHex(addr_t addr, BusType bus = BusCode) { return GetDisplay(addr, bus) == MemAttribute::Hex; }
+    bool IsHex(addr_t addr, BusType bus = BusCode) { MemAttribute::Display disp = GetDisplay(addr, bus); return disp == MemAttribute::DefaultDisplay || disp == MemAttribute::Hex; }
     bool IsSigned(addr_t addr, BusType bus = BusCode) { return GetCellType(addr, bus) == MemAttribute::SignedInt; }
     bool IsUnsigned(addr_t addr, BusType bus = BusCode) { return GetCellType(addr, bus) == MemAttribute::UnsignedInt; }
     bool IsFloat(addr_t addr, BusType bus = BusCode) { return GetCellType(addr, bus) == MemAttribute::Float; }
@@ -467,22 +472,12 @@ class Disassembler
 
   // Label handling
   public:
-    bool AddLabel(addr_t addr, MemoryType memType = Code, std::string sLabel = "", bool bUsed = false, BusType bus = BusCode)
-      {
-#if 1
-// In theory, this would also work in Label::CopyUnset(), like this:
-//   if (other.memType != Untyped) memType = other.memType;
-// but since it's more LabelArray- than Label-specific, I'll leave it here
-      Label *pLbl = FindLabel(addr, Untyped, bus);
-      MemoryType oType = pLbl ? pLbl->GetType() : memType;
-      if (oType != Untyped && oType != memType)
-        memType = oType;
-#endif
-      Labels[bus].insert(new Label(addr, memType, sLabel, bUsed));
-      return true;
-      }
-    Label *FindLabel(addr_t addr, MemoryType memType = Untyped, BusType bus = BusCode)
-      { return Labels[bus].Find(addr, memType); }
+    bool AddLabel(addr_t addr, MemoryType memType = Code, std::string sLabel = "", bool bUsed = false, BusType bus = BusCode);
+    Label *GetFirstLabel(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, BusType bus = BusCode)
+      { return Labels[bus].GetFirst(addr, it, memType); }
+    Label *GetNextLabel(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, BusType bus = BusCode)
+      { return Labels[bus].GetNext(addr, it, memType); }
+    Label *FindLabel(addr_t addr, MemoryType memType = Untyped, BusType bus = BusCode);
     void RemoveLabel(addr_t addr, MemoryType memType = Untyped, BusType bus = BusCode)
       {
       LabelArray::iterator p = Labels[bus].find(addr, memType);
@@ -491,28 +486,91 @@ class Disassembler
     int GetLabelCount(BusType bus = BusCode) { return Labels[bus].size(); }
     Label *LabelAt(int index, BusType bus = BusCode) { return (Label *)Labels[bus].at(index); }
     void RemoveLabelAt(int index, BusType bus = BusCode) { Labels[bus].erase(Labels[bus].begin() + index); }
+    virtual bool ResolveLabels(BusType bus = BusCode);
     // convenience functionality for the above
-    std::string GetLabel(addr_t addr, MemoryType memType = Untyped, BusType bus = BusCode) { Label *p = FindLabel(addr, memType, bus); return p ? p->GetText() : ""; }
-    bool IsLabel(addr_t addr, BusType bus = BusCode)  { return !!FindLabel(addr, Untyped, bus); }
-    bool IsCLabel(addr_t addr, BusType bus = BusCode) { Label *pLabel = FindLabel(addr, Untyped, bus); return pLabel ? pLabel->IsCode() : false; }
-    bool IsDLabel(addr_t addr, BusType bus = BusCode) { Label *pLabel = FindLabel(addr, Untyped, bus); return pLabel ? pLabel->IsData() : false; }
-    bool IsDefLabel(addr_t addr, BusType bus = BusCode) { Label *pLabel = FindLabel(addr, Untyped, bus); return pLabel ? pLabel->IsConst() : false; }
-    bool IsIOLabel(addr_t addr, BusType bus = BusCode) { Label *pLabel = FindLabel(addr, Untyped, bus); return pLabel ? pLabel->IsIOPort() : false; }
+    std::string GetLabel(addr_t addr, MemoryType memType = Untyped, BusType bus = BusCode)
+      {
+      // NB: this returns the LAST label for this address and type!
+      Label *p = FindLabel(addr, memType, bus);
+      return p ? p->GetText() : "";
+      }
+    bool IsLabel(addr_t addr, BusType bus = BusCode)
+      {
+      // returns whether ANY kind of label is set here
+      return !!FindLabel(addr, Untyped, bus);
+      }
+    bool IsCLabel(addr_t addr, BusType bus = BusCode)
+      {
+      LabelArray::iterator it;
+      Label *pLabel = GetFirstLabel(addr, it, Untyped, bus);
+      while (pLabel)
+        {
+        if (pLabel->IsCode()) return true;
+        pLabel = GetNextLabel(addr, it, Untyped, bus);
+        }
+      return false;
+      }
+    bool IsDLabel(addr_t addr, BusType bus = BusCode)
+      {
+      LabelArray::iterator it;
+      Label *pLabel = GetFirstLabel(addr, it, Untyped, bus);
+      while (pLabel)
+        {
+        if (pLabel->IsData()) return true;
+        pLabel = GetNextLabel(addr, it, Untyped, bus);
+        }
+      return false;
+      }
+    bool IsDefLabel(addr_t addr, BusType bus = BusCode)
+      {
+      LabelArray::iterator it;
+      Label *pLabel = GetFirstLabel(addr, it, Untyped, bus);
+      while (pLabel)
+        {
+        if (pLabel->IsConst()) return true;
+        pLabel = GetNextLabel(addr, it, Untyped, bus);
+        }
+      return false;
+      }
+    bool IsIOLabel(addr_t addr, BusType bus = BusCode)
+      {
+      LabelArray::iterator it;
+      Label *pLabel = GetFirstLabel(addr, it, Untyped, bus);
+      while (pLabel)
+        {
+        if (pLabel->IsIOPort()) return true;
+        pLabel = GetNextLabel(addr, it, Untyped, bus);
+        }
+      return false;
+      }
+    void SetLabelUsed(addr_t addr, MemoryType memType = Code, BusType bus = BusCode)
+      {
+      LabelArray::iterator it;
+      Label *pLabel = GetFirstLabel(addr, it, memType, bus);
+      while (pLabel)
+        {
+        // "Const" is a DefLabel, so only match it if Const is requested
+        if (memType == Const || !pLabel->IsConst())
+          pLabel->SetUsed();            /* mark it as used                   */
+        pLabel = GetNextLabel(addr, it, memType, bus);
+        }
+      }
 
   // Definition Label handling
     public:
-      bool AddDefLabel(std::string sLabel = "", std::string sDefinition = "", MemoryType memType = Code, BusType bus = BusCode)
+      bool AddDefLabel(addr_t addr, std::string sLabel = "", std::string sDefinition = "", MemoryType memType = Code, BusType bus = BusCode)
         {
-        // first one wins
-        DefLabel *pLbl = DefLabels[bus].Find(sLabel);
-        if (pLbl) return false;
-        DefLabels[bus].insert(new DefLabel(DefLabels[bus].size(),
-                                                memType,
-                                                sLabel,
-                                                sDefinition));
+        if (!DefLabels[bus].Find(sLabel))
+          DefLabels[bus].insert(new DefLabel(DefLabels[bus].size(),
+                                             memType,
+                                             sLabel,
+                                             sDefinition));
         return true;
         }
-    bool SetDefLabel(addr_t value, int nDigits, addr_t addr, BusType bus = BusCode);
+      DefLabel *FindDefLabel(addr_t addr, BusType bus = BusCode)
+        { return DefLabels[bus].Find(addr); }
+    int GetDefLabelCount(BusType bus = BusCode) { return DefLabels[bus].size(); }
+    DefLabel *DefLabelAt(int index, BusType bus = BusCode) { return (DefLabel *)DefLabels[bus].at(index); }
 
   // File handling
   public:
@@ -554,9 +612,13 @@ class Disassembler
     // pass back correct mnemonic and parameters for a label
     virtual bool DisassembleLabel(Label *label, std::string &slabel, std::string &smnemo, std::string &sparm, BusType bus = BusCode)
       { return false; } // no changes in base implementation
+    // pass back correct mnemonic and parameters for a DefLabel
+    virtual bool DisassembleDefLabel(DefLabel *label, std::string &slabel, std::string &smnemo, std::string &sparm, BusType bus = BusCode)
+      { return false; } // no changes in base implementation
     // pass back disassembler-specific state changes before/after a disassembly line
     struct LineChange
       {
+      std::string label;
       std::string oper;
       std::string opnds;
       };
@@ -619,7 +681,9 @@ class Disassembler
                        GetHighestCodeAddr();
                                         /* get flags for current byte        */
       flags = GetDisassemblyFlags(addr, bus) &
-              (~SHMF_BREAK);            /* without break flag                */
+              (~(SHMF_BREAK |           /* without break flag                */
+                 SHMF_NOTXT));          /* and without NoText flag           */
+      flags &= disassemblyFlagMask;
       // safety fuse - process no more than maxparmlen at a time unless it's
       // RMB. This may still be too much, but should not be too far off.
       if (!(flags & SHMF_RMB) &&
@@ -632,6 +696,8 @@ class Disassembler
            end++)
         {
         uint32_t fEnd = GetDisassemblyFlags(end, bus);
+        fEnd &= ~SHMF_NOTXT;
+        fEnd &= disassemblyFlagMask;
         if (fEnd != flags)
           break;
         }
@@ -656,16 +722,28 @@ class Disassembler
     // convert a string to an integer number, (dis)assembler-specific
     virtual bool String2Number(std::string s, addr_t &value)
       {
+      int base = pbase;
+      s = trim(s);
       // Only thing that should always work...
       // C-style number strings should be universal
       std::string sFmt = s.substr(0, 2);
       if (sFmt == "0x")
-        return (sscanf(s.substr(2).c_str(), "%x", &value) == 1);
+        {
+        base = 16;
+        s = s.substr(2);
+        }
       // octal (leading 0), however, isn't.
       // So interpret any pure number as having the default base.
+      char const *start = s.c_str();
       char *end = NULL;
-      value = strtoul(s.c_str(), &end, pbase);
-      return (s.c_str() != end);
+      value = strtoul(start, &end, base);
+#if 0
+      return (start != end);
+#else
+      char c = end ? tolower(*end) : 0;
+      return start != end && !isalnum(c);
+      // return end && !*end;
+#endif
       }
     virtual int String2Range(std::string s, addr_t &from, addr_t &to)
       {
@@ -692,13 +770,24 @@ class Disassembler
     // convert a number to a string
     virtual std::string Number2String(addr_t value, int nDigits, addr_t addr, BusType bus = BusCode)
       {
-      // Only thing that should always work...
-      if (pbase == 16)
-        return sformat("0x%x", value);
+#if 0
+      MemoryType memType = GetMemType(addr);
+      MemAttribute::Display disp;
+      bool bSigned = false;
+      if (memType == MemAttribute::CellUntyped)
+        disp = defaultDisplay;
       else
-        return sformat("%d", value);
+        disp = GetDisplay(addr);
+      if (disp == MemAttribute::DefaultDisplay)
+        disp = defaultDisplay;
+      if (disp == MemAttribute::Hex)
+        return sformat("0x%0*x", nDigits, value);
+      else
+#endif
+      // Only thing that should always work...
+      return sformat(IsSigned(addr, bus) ? "%d" : "%u", value);
       }
-    virtual std::string SignedNumber2String(int32_t value, int nDigits, addr_t addr, BusType bus = BusCode)
+    virtual std::string SignedNumber2String(saddr_t value, int nDigits, addr_t addr, BusType bus = BusCode)
       {
       std::string s;
       // specialization for things that have to be signed in any case
@@ -756,6 +845,8 @@ class Disassembler
     bool bLoadLabel;
     // flag whether to set system vector labels
     bool bSetSysVec;
+    // flag whether to allow multiple labels for an address
+    bool bMultiLabel;
     // default display format
     MemAttribute::Display defaultDisplay;
     // disassembler-specific comment start character
@@ -764,6 +855,7 @@ class Disassembler
     std::string labelDelim;
     // parsing radix (default 10)
     int pbase;
+    uint32_t disassemblyFlagMask;
 
     std::vector<OpCode> mnemo;
 

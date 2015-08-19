@@ -273,7 +273,8 @@ struct MemAttribute
     Char,
     Octal,
     Decimal,
-    Hex
+    Hex,
+    DefaultDisplay
     };
 
   MemAttribute
@@ -282,7 +283,7 @@ struct MemAttribute
       int cellSize = 1,
       bool used = true,
       Type cellType = UnsignedInt,
-      Display display = Hex,
+      Display display = DefaultDisplay,
       bool breakBefore = false
       )
     : memType(memType), used(used), cellSize(cellSize - 1),
@@ -299,7 +300,7 @@ struct MemAttribute
   int GetSize() { return cellSize + 1; }
   void SetSize(int newSize = 1) { cellSize = (unsigned)(newSize - 1); }
   Display GetDisplay() { return (Display)display; }
-  void SetDisplay(Display newDisp = Hex) { display = (unsigned)newDisp; }
+  void SetDisplay(Display newDisp = DefaultDisplay) { display = (unsigned)newDisp; }
   bool GetBreakBefore() { return !!breakBefore; }
   void SetBreakBefore(bool bOn = true) { breakBefore = !!bOn; }
   };

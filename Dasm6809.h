@@ -36,7 +36,7 @@ struct MemAttribute6809 : public MemAttribute
        int cellSize = 1,
        bool bUsed = true,
        Type cellType = UnsignedInt,
-       Display display = Hex,
+       Display display = DefaultDisplay,
        bool breakBefore = false,
        addr_t dirpage = DEFAULT_ADDRESS)
        : MemAttribute(memType, cellSize, bUsed, cellType, display, breakBefore)
@@ -77,7 +77,7 @@ class MemAttribute6809Handler : public MemAttributeHandler
       { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetSize(newSize); }
     virtual MemAttribute::Display GetDisplay(addr_t addr)
       { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetDisplay() : MemAttribute6809::CellUndisplayable; }
-    virtual void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::Hex)
+    virtual void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay)
       { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetDisplay(newDisp); }
     virtual bool GetBreakBefore(addr_t addr)
       { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetBreakBefore() : false; }
@@ -116,18 +116,7 @@ class Dasm6809 : public Dasm6800
     virtual std::string GetName() { return "Motorola 6809"; }
 
     // print disassembler-specific info file help
-    virtual std::string InfoHelp()
-      {
-      return
-#if RB_VARIANT
-        "\nAddressing control\n"
-        "\tset DP value:       SETDP [addr[-addr]] DP-content\n"
-        "\t                    (without addr, last one is used)\n"
-#else
-        "SETDP [addr[-addr]] DP-content (without addr, last definition is used)\n"
-#endif
-        ;
-      }
+    virtual std::string InfoHelp();
 
   // Options handler
   protected:

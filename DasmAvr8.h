@@ -26,6 +26,46 @@
 #include "Disassembler.h"
 
 /*****************************************************************************/
+/* Avr8RegLabel : definition of a register label                             */
+/*****************************************************************************/
+
+class Avr8RegLabel : public Label
+  {
+  public:
+    Avr8RegLabel(addr_t addr = 0, std::string sLabel = "", int nRegNum = 0)
+      : Label(addr, Const, sLabel, true), nRegNum(nRegNum)
+      { }
+  // Attributes
+  public:
+    void SetRegister(int nNewRegNum = 0) { nRegNum = nNewRegNum; }
+    int GetRegister() { return nRegNum; }
+  protected:
+    int nRegNum;
+  };
+
+/*****************************************************************************/
+/* Avr8RegLabelArray : an array of register labels                           */
+/*****************************************************************************/
+
+class Avr8RegLabelArray : public TAddrTypeArray<Avr8RegLabel>
+  {
+  public:
+    Avr8RegLabelArray()
+      : TAddrTypeArray<Avr8RegLabel>(true)
+      { }
+    Avr8RegLabel *GetFirst(addr_t addr, Avr8RegLabelArray::iterator &it)
+      {
+      it = find(addr, Const);
+      return it != end() ? (Avr8RegLabel *)(*it) : NULL;
+      }
+    Avr8RegLabel *GetNext(addr_t addr, Avr8RegLabelArray::iterator &it)
+      {
+      it++;
+      return (it != end() && (*it)->GetAddress() == addr) ? (Avr8RegLabel *)(*it) : NULL;
+      }
+  };
+
+/*****************************************************************************/
 /* avrInstructionInfo : Structure for each entry in the instruction set      */
 /*****************************************************************************/
 
@@ -73,10 +113,15 @@ class DasmAvr8 :
     // return highest possible I/O address
     virtual daddr_t GetHighestIOAddr() { return highaddr[BusIO]/*0x3f*/; }
 
+    // print disassembler-specific info file help
+    virtual std::string InfoHelp();
+
   // Options handler
   protected:
     int SetAvr8Option(std::string name, std::string value);
     std::string GetAvr8Option(std::string name);
+
+    virtual bool ProcessInfo(std::string key, std::string value, addr_t &from, addr_t &to, bool bProcInfo = true, BusType bus = BusCode);
 
   protected:
     // parse data area for labels
@@ -85,6 +130,8 @@ class DasmAvr8 :
     virtual addr_t ParseCode(addr_t addr, BusType bus = BusCode);
     // pass back correct mnemonic and parameters for a label
     virtual bool DisassembleLabel(Label *label, std::string &slabel, std::string &smnemo, std::string &sparm, BusType bus = BusCode);
+    // pass back correct mnemonic and parameters for a DefLabel
+    virtual bool DisassembleDefLabel(DefLabel *label, std::string &slabel, std::string &smnemo, std::string &sparm, BusType bus = BusCode);
     // disassemble data area at given memory address
     virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, std::string &smnemo, std::string &sparm, int maxparmlen, BusType bus = BusCode);
     // disassemble instruction at given memory address
@@ -95,6 +142,18 @@ class DasmAvr8 :
     // pass back disassembler-specific state changes before/after a disassembly line
     virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, std::vector<LineChange> &changes, BusType bus = BusCode);
 
+  // Register label handling
+  protected:
+    bool AddRegLabel(addr_t addr, std::string sText = "", int nRegNum = 0)
+      {
+      RegLabels.insert(new Avr8RegLabel(addr, sText, nRegNum));
+      return true;
+      }
+    Avr8RegLabel *GetFirstRegLabel(addr_t addr, Avr8RegLabelArray::iterator &it)
+      { return RegLabels.GetFirst(addr, it); }
+    Avr8RegLabel *GetNextRegLabel(addr_t addr, Avr8RegLabelArray::iterator &it)
+      { return RegLabels.GetNext(addr, it); }
+
   protected:
     bool LoadAtmelGeneric(FILE *f, std::string &sLoadType);
     virtual bool LoadFile(std::string filename, FILE *f, std::string &sLoadType, int interleave = 1);
@@ -103,7 +162,11 @@ class DasmAvr8 :
     virtual std::string Address2String(addr_t addr, BusType bus = BusCode)
       { return sformat("0x%0*x", (busbits[bus] + 3) / 4, addr); }
     std::string RegName(int regnum)
-      { return sformat("R%d", regnum); }
+      {
+      if (CurRegLabel[regnum].size())
+        return CurRegLabel[regnum];
+      return sformat("R%d", regnum);
+      }
     std::string IORegName(int regnum)
       {
       Label *pLbl = FindLabel(regnum, Untyped, BusIO);
@@ -129,6 +192,23 @@ class DasmAvr8 :
       return result;
       }
     int32_t DecodeOperand(uint32_t operand, uint8_t operandType);
+    uint32_t GetDisassemblyTextFlags(addr_t addr, BusType bus = BusCode)
+      {
+      uint32_t flags = GetDisassemblyFlags(addr, bus);
+      if ((flags & (SHMF_DATA | SHMF_RMB | SHMF_TXT)) == SHMF_DATA &&
+          !(flags & (SHMF_NOTXT | 0xff)))
+        {
+        switch (*getat(addr, bus))
+          {
+          case '\t' :
+          case '\r' :
+          case '\n' :
+            flags |= SHMF_TXT;
+            break;
+          }
+        }
+      return flags;
+      }
 
   protected:
     // Enumeration for all types of AVR operands
@@ -306,6 +386,8 @@ class DasmAvr8 :
     static OpCode opcodes[mnemoAvr8_count];
     static avrInstructionInfo AVR_Instruction_Set[];
     addr_t highaddr[BusTypes];
+    Avr8RegLabelArray RegLabels;
+    std::string CurRegLabel[32];
   };
 
 #endif // defined(__DasmAvr8_h_defined__)

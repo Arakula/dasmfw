@@ -351,6 +351,8 @@ DasmAvr8::DasmAvr8()
 commentStart = ";";
 labelDelim = ":";
 
+disassemblyFlagMask &= ~SHMF_TXT;       /* FCB and FCC are the same here     */
+
 highaddr[BusCode] = 0x3fffff;
 highaddr[BusData] = 0xffff;
 highaddr[BusIO]   = 0x3f;
@@ -378,6 +380,93 @@ AddOption("highdata", "{addr}\tHighest data address",
 
 DasmAvr8::~DasmAvr8()
 {
+}
+
+/*****************************************************************************/
+/* InfoHelp : print disassembler-specific info file help                     */
+/*****************************************************************************/
+
+std::string DasmAvr8::InfoHelp()
+{
+return "REGLABEL addr Reg [text]\n"
+       "UNREGLABEL addr Reg\n"
+       ;
+}
+
+/*****************************************************************************/
+/* ProcessInfo : process an info file line                                   */
+/*****************************************************************************/
+
+bool DasmAvr8::ProcessInfo
+    (
+    std::string key,                    /* parsed key                        */
+    std::string value,                  /* rest of the line                  */
+    addr_t &from,                       /* from/to (if range given)          */
+    addr_t &to, 
+    bool bProcInfo,                     /* flag whether processing           */
+    BusType bus                         /* target bus                        */
+    )
+{
+if (!bProcInfo)                         /* only if processing                */
+  return false;
+
+enum InfoCmd
+  {
+  infoUnknown = -1,                     /* unknown info command              */
+  infoRegLabel,                         /* REGLABEL addr Rxx [Text]          */
+  infoUnregLabel,                       /* UNREGLABEL addr Rxx               */
+  };
+static struct                           /* structure to convert key to type  */
+  {
+  const char *name;
+  InfoCmd cmdType;
+  } sKey[] =
+  {
+  { "REGLABEL",     infoRegLabel },
+  { "UNREGLABEL",   infoUnregLabel },
+  };
+
+InfoCmd cmdType = infoUnknown;
+for (int i = 0; i < _countof(sKey); i++)
+  if (key == sKey[i].name)
+    {
+    cmdType = sKey[i].cmdType;
+    break;
+    }
+if (cmdType == infoUnknown)
+  return false;
+
+switch (cmdType)
+  {
+  case infoRegLabel :                   /* REGLABEL addr Rxx [Text]          */
+  case infoUnregLabel :                 /* UNREGLABEL addr Rxx               */
+    {
+    std::string srange;
+    std::string::size_type idx = value.find_first_of(" \t");
+    if (idx == value.npos) idx = value.size();
+    srange = value.substr(0, idx);
+    value = (idx == value.size()) ? "" : triminfo(value.substr(idx), true, false);
+    idx = value.find_first_of(" \t");
+    if (idx == value.npos) idx = value.size();
+    std::string sreg = lowercase(trim(value.substr(0, idx)));
+    value = (idx == value.size()) ? "" : triminfo(value.substr(idx), true, false);
+    int nRegNum = -1;
+    if (sreg.size())
+      {
+      if (sreg[0] == 'r')
+        sreg = sreg.substr(1);
+      const char *startp = sreg.c_str();
+      char *endp;
+      long lres = strtol(startp, &endp, 10);
+      if (lres >= 0 && lres <= 31 && endp != startp)
+        nRegNum = (int)lres;
+      }
+    if (bus == BusCode && from != NO_ADDRESS && nRegNum >= 0)
+      AddRegLabel(from, value, nRegNum);
+    }
+    break;
+  }
+return true;
 }
 
 /*****************************************************************************/
@@ -533,6 +622,7 @@ bool DasmAvr8::String2Number(std::string s, addr_t &value)
    - a binary has a leading 0b
    - a hex constant has a leading 0x
 */
+s = trim(s);
 std::string hdr = s.substr(0, 2);
 if (hdr == "0x")
   return (sscanf(s.substr(2).c_str(), "%x", &value) == 1);
@@ -544,6 +634,8 @@ else if (s[0] == '@')
 #endif
 else if (s[0] == '\'' && s.size() > 1)
   {
+  // this might be too primitive - typical C style things like '\t'
+  // aren't caught correctly.
   value = s[1];
   return true;
   }
@@ -587,15 +679,15 @@ MemoryType memType = GetMemType(addr, bus);
 MemAttribute::Display disp;
 bool bSigned = false;
 if (memType == MemAttribute::CellUntyped)
-  {
-#pragma message("Define default type!")
-  disp = MemAttribute::Hex;
-  }
+  disp = MemAttribute::DefaultDisplay;
 else
   {
   disp = GetDisplay(addr, bus);
   bSigned = IsSigned(addr, bus);
   }
+
+if (disp == MemAttribute::DefaultDisplay)
+  disp = defaultDisplay;
 
 if ((nDigits == 2) &&                   /* if 2-digit value                  */
     (disp == MemAttribute::Char))       /* and character output requested    */
@@ -656,17 +748,13 @@ addr_t DasmAvr8::ParseData
     BusType bus
     )
 {
+SetLabelUsed(addr, Const, bus);         /* mark DefLabels as used            */
+
 int csz = GetCellSize(addr, bus);
 if (csz == 2)                           /* if WORD data                      */
   {
   if (!IsConst(addr, bus))
-    {
-    addr_t wo = GetUWord(addr, bus);
-                                        /* if there's a label for the addr   */
-    Label *pLabel = FindLabel(wo, Untyped, bus);
-    if (pLabel)
-      pLabel->SetUsed();                /* mark it as used                   */
-    }
+    SetLabelUsed(GetUWord(addr, bus), Untyped, bus);
   }
 return csz;
 }
@@ -693,22 +781,10 @@ if (flags & SHMF_RMB)                   /* if reserved memory block          */
   done = end;                           /* remember it's done completely     */
   smnemo = opcodes[_d_byte].mne;
   sparm = Number2String(end - addr, 4, addr, bus);
-  }                                     /* if FCC (text) allowed             */
-else if (/*useFCC &&*/ (flags & SHMF_TXT))
-  {
-  smnemo = opcodes[_d_db].mne;
-  sparm = '"';                          /* start the game                    */
-  for (done = addr; done < end; done++) /* assemble as many as possible      */
-    {                                   /* if this would become too long     */
-    if (sparm.size() + 2 > (std::string::size_type)maxparmlen)
-      break;                            /* terminate the loop                */
-    sparm += *getat(done, bus);
-    }
-  sparm += '"';                         /* append delimiter                  */
   }
 else if (flags & 0xff)                  /* if not byte-sized                 */
   {
-  // AVR8 can ony do byte and word, so assume word entities
+  // AVR8 can only do byte and word, so assume word entities
   smnemo = opcodes[_d_dw].mne;
                                         /* assemble as many as possible      */
   for (done = addr; done < end; done += 2)
@@ -727,11 +803,60 @@ else if (flags & 0xff)                  /* if not byte-sized                 */
   }
 else                                    /* if FCB (hex or binary)            */
   {
+  Label *deflbl;
   smnemo = opcodes[_d_db].mne;
                                         /* assemble as many as possible      */
   for (done = addr; done < end; done++)
     {
-    std::string s = Number2String(*getat(done), 2, done, bus);
+    std::string s;
+    flags = GetDisassemblyTextFlags(done, bus);
+    // a DefLabel inhibits text output
+    deflbl = FindLabel(done, Const, bus);
+    if (deflbl)
+      flags &= ~SHMF_TXT;
+
+    if (flags & SHMF_TXT)
+      {
+      s = '"';                          /* start the game                    */
+      for ( ; done < end; done++)
+        {                               /* if this would become too long     */
+        flags = GetDisassemblyTextFlags(done, bus);
+        if (flags & SHMF_TXT)
+          {
+          uint8_t *pc = getat(done, bus);
+          std::string sc;
+          switch (*pc)
+            {
+            case '\t' :
+              sc = "\\t";
+              flags |= SHMF_TXT;
+              break;
+            case '\r' :
+              sc = "\\r";
+              flags |= SHMF_TXT;
+              break;
+            case '\n' :
+              sc = "\\n";
+              flags |= SHMF_TXT;
+              break;
+            default :
+              sc = (char)*pc;
+            }
+          // convert some specials
+          if (sparm.size() + s.size() + sc.size() + 2 > (std::string::size_type)maxparmlen)
+            break;                      /* terminate the loop                */
+          s += sc;
+          }
+        else
+          break;
+        }
+      s += '"';                         /* append delimiter                  */
+      done--;
+      }
+    else if (deflbl)                    /* if deflabel set there             */
+      s = deflbl->GetText();            /* take DefLabel text                */
+    else
+      s = Number2String(*getat(done, bus), 2, done, bus);
     if (sparm.size())                   /* if already something there        */
       {                                 /* if this would become too long     */
       if (sparm.size() + s.size() + 1 > (std::string::size_type)maxparmlen)
@@ -790,15 +915,20 @@ for (i = 0; i < numOperands; i++)
     case OpndRegEvenPStartR24:
       break;
     case OpndIOReg:
-      {
-      Label *pLbl = FindLabel(operand, Untyped, BusIO);
-      if (pLbl)
-        pLbl->SetUsed();
-      }
+      SetLabelUsed(operand, Untyped, BusIO);
       break;
     case OpndBit:
-      break;
     case OpndDESRound:
+      {
+      Label *lbl = FindLabel(addr, Const, bus);
+      if (lbl)
+        {
+        lbl->SetUsed();
+        AddDefLabel(addr, lbl->GetText(),
+                    Number2String(operand, 2, addr, bus),
+                    Const, bus);
+        }
+      }
       break;
     case OpndX:
       break;
@@ -823,7 +953,18 @@ for (i = 0; i < numOperands; i++)
     case OpndZPlusQ:
       break;
     case OpndData:
+      {
+      Label *lbl = FindLabel(addr, Const, bus);
+      if (lbl)
+        {
+        lbl->SetUsed();
+        AddDefLabel(addr, lbl->GetText(),
+                    Number2String(operand, 2, addr, bus),
+                    Const, bus);
+        }
+      }
       break;
+      // fall thru on purpose
     case OpndLongAbsAddr:
     case OpndLongAbsAddrData:
       bus = (mnemo[ii->mnemonic].memType != Code) ? BusData : BusCode;
@@ -924,6 +1065,7 @@ else if (ii->mnemonic == _andi)
     }
   }
 
+Label *lbl;
 for (i = 0; i < numOperands; i++)
   {
   int32_t operand = opnds[i];
@@ -943,10 +1085,12 @@ for (i = 0; i < numOperands; i++)
       sparm += IORegName(operand);
       break;
     case OpndBit:
-      sparm += sformat("%d", operand);
+      lbl = FindLabel(addr, Const, bus);
+      sparm += lbl ? lbl->GetText() : sformat("%d", operand);
       break;
     case OpndDESRound:
-      sparm += sformat("0x%d", operand);
+      lbl = FindLabel(addr, Const, bus);
+      sparm += lbl ? lbl->GetText() : sformat("0x%x", operand);
       break;
     case OpndX:
       sparm += "X";
@@ -982,10 +1126,13 @@ for (i = 0; i < numOperands; i++)
       sparm += sformat("Z+%d", operand);
       break;
     case OpndData:
-      sparm += Number2String(operand, 2, addr, bus);
+      {
+      Label *lbl = FindLabel(addr, Const, bus);
+      sparm += lbl ? lbl->GetText() : Number2String(operand, 2, addr, bus);
+      }
       break;
-    case OpndLongAbsAddr:
     case OpndLongAbsAddrData:
+    case OpndLongAbsAddr:
       sparm += Label2String(operand, true, addr,
                             (mnemo[ii->mnemonic].memType != Code) ? BusData : BusCode /*bus*/);
       break;
@@ -1027,6 +1174,24 @@ return false;
 }
 
 /*****************************************************************************/
+/* DisassembleDefLabel : pass back mnemonic and parameters for a DefLabel    */
+/*****************************************************************************/
+
+bool DasmAvr8::DisassembleDefLabel
+    (
+    DefLabel *label,
+    std::string &slabel,
+    std::string &smnemo,
+    std::string &sparm,
+    BusType bus
+    )
+{
+smnemo = opcodes[_d_set].mne;
+sparm = label->GetText() + " = " + label->GetDefinition();
+return true;
+}
+
+/*****************************************************************************/
 /* DisassembleChanges : report dasm-specific state changes before/after addr */
 /*****************************************************************************/
 
@@ -1049,10 +1214,11 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
   else                                  /* end of disassembly output         */
     {
 #if 0
-// not in AVRASM - we could use .exit instead
+// not in AVRASM - we could use .exit, but that's not completely the same
+// and since there's no entry point to be set anyway, it's unnecessary
     LineChange chg;
     changes.push_back(chg);             /* append empty line before END      */
-    chg.oper = ".END";
+    chg.oper = opcodes[_d_exit].mne;
 #if 0
     if (load != NO_ADDRESS &&           /* if entry point address given      */
         bLoadLabel)                     /* and labelling wanted              */
@@ -1093,6 +1259,33 @@ else
         changes.push_back(LineChange());
         }
       }
+    }
+  // process RegLabels
+  if (!bAfterLine && bus == BusCode)
+    {
+    Avr8RegLabelArray::iterator it;
+    Avr8RegLabel *lbl = GetFirstRegLabel(addr, it);
+    bool bGotLbl = false;
+    while (lbl)
+      {
+      std::string txt = lbl->GetText();
+      CurRegLabel[lbl->GetRegister()] = txt;
+      if (txt.size())
+        {
+        LineChange chg;
+        if (!bGotLbl)
+          {
+          changes.push_back(chg);
+          bGotLbl = true;
+          }
+        chg.oper = opcodes[_d_def].mne;
+        chg.opnds = sformat("%s = R%d", txt.c_str(), lbl->GetRegister());
+        changes.push_back(chg);
+        }
+      lbl = GetNextRegLabel(addr, it);
+      }
+    if (bGotLbl)
+      changes.push_back(LineChange());
     }
   }
 

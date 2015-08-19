@@ -54,13 +54,14 @@
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.6"
+#define DASMFW_VERSION  "0.7"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t caddr_t;               /* container for maximal code address*/
 typedef uint32_t daddr_t;               /* container for maximal data address*/
 typedef uint32_t addr_t;                /* bigger of the 2 above             */
 #define ADDR_T_SIZE 4                   /* sizeof(addr_t)                    */
+typedef int32_t saddr_t;                /* should be same size as addr_t     */
 
 #define NO_ADDRESS ((addr_t)-1)
 #define DEFAULT_ADDRESS ((addr_t)-2)
@@ -84,8 +85,17 @@ enum BusType
 
 std::string lowercase(std::string s);
 std::string uppercase(std::string s);
+std::string ltrim(std::string s);
 std::string trim(std::string s);
 std::string sformat(const std::string fmt_str, ...);
+std::string triminfo
+    (
+    std::string s,
+    bool bCutComment = true,
+    bool bUnescape = true,
+    bool bDotStart = false
+    );
+
 
 /*****************************************************************************/
 /* Automatic Disassembler Registration                                       */
@@ -158,23 +168,23 @@ public:
 
   int Run();
 
-  bool LoadInfo(std::string fileName, bool bProcInfo = true)
+  bool LoadInfo(std::string fileName, bool bProcInfo = true, bool bSetDasm = false)
     {
     std::vector<std::string> loadStack;
-    return LoadInfo(fileName, loadStack, bProcInfo);
+    return LoadInfo(fileName, loadStack, bProcInfo, bSetDasm);
     }
 
 protected:
   bool LoadFiles();
   bool LoadInfoFiles();
   bool Parse(int nPass, BusType bus = BusCode);
-  bool ResolveRelativeLabels(BusType bus = BusCode);
   bool DisassembleComments(addr_t addr, bool bAfterLine, std::string sComDel, BusType bus = BusCode);
   bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, BusType bus = BusCode);
   bool DisassembleLabels(std::string sComDel, std::string sComHdr, BusType bus = BusCode);
+  bool DisassembleDefLabels(std::string sComDel, std::string sComHdr, BusType bus = BusCode);
   addr_t DisassembleLine(addr_t addr, std::string sComDel, std::string sComHdr, std::string labelDelim, BusType bus = BusCode);
   bool PrintLine(std::string sLabel = "", std::string smnemo = "", std::string sparm = "", std::string scomment = "", int labelLen = -1);
-  bool LoadInfo(std::string fileName, std::vector<std::string> &loadStack, bool bProcInfo = true);
+  bool LoadInfo(std::string fileName, std::vector<std::string> &loadStack, bool bProcInfo = true, bool bSetDasm = false);
   int ParseInfoRange(std::string value, addr_t &from, addr_t &to);
   int ParseOption
     (
