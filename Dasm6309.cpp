@@ -388,7 +388,7 @@ Dasm6309::~Dasm6309(void)
 /* InitParse : initialize parsing                                            */
 /*****************************************************************************/
 
-bool Dasm6309::InitParse(BusType bus)
+bool Dasm6309::InitParse(int bus)
 {
 if (bus == BusCode)
   {
@@ -567,7 +567,7 @@ return Dasm6809::IndexString(pc);
 addr_t Dasm6309::ParseCode
     (
     addr_t addr,
-    BusType bus                         /* ignored for 6800 and derivates    */
+    int bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -681,7 +681,7 @@ addr_t Dasm6309::DisassembleData
     std::string &smnemo,
     std::string &sparm,
     int maxparmlen,
-    BusType bus                         /* ignored for 6800 and derivates    */
+    int bus                         /* ignored for 6800 and derivates    */
     )
 {
 if (!(flags & SHMF_RMB) &&              /* if display necessary              */
@@ -718,7 +718,7 @@ addr_t Dasm6309::DisassembleCode
     addr_t addr,
     std::string &smnemo,
     std::string &sparm,
-    BusType bus                         /* ignored for 6800 and derivates    */
+    int bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;

@@ -166,7 +166,7 @@ Dasm6301::~Dasm6301(void)
 addr_t Dasm6301::ParseCode
     (
     addr_t addr,
-    BusType bus                         /* ignored for 6800 and derivates    */
+    int bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -225,7 +225,7 @@ addr_t Dasm6301::DisassembleCode
     addr_t addr,
     std::string &smnemo,
     std::string &sparm,
-    BusType bus                         /* ignored for 6800 and derivates    */
+    int bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;

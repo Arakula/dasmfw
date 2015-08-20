@@ -42,9 +42,9 @@ class Dasm6301 : public Dasm6801
 
   protected:
     // parse instruction at given memory address for labels
-    virtual addr_t ParseCode(addr_t addr, BusType bus = BusCode);
+    virtual addr_t ParseCode(addr_t addr, int bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, BusType bus = BusCode);
+    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, int bus = BusCode);
 
   protected:
     // additional 6309 addressing modes

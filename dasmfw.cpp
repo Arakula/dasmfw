@@ -296,7 +296,7 @@ defnfo[0] = pHomePath ?
 defnfo[1] = sDasmName + ".nfo";
 
 int i;
-BusType bus;
+int bus;
                                         /* first, just search for "dasm"     */
 for (i = 0; i < _countof(defnfo); i++)
   if (!defnfo[i].empty())
@@ -304,6 +304,12 @@ for (i = 0; i < _countof(defnfo); i++)
 ParseOptions(argc, argv, true);
 if (!pDasm)                             /* disassembler must be loaded now   */
   return Help();                        /* if not, display help & exit       */
+
+remaps.resize(pDasm->GetBusCount());    /* set up all arrays                 */
+comments[0].resize(pDasm->GetBusCount());
+comments[1].resize(pDasm->GetBusCount());
+lcomments.resize(pDasm->GetBusCount());
+
                                         /* then parse all other options      */
 for (i = 0; i < _countof(defnfo); i++)  /* for data & info files to load     */
   if (!defnfo[i].empty())
@@ -318,19 +324,19 @@ LoadFiles();                            /* load all data files               */
 LoadInfoFiles();                        /* load all info files               */
 
 // parse labels in 2 passes
-for (i = 0; i < BusTypes; i++)
+for (i = 0; i < pDasm->GetBusCount(); i++)
   {
   bus = pDasm->GetBus(i);
   if (pDasm->GetMemoryArrayCount(bus)) Parse(0, bus);
   }
-for (i = 0; i < BusTypes; i++)
+for (i = 0; i < pDasm->GetBusCount(); i++)
   {
   bus = pDasm->GetBus(i);
   if (pDasm->GetMemoryArrayCount(bus)) Parse(1, bus);
   }
 
 // resolve all XXXXXXXX+/-nnnn labels and DefLabels
-for (i = 0; i < BusTypes; i++)
+for (i = 0; i < pDasm->GetBusCount(); i++)
   {
   bus = pDasm->GetBus(i);
   pDasm->ResolveLabels(bus);
@@ -370,25 +376,24 @@ if (out != stdout)                      /* if output goes to file            */
 PrintLine();
 PrintLine(sComBlk + "After Parsing:");
 PrintLine(sComBlk +
-          sformat("Loaded memory areas: begin=%s, end=%s",
+          sformat("Loaded code memory areas: begin=%s, end=%s",
                   pDasm->GetOption("begin").c_str(),
                   pDasm->GetOption("end").c_str()));
-DumpMem(BusCode);
-DumpMem(BusData);
-DumpMem(BusIO);
+for (i = 0; i < pDasm->GetBusCount(); i++)
+  DumpMem(i);
 #endif
                                         /* show comments that go in front    */
-for (i = 0; i < BusTypes; i++)
+for (i = 0; i < pDasm->GetBusCount(); i++)
   {
   bus = pDasm->GetBus(i);
   DisassembleComments(NO_ADDRESS, false, sComDel, bus);
   }
 
 // disassembler-specific initialization
-DisassembleChanges(NO_ADDRESS, NO_ADDRESS, 0, false, BusCode);
+DisassembleChanges(NO_ADDRESS, NO_ADDRESS, 0, false, 0);
 
 // output of (def)labels without data
-for (i = 0; i < BusTypes; i++)
+for (i = 0; i < pDasm->GetBusCount(); i++)
   {
   bus = pDasm->GetBus(i);
   DisassembleLabels(sComDel, sComHdr, bus);
@@ -396,7 +401,7 @@ for (i = 0; i < BusTypes; i++)
   }
 
 // disassemble all memory areas for the busses
-for (i = 0; i < BusTypes; i++)
+for (i = 0; i < pDasm->GetBusCount(); i++)
   {
   bus = pDasm->GetBus(i);
   if (!pDasm->GetMemoryArrayCount(bus))
@@ -415,9 +420,7 @@ for (i = 0; i < BusTypes; i++)
       PrintLine(sComHdr);
       PrintLine(sComBlk +
                 sformat("Program's %s Areas",
-                        (bus == BusIO) ? "I/O Bus Data" :
-                        (bus == BusData) ? "Data Bus Data" :
-                        "Code / Data"));
+                        pDasm->GetBusName().c_str()));
       PrintLine(sComHdr);
       PrintLine();
 
@@ -440,7 +443,7 @@ for (i = 0; i < BusTypes; i++)
   }
 
 // disassembler-specific closing
-DisassembleChanges(NO_ADDRESS, NO_ADDRESS, 0, true, BusTypes);
+DisassembleChanges(NO_ADDRESS, NO_ADDRESS, 0, true, pDasm->GetBusCount());
 
 if (out != stdout)
   fclose(out);
@@ -456,6 +459,8 @@ bool Application::LoadFiles()
 {
 bool bAllOK = true;
 
+infoBus = BusCode;                      /* start with code bus               */
+
 int nInterleave = 1;
 for (int i = 0;                         /* load file(s) given on commandline */
      i < (int)saFNames.size();          /* and parsed from info files        */
@@ -469,10 +474,12 @@ for (int i = 0;                         /* load file(s) given on commandline */
     ParseOption("offset", saFNames[i].substr(8));
   else if (saFNames[i].substr(0, 12) == "-interleave:")
     nInterleave = atoi(saFNames[i].substr(12).c_str());
+  else if (saFNames[i].substr(0, 5) == "-bus:")
+    ParseOption("bus", saFNames[i].substr(5));
   else
     {
     std::string sLoadType;
-    bool bOK = pDasm->Load(saFNames[i], sLoadType, nInterleave);
+    bool bOK = pDasm->Load(saFNames[i], sLoadType, nInterleave, infoBus);
     saFNames[i] = sformat("%soaded: %s file \"%s\"",
                           bOK ? "L" : "NOT l",
                           sLoadType.c_str(),
@@ -500,6 +507,8 @@ bool Application::LoadInfoFiles()
 {
 bool bAllOK = true;
 
+infoBus = BusCode;                      /* start with code bus               */
+
 for (int i = 0;
      i < (int)saINames.size();
      i++)
@@ -519,7 +528,7 @@ return bAllOK;
 /* Parse : go through the loaded memory areas and parse all labels           */
 /*****************************************************************************/
 
-bool Application::Parse(int nPass, BusType bus)
+bool Application::Parse(int nPass, int bus)
 {
 if (!nPass &&
     !pDasm->InitParse(bus))
@@ -552,7 +561,7 @@ bool Application::DisassembleComments
     addr_t addr,
     bool bAfterLine,
     std::string sComDel,
-    BusType bus
+    int bus
     )
 {
 CommentArray::iterator it;
@@ -579,7 +588,7 @@ bool Application::DisassembleChanges
     addr_t prevaddr,
     addr_t prevsz,
     bool bAfterLine,
-    BusType bus
+    int bus
     )
 {
 std::vector<Disassembler::LineChange> changes;
@@ -606,7 +615,7 @@ bool Application::DisassembleLabels
     (
     std::string sComDel,
     std::string sComHdr,
-    BusType bus
+    int bus
     )
 {
 std::string sComBlk(sComDel + " ");
@@ -674,7 +683,7 @@ bool Application::DisassembleDefLabels
     (
     std::string sComDel,
     std::string sComHdr,
-    BusType bus
+    int bus
     )
 {
 std::string sComBlk(sComDel + " ");
@@ -716,7 +725,7 @@ addr_t Application::DisassembleLine
     std::string sComDel,
     std::string sComHdr,
     std::string labelDelim,
-    BusType bus
+    int bus
     )
 {
 std::string sLabel, sMnemo, sParms, sComBlk(sComDel + " ");
@@ -866,15 +875,8 @@ if (from != NO_ADDRESS)
   {
   addr_t *pmap = remaps[infoBus].getat(from);
   if (pmap) from += *pmap;
-  if ((infoBus == BusIO &&
-       (from < pDasm->GetLowestIOAddr() ||
-        from > pDasm->GetHighestIOAddr())) ||
-      (infoBus == BusData &&
-       (from < pDasm->GetLowestDataAddr() ||
-        from > pDasm->GetHighestDataAddr())) ||
-      (infoBus == BusCode &&
-       (from < pDasm->GetLowestCodeAddr() ||
-        from > pDasm->GetHighestCodeAddr())))
+  if (from < pDasm->GetLowestBusAddr(infoBus) ||
+      from > pDasm->GetHighestBusAddr(infoBus))
     {
     from = NO_ADDRESS;
     n = 0;
@@ -886,15 +888,9 @@ else if (to != NO_ADDRESS)
   {
   addr_t *pmap = remaps[infoBus].getat(to);
   if (pmap) to += *pmap;
-  if ((infoBus == BusIO &&
-       (to < pDasm->GetLowestIOAddr() ||
-        to > pDasm->GetHighestIOAddr())) ||
-      (infoBus == BusData &&
-       (to < pDasm->GetLowestDataAddr() ||
-        to > pDasm->GetHighestDataAddr())) ||
-      (infoBus == BusCode &&
-       (to < pDasm->GetLowestCodeAddr() ||
-        to > pDasm->GetHighestCodeAddr())))
+  if (to < from ||
+      to < pDasm->GetLowestBusAddr(infoBus) ||
+      to > pDasm->GetHighestBusAddr(infoBus))
     {
     to = NO_ADDRESS;
     n = 0;
@@ -928,7 +924,7 @@ for (; from < s.size(); from++)         /* copy the rest, with unescaping    */
   {
   if (bUnescape && s[from] == '\\' && (from + 1) < s.size())
     sout += s[++from];
-  else if (bCutComment && s[from] == '*')
+  else if (bCutComment && (s[from] == '*' /*|| s[from] == ';'*/))
     break;
   else
     sout += s[from];
@@ -1138,18 +1134,19 @@ do
   // skip leading whitespace
   if ((fc == ' ' || fc == '\t') && !line.size())
     continue;
-  if (fc == '+' && !line.size())
-    {
+  if (fc == '+' && !line.size())        /* f9dasm compatibility              */
+    {                                   /* (not needed in dasmfw)            */
     bMod = true;
     continue;
     }
-  if (fc != '\n' && fc != EOF)
+  if (fc != '\r' && fc != '\n' && fc != EOF)
     {
     line += (char)fc;
     continue;
     }
   // newline or end of file encountered
-  if (line.size() && line[0] != '*')    /* if line has contents              */
+  if (line.size() &&                    /* if line has contents              */
+      line[0] != '*' && line[0] != ';')
     {
     std::string key, value;
     std::string::size_type idx = line.find_first_of(" \t");
@@ -1165,7 +1162,7 @@ do
         break;
         }
 
-    BusType tgtBus = infoBus;           /* target bus identification         */
+    int tgtBus = infoBus;           /* target bus identification         */
     idx = value.find_first_of(" \t");
     if (idx != value.npos &&
         lowercase(value.substr(0, idx)) == "bus")
@@ -1176,19 +1173,10 @@ do
         {
         std::string tgtbus = lowercase(bval.substr(0, idx));
         bval = trim(bval.substr(idx));
-        if (tgtbus == "code" || tgtbus == "0")
+        int bus = pDasm ? pDasm->GetBusID(tgtbus) : -1;
+        if (bus >= 0)
           {
-          tgtBus = BusCode;
-          value = bval;
-          }
-        else if (tgtbus == "data" || tgtbus == "1")
-          {
-          tgtBus = BusData;
-          value = bval;
-          }
-        else if (tgtbus == "io" || tgtbus == "2")
-          {
-          tgtBus = BusIO;
+          tgtBus = (int)bus;
           value = bval;
           }
         }
@@ -1221,13 +1209,9 @@ do
       {
       case infoBusSel :                 /* BUS {code|data}                   */
         {
-        std::string s = lowercase(value);
-        if (s == "code" || s == "0")
-          infoBus = BusCode;
-        else if (s == "data" || s == "1")
-          infoBus = BusData;
-        else if (s == "io" || s == "2")
-          infoBus = BusIO;
+        int bus = pDasm ? pDasm->GetBusID(value) : -1;
+        if (bus >= 0)
+          infoBus = (int)bus;
         }
         break;
       case infoInclude :                /* INCLUDE filename                  */
@@ -1445,7 +1429,7 @@ do
                   if (ty != Data)
                     {
                     pDasm->SetMemType(scanned, Data, infoBus);
-                    pDasm->SetDisplay(scanned, MemAttribute::Hex, infoBus);
+                    pDasm->SetDisplay(scanned, MemAttribute::DefaultDisplay, infoBus);
                     }
                   sz = pDasm->GetCodePtrSize();
                   pDasm->SetCellSize(scanned, sz, infoBus);
@@ -1462,7 +1446,7 @@ do
                   if (ty != Data)
                     {
                     pDasm->SetMemType(scanned, Data, infoBus);
-                    pDasm->SetDisplay(scanned, MemAttribute::Hex, infoBus);
+                    pDasm->SetDisplay(scanned, MemAttribute::DefaultDisplay, infoBus);
                     }
                   sz = pDasm->GetDataPtrSize();
                   pDasm->SetCellSize(scanned, sz, infoBus);
@@ -1675,7 +1659,7 @@ do
           }
         }
         break;
-      case infoUncomment :              /* UNCOMMENT [BEFORE] addr[-addr]    */
+      case infoUncomment :              /* UNCOMMENT [AFTER] addr[-addr]     */
       case infoUnLComment :             /* UNLCOMMENT addr[-addr]            */
         {
         // special: "AFTER" as 1st string (line comment ignores it)
@@ -1694,24 +1678,24 @@ do
           int i;
           if (cmdType == infoUncomment)
             {
-            for (i = (int)comments[infoBus][bAfter].size() - 1; i >= 0; i--)
+            for (i = GetCommentCount(bAfter, infoBus) - 1; i >= 0; i--)
               {
-              AddrText *c = comments[infoBus][bAfter].at(i);
+              AddrText *c = CommentAt(bAfter, i, infoBus);
               addr_t caddr = c->GetAddress();
               if (caddr < from) break;
               if (caddr >= from && caddr <= to)
-                comments[infoBus][bAfter].erase(comments[infoBus][bAfter].begin() + i);
+                RemoveCommentAt(bAfter, i, infoBus);
               }
             }
           else
             {
-            for (i = (int)lcomments[infoBus].size() - 1; i >= 0; i--)
+            for (i = GetLCommentCount(infoBus) - 1; i >= 0; i--)
               {
-              AddrText *c = lcomments[infoBus].at(i);
+              AddrText *c = LCommentAt(i, infoBus);
               addr_t caddr = c->GetAddress();
               if (caddr < from) break;
               if (caddr >= from && caddr <= to)
-                lcomments[infoBus].erase(lcomments[infoBus].begin() + i);
+                RemoveLCommentAt(i, infoBus);
               }
             }
           }
@@ -1877,6 +1861,12 @@ else if (option == "info")
     saINames.push_back(value);
   return !!bOK;
   }
+else if (option == "bus")
+  {
+  int newBus = pDasm ? pDasm->GetBusID(value) : -1;
+  if (newBus >= 0)
+    infoBus = newBus;
+  }
 else if (option == "addr")
   {
   showAddr = !!bnvalue;
@@ -1950,6 +1940,7 @@ void Application::ParseOptions
     )
 {
 std::string curBegin, curEnd, curOff, curIlv("1");
+int curBus = BusCode;
 
 // parse command line
 for (int arg = 1; arg < argc; arg++)
@@ -2009,6 +2000,12 @@ for (int arg = 1; arg < argc; arg++)
       saFNames.push_back("-interleave:"+silv);
       curIlv = silv;
       }
+    int newBus = infoBus;
+    if (newBus != curBus)
+      {
+      saFNames.push_back("-bus:"+pDasm->GetBusName(newBus));
+      curBus = newBus;
+      }
     saFNames.push_back(name);
     }
   }
@@ -2065,6 +2062,17 @@ else
   {
   ListOptionLine("out", "Output File name", outname.size() ? outname : "console");
   ListOptionLine("info", "Info File name");
+  if (pDasm->GetBusCount() > 1)
+    {
+    std::string busses;
+    for (int bus = 0; bus < pDasm->GetBusCount(); bus++)
+      {
+      if (bus) busses += '|';
+      busses += lowercase(pDasm->GetBusName(bus));
+      }
+    busses = sformat("{%s}\tBus for next file", busses.c_str());
+    ListOptionLine("bus", busses, pDasm->GetBusName(BusCode));
+    }
   printf("  Output formatting options:\n");
   ListOptionLine("addr", "{off|on}\toutput address dump", showAddr ? "on" : "off");
   ListOptionLine("hex", "{off|on}\toutput hex dump", showHex ? "on" : "off");
@@ -2111,6 +2119,16 @@ return 1;
 
 int Application::InfoHelp(bool bQuit)
 {
+std::string busses;
+if (!pDasm)
+  busses = "code";
+else
+  for (int bus = 0; bus < pDasm->GetBusCount(); bus++)
+    {
+    if (bus)
+      busses += '|';
+    busses += lowercase(pDasm->GetBusName(bus));
+    }
 printf("Info file contents:\n"
 #if RB_VARIANT
       "\nLabel file comments\n"
@@ -2120,7 +2138,7 @@ printf("Info file contents:\n"
        "\tPREPEND [AFTER] [addr[-addr]] text to be prepended to the output\n"
        "\tPREPCOMM [AFTER] [addr[-addr]] comment text to be prepended to the output\n"
       "\nMemory content definitions\n"
-       "\tBus definition:     BUS {code|data|io}\n"
+       "\tBus definition:     BUS {%s}\n"
        "\tunused area:        UNUSED from-to\n"
        "\treserved area:      RMB from-to\n"
        "\tcode area:          CODE from[-to]\n"
@@ -2133,9 +2151,9 @@ printf("Info file contents:\n"
        "\tconstants in memory:CONST from[-to] (like hex)\n"
        "\tchar data area:     CHAR from[-to] (like hex, but ASCII if possible)\n"
        "\tword data area:     WORD from[-to] (like hex, but 16 bit)\n"
-       "\tcode vector area:   CVEC[TOR] from[-to]\n" 
+       "\tcode vector area:   CVEC[TOR] [BUS {%s}] from[-to]\n" 
        "\t                    (like WORD, but adds target labels if necessary)\n"
-       "\tdata vector area:   DVEC[TOR] from[-to]\n"
+       "\tdata vector area:   DVEC[TOR] [BUS {%s}] from[-to]\n"
        "\t                    (like WORD, but adds target labels if necessary)\n"
       "\nAddressing control\n"
        "\tforce addressing relative to base:\n"
@@ -2172,13 +2190,13 @@ printf("Info file contents:\n"
        "Consists of text records of one of the following formats:\n"
        "* comment line\n"
 
-       "BUS {code|data|io}\n"
+       "BUS {%s}\n"
 
        "CODE addr[-addr]\n"
        "DATA addr[-addr]\n"
        "CONST from[-to]\n"
-       "CVEC[TOR] [BUS {code|data}] addr[-addr] (forced code vectors)\n"
-       "DVEC[TOR] [BUS {code|data}] addr[-addr] (forced data vectors)\n"
+       "CVEC[TOR] [BUS {%s}] addr[-addr] (forced code vectors)\n"
+       "DVEC[TOR] [BUS {%s}] addr[-addr] (forced data vectors)\n"
        "RMB addr[-addr]\n"
        "UNUSED addr[-addr]\n"
 
@@ -2232,6 +2250,7 @@ printf("Info file contents:\n"
 
        "END\n"
 #endif
+       , busses.c_str(), busses.c_str(), busses.c_str()
        );
 
 if (pDasm)
@@ -2250,7 +2269,7 @@ return 1;
 /*****************************************************************************/
 
 #ifdef _DEBUG
-void Application::DumpMem(BusType bus)
+void Application::DumpMem(int bus)
 {
 if (!pDasm) return;
 
@@ -2260,8 +2279,7 @@ int mac = pDasm->GetMemoryArrayCount(bus);
 int maac = pDasm->GetMemAttrArrayCount(bus);
 PrintLine(sComBlk +
           sformat("%s Bus: %d memory areas, %d memory attribute areas",
-                  (bus == BusIO) ? "I/O" :
-                  (bus == BusData) ?"Data" : "Code",
+                  pDasm->GetBusName(bus).c_str(),
                   mac, maac));
 int i;
 for (i = 0; i < mac; i++)

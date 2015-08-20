@@ -124,27 +124,27 @@ class Dasm6809 : public Dasm6800
     std::string Get6809Option(std::string name);
 
     // Get/Set additional cell information
-    addr_t GetDirectPage(addr_t addr, BusType bus = BusCode)
+    addr_t GetDirectPage(addr_t addr, int bus = BusCode)
       {
       addr_t dp = memattr[bus] ? ((MemAttribute6809Handler *)memattr[bus])->GetDirectPage(addr) : DEFAULT_ADDRESS;
       if (dp == DEFAULT_ADDRESS)
         dp = dirpage;
       return dp;
       }
-    void SetDirectPage(addr_t addr, addr_t dp, BusType bus = BusCode)
+    void SetDirectPage(addr_t addr, addr_t dp, int bus = BusCode)
       { if (memattr[bus]) ((MemAttribute6809Handler *)memattr[bus])->SetDirectPage(addr, dp); }
 
-    virtual bool InitParse(BusType bus = BusCode);
-    virtual bool ProcessInfo(std::string key, std::string value, addr_t &from, addr_t &to, bool bProcInfo = true, BusType bus = BusCode);
+    virtual bool InitParse(int bus = BusCode);
+    virtual bool ProcessInfo(std::string key, std::string value, addr_t &from, addr_t &to, bool bProcInfo = true, int bus = BusCode);
 
   protected:
     // parse instruction at given memory address for labels
-    virtual addr_t ParseCode(addr_t addr, BusType bus = BusCode);
+    virtual addr_t ParseCode(addr_t addr, int bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, BusType bus = BusCode);
+    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, int bus = BusCode);
   public:
     // pass back disassembler-specific state changes before/after a disassembly line
-    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, std::vector<LineChange> &changes, BusType bus = BusCode);
+    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, std::vector<LineChange> &changes, int bus = BusCode);
 
   protected:
 

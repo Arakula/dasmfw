@@ -165,7 +165,7 @@ Dasm6801::~Dasm6801(void)
 /* InitParse : initialize parsing                                            */
 /*****************************************************************************/
 
-bool Dasm6801::InitParse(BusType bus)
+bool Dasm6801::InitParse(int bus)
 {
 Dasm6800::InitParse(bus);               /* let 6800 init go first            */
 // needs to be done before, since we need to override a vector

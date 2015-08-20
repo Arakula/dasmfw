@@ -514,7 +514,7 @@ bool Dasm6809::ProcessInfo
     addr_t &from,
     addr_t &to, 
     bool bProcInfo,
-    BusType bus
+    int bus
     )
 {
 if (!bProcInfo || bus != BusCode)       /* only if processing code bus...    */
@@ -597,7 +597,7 @@ return true;
 /* InitParse : initialize parsing                                            */
 /*****************************************************************************/
 
-bool Dasm6809::InitParse(BusType bus)
+bool Dasm6809::InitParse(int bus)
 {
 if (bus == BusCode)
   {
@@ -1081,7 +1081,7 @@ return buf;
 addr_t Dasm6809::ParseCode
     (
     addr_t addr,
-    BusType bus                         /* ignored for 6800 and derivates    */
+    int bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -1158,7 +1158,7 @@ addr_t Dasm6809::DisassembleCode
     addr_t addr,
     std::string &smnemo,
     std::string &sparm,
-    BusType bus                         /* ignored for 6800 and derivates    */
+    int bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -1459,7 +1459,7 @@ bool Dasm6809::DisassembleChanges
     addr_t prevsz,
     bool bAfterLine,
     std::vector<LineChange> &changes,
-    BusType bus
+    int bus
     )
 {
 // init / exit

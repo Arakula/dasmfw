@@ -473,10 +473,10 @@ return (nRecs > 0);
 /* LoadFile : loads an opened file                                           */
 /*****************************************************************************/
 
-bool Dasm6800::LoadFile(std::string filename, FILE *f, std::string &sLoadType, int interleave)
+bool Dasm6800::LoadFile(std::string filename, FILE *f, std::string &sLoadType, int interleave, int bus)
 {
-return LoadFlex(f, sLoadType) ||  // FLEX9 files need no interleave
-       Disassembler::LoadFile(filename, f, sLoadType, interleave);
+return LoadFlex(f, sLoadType) ||  // FLEX9 files need no interleave nor bus
+       Disassembler::LoadFile(filename, f, sLoadType, interleave, bus);
 }
 
 /*****************************************************************************/
@@ -527,7 +527,7 @@ std::string Dasm6800::Number2String
     addr_t value,
     int nDigits,
     addr_t addr,
-    BusType bus
+    int bus
     )
 {
 std::string s;
@@ -596,7 +596,7 @@ return s;                               /* pass back generated string        */
 /* InitParse : initialize parsing                                            */
 /*****************************************************************************/
 
-bool Dasm6800::InitParse(BusType bus)
+bool Dasm6800::InitParse(int bus)
 {
 if (bus == BusCode)
   {
@@ -642,7 +642,7 @@ return Disassembler::InitParse(bus);
 addr_t Dasm6800::ParseData
     (
     addr_t addr,
-    BusType bus                         /* ignored for 6800 and derivates    */
+    int bus                         /* ignored for 6800 and derivates    */
     )
 {
 SetLabelUsed(addr, Const, bus);         /* mark DefLabels as used            */
@@ -689,7 +689,7 @@ return PC;
 addr_t Dasm6800::ParseCode
     (
     addr_t addr,
-    BusType bus                         /* ignored for 6800 and derivates    */
+    int bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -801,7 +801,7 @@ bool Dasm6800::DisassembleLabel
     std::string &slabel,
     std::string &smnemo,
     std::string &sparm,
-    BusType bus
+    int bus
     )
 {
 std::string lbltxt = label->GetText();
@@ -829,7 +829,7 @@ bool Dasm6800::DisassembleDefLabel
     std::string &slabel,
     std::string &smnemo,
     std::string &sparm,
-    BusType bus
+    int bus
     )
 {
 slabel = label->GetText();
@@ -850,7 +850,7 @@ addr_t Dasm6800::DisassembleData
     std::string &smnemo,
     std::string &sparm,
     int maxparmlen,
-    BusType bus                         /* ignored for 6800 and derivates    */
+    int bus                         /* ignored for 6800 and derivates    */
     )
 {
 addr_t done;
@@ -927,7 +927,7 @@ addr_t Dasm6800::DisassembleCode
     addr_t addr,
     std::string &smnemo,
     std::string &sparm,
-    BusType bus                         /* ignored for 6800 and derivates    */
+    int bus                         /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -1060,7 +1060,7 @@ bool Dasm6800::DisassembleChanges
     addr_t prevsz,
     bool bAfterLine,
     std::vector<LineChange> &changes,
-    BusType bus
+    int bus
     )
 {
 // init / exit

@@ -191,6 +191,7 @@ OpCode DasmAvr8::opcodes[mnemoAvr8_count] =
     { ".exit",    Const },              /* _d_exit                           */
     { ".include", Const },              /* _d_include                        */
     { ".org",     Const },              /* _d_org                            */
+    { ".equ",     Const },              /* _d_port                           */
     { ".set",     Const },              /* _d_set                            */
 
   };
@@ -353,10 +354,6 @@ labelDelim = ":";
 
 disassemblyFlagMask &= ~SHMF_TXT;       /* FCB and FCC are the same here     */
 
-highaddr[BusCode] = 0x3fffff;
-highaddr[BusData] = 0xffff;
-highaddr[BusIO]   = 0x3f;
-
 mnemo.resize(mnemoAvr8_count);          /* set up mnemonics table            */
 for (int i = 0; i < mnemoAvr8_count; i++)
   mnemo[i] = opcodes[i];
@@ -372,6 +369,15 @@ AddOption("highcode", "{addr}\tHighest code address",
 AddOption("highdata", "{addr}\tHighest data address",
           static_cast<PSetter>(&DasmAvr8::SetAvr8Option),
           static_cast<PGetter>(&DasmAvr8::GetAvr8Option));
+#if 0
+// invariably 63(? check...)
+AddOption("highio", "{addr}\tHighest data address",
+          static_cast<PSetter>(&DasmAvr8::SetAvr8Option),
+          static_cast<PGetter>(&DasmAvr8::GetAvr8Option));
+#endif
+AddOption("higheeprom", "{addr}\tHighest EEPROM address",
+          static_cast<PSetter>(&DasmAvr8::SetAvr8Option),
+          static_cast<PGetter>(&DasmAvr8::GetAvr8Option));
 }
 
 /*****************************************************************************/
@@ -380,6 +386,27 @@ AddOption("highdata", "{addr}\tHighest data address",
 
 DasmAvr8::~DasmAvr8()
 {
+}
+
+/*****************************************************************************/
+/* Setup : Setup disassembler after construction                             */
+/*****************************************************************************/
+
+bool DasmAvr8::Setup()
+{
+highaddr.resize(GetBusCount());
+highaddr[BusCode] = 0x3fffff;
+highaddr[BusData] = 0xffff;
+highaddr[BusIO]   = 0x3f;
+highaddr[BusEEPROM] = 0xffff;
+
+bool bOK = Disassembler::Setup();
+
+busnames[BusData]   = "Data";
+busnames[BusIO]     = "IO";
+busnames[BusEEPROM] = "EEPROM";
+
+return bOK;
 }
 
 /*****************************************************************************/
@@ -404,7 +431,7 @@ bool DasmAvr8::ProcessInfo
     addr_t &from,                       /* from/to (if range given)          */
     addr_t &to, 
     bool bProcInfo,                     /* flag whether processing           */
-    BusType bus                         /* target bus                        */
+    int bus                         /* target bus                        */
     )
 {
 if (!bProcInfo)                         /* only if processing                */
@@ -492,11 +519,14 @@ else if (lname == "highdata" && avalue >= 128 && avalue <= 0xffff)
   highaddr[BusData] = avalue;
   RecalcBusBits(BusData);
   }
-/*
 else if (lname == "highio" && avalue >= 1 && avalue <= 0x3f)
   highaddr[BusIO] = avalue;
-*/
-  
+else if (lname == "higheeprom" && avalue >= 128 && avalue <= 0xffff)
+  {
+  highaddr[BusEEPROM] = avalue;
+  RecalcBusBits(BusEEPROM);
+  }
+
 return 1;                               /* name and value consumed           */
 }
 
@@ -509,7 +539,8 @@ std::string DasmAvr8::GetAvr8Option(std::string lname)
 if (lname == "codebits") return sformat("%d", busbits[BusCode]);
 if (lname == "highcode") return sformat("0x%x", highaddr[BusCode]);
 if (lname == "highdata") return sformat("0x%x", highaddr[BusData]);
-// if (lname == "highio")   return sformat("%d", highaddr[BusIO]);
+if (lname == "highio")   return sformat("0x%x", highaddr[BusIO]);
+if (lname == "higheeprom") return sformat("0x%x", highaddr[BusEEPROM]);
 return "";
 }
 
@@ -517,14 +548,10 @@ return "";
 /* LoadAtmelGeneric loads an ATMEL Generic hex file                          */
 /*****************************************************************************/
 
-bool DasmAvr8::LoadAtmelGeneric(FILE *f, std::string &sLoadType)
+bool DasmAvr8::LoadAtmelGeneric(FILE *f, std::string &sLoadType, int bus)
 {
 int nCurPos = ftell(f);
 int c = 0;
-bool done = false;
-int nBytes = 0;
-addr_t fbegin = GetHighestCodeAddr();
-addr_t fend = GetLowestCodeAddr();
 
 if ((c = fgetc(f)) == EOF)              /* look whether starting with hex chr*/
   return false;
@@ -533,6 +560,12 @@ if (!( (c >= '0' && c <= '9') ||
        (c >= 'a' && c <= 'f') ||
        (c >= 'A' && c <= 'F') ))
   return false;
+
+bool done = false;
+int nBytes = 0;
+addr_t fbegin = GetHighestBusAddr(bus);
+addr_t fend = GetLowestBusAddr(bus);
+MemoryType memType = GetDefaultMemoryType(bus);
 
 // ATMEL Generic Hex files consist of CR+LF-terminated lines
 // Each line consists of hex values of the following format
@@ -550,8 +583,9 @@ while (!done && (nBytes >= 0))          /* while there are lines             */
   nAddr = GetHex(f, 6);
   if (nAddr == NO_ADDRESS)
     break;
-  if ((nAddr < GetLowestCodeAddr()) ||  /* if illegal address                */
-      (nAddr > GetHighestCodeAddr()))
+                                        /* if illegal address                */
+  if ((nAddr < GetLowestBusAddr(bus)) ||
+      (nAddr > GetHighestBusAddr(bus)))
     {
     nBytes = -1;                        /* return with error                 */
     break;
@@ -568,16 +602,16 @@ while (!done && (nBytes >= 0))          /* while there are lines             */
     }
   if (!i)
     break;
-  AddMemory(nAddr, i);
+  AddMemory(nAddr, i, memType, 0, bus);
   nBytes += i;
   if (i == 1)
-    setat(nAddr, (uint8_t)value);
+    setat(nAddr, (uint8_t)value, bus);
   else
-    SetUWord(nAddr, value);
+    SetUWord(nAddr, value, bus);
   for (; i >= 0; i--)
     {
-    SetCellUsed(nAddr + i);             /* mark as used byte                 */
-    SetDisplay(nAddr + i, defaultDisplay);
+    SetCellUsed(nAddr + i, true, bus);  /* mark as used byte                 */
+    SetDisplay(nAddr + i, defaultDisplay, bus);
     }
   while ((c = fgetc(f)) == '\r' || c == '\n')
     ;
@@ -605,10 +639,16 @@ return (nBytes > 0);                    /* pass back #bytes interpreted      */
 /* LoadFile : loads an opened file                                           */
 /*****************************************************************************/
 
-bool DasmAvr8::LoadFile(std::string filename, FILE *f, std::string &sLoadType, int interleave)
+bool DasmAvr8::LoadFile(std::string filename, FILE *f, std::string &sLoadType, int interleave, int bus)
 {
-return LoadAtmelGeneric(f, sLoadType) ||  // ATMEL Generic Hex files need no interleave
-       Disassembler::LoadFile(filename, f, sLoadType, interleave);
+// Atmel special: a .eep file is an Intel Hex file for the EEPROM area
+std::string::size_type fnlen = filename.size();
+if (fnlen > 4 &&
+    lowercase(filename.substr(fnlen - 4)) == ".eep")
+  bus = BusEEPROM;
+
+return LoadAtmelGeneric(f, sLoadType, bus) ||  // ATMEL Generic Hex files need no interleave
+       Disassembler::LoadFile(filename, f, sLoadType, interleave, bus);
 }
 
 /*****************************************************************************/
@@ -664,7 +704,7 @@ std::string DasmAvr8::Number2String
     addr_t value,
     int nDigits,
     addr_t addr,
-    BusType bus
+    int bus
     )
 {
 std::string s;
@@ -733,7 +773,7 @@ return s;                               /* pass back generated string        */
 /* InitParse : initialize parsing                                            */
 /*****************************************************************************/
 
-bool DasmAvr8::InitParse(BusType bus)
+bool DasmAvr8::InitParse(int bus)
 {
 return Disassembler::InitParse(bus);
 }
@@ -745,7 +785,7 @@ return Disassembler::InitParse(bus);
 addr_t DasmAvr8::ParseData
     (
     addr_t addr,
-    BusType bus
+    int bus
     )
 {
 SetLabelUsed(addr, Const, bus);         /* mark DefLabels as used            */
@@ -771,7 +811,7 @@ addr_t DasmAvr8::DisassembleData
     std::string &smnemo,
     std::string &sparm,
     int maxparmlen,
-    BusType bus
+    int bus
     )
 {
 addr_t done;
@@ -784,7 +824,7 @@ if (flags & SHMF_RMB)                   /* if reserved memory block          */
   }
 else if (flags & 0xff)                  /* if not byte-sized                 */
   {
-  // AVR8 can only do byte and word, so assume word entities
+  // AVRASM can only do byte and word, so assume word entities
   smnemo = opcodes[_d_dw].mne;
                                         /* assemble as many as possible      */
   for (done = addr; done < end; done += 2)
@@ -801,7 +841,7 @@ else if (flags & 0xff)                  /* if not byte-sized                 */
     sparm += s;                         /* append the byte's representation  */
     }
   }
-else                                    /* if FCB (hex or binary)            */
+else                                    /* if single-byte                    */
   {
   Label *deflbl;
   smnemo = opcodes[_d_db].mne;
@@ -877,7 +917,7 @@ return done - addr;
 addr_t DasmAvr8::ParseCode
     (
     addr_t addr,
-    BusType bus
+    int bus
     )
 {
 uint16_t opcode = GetUWord(addr, bus);
@@ -997,7 +1037,7 @@ addr_t DasmAvr8::DisassembleCode
     addr_t addr,
     std::string &smnemo,
     std::string &sparm,
-    BusType bus
+    int bus
     )
 {
 uint16_t opcode = GetUWord(addr, bus);
@@ -1159,13 +1199,13 @@ bool DasmAvr8::DisassembleLabel
     std::string &slabel,
     std::string &smnemo,
     std::string &sparm,
-    BusType bus
+    int bus
     )
 {
 if (label->GetText().find_first_of("+-") == std::string::npos)
   {
   addr_t laddr = label->GetAddress();
-  smnemo = opcodes[_d_equ].mne;
+  smnemo = opcodes[(bus == BusIO) ? _d_port : _d_equ].mne;
   sparm = Label2String(laddr, true, laddr, bus) + " = " +
           Address2String(laddr, bus);
   return true;
@@ -1183,10 +1223,15 @@ bool DasmAvr8::DisassembleDefLabel
     std::string &slabel,
     std::string &smnemo,
     std::string &sparm,
-    BusType bus
+    int bus
     )
 {
-smnemo = opcodes[_d_set].mne;
+// in theory, we could use .set instead of .equ here, but since the
+// ATMEL .inc-files for the various AVR processors work with .equ, I
+// follow that route that, too.
+// Besides, the benefit of .set is that you can redefine symbols, which is
+// not done in dasmfw.
+smnemo = opcodes[_d_equ].mne;
 sparm = label->GetText() + " = " + label->GetDefinition();
 return true;
 }
@@ -1202,7 +1247,7 @@ bool DasmAvr8::DisassembleChanges
     addr_t prevsz,
     bool bAfterLine,
     std::vector<LineChange> &changes,
-    BusType bus
+    int bus
     )
 {
 // init / exit
@@ -1236,9 +1281,11 @@ else
       {
       LineChange chg;
       changes.push_back(chg);           /* append empty line before segment  */
-      if (bus == BusCode || bus == BusData)
+      if (bus == BusCode || bus == BusData || bus == BusEEPROM)
         {
-        chg.oper = opcodes[(bus == BusData) ? _d_dseg : _d_cseg].mne;
+        chg.oper = opcodes[(bus == BusEEPROM) ? _d_eseg :
+                           (bus == BusData) ? _d_dseg :
+                           _d_cseg].mne;
         changes.push_back(chg);
         }
       }

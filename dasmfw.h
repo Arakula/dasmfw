@@ -54,7 +54,7 @@
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.7"
+#define DASMFW_VERSION  "0.8"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t caddr_t;               /* container for maximal code address*/
@@ -67,16 +67,14 @@ typedef int32_t saddr_t;                /* should be same size as addr_t     */
 #define DEFAULT_ADDRESS ((addr_t)-2)
 
 /*****************************************************************************/
-/* BusType : bus type enumeration                                            */
+/* Default bus type enumeration                                              */
 /*****************************************************************************/
 
-enum BusType
+enum
   {
-  BusCode,                              /* Code bus (normal)                 */
-  BusData,                              /* Data bus (Hardvard architecture)  */
-  BusIO,                                /* I/O Bus (if separate I/O bus)     */
+  BusCode,                              /* Code bus (always there)           */
 
-  BusTypes
+  BaseBusTypes
   };
 
 /*****************************************************************************/
@@ -177,12 +175,12 @@ public:
 protected:
   bool LoadFiles();
   bool LoadInfoFiles();
-  bool Parse(int nPass, BusType bus = BusCode);
-  bool DisassembleComments(addr_t addr, bool bAfterLine, std::string sComDel, BusType bus = BusCode);
-  bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, BusType bus = BusCode);
-  bool DisassembleLabels(std::string sComDel, std::string sComHdr, BusType bus = BusCode);
-  bool DisassembleDefLabels(std::string sComDel, std::string sComHdr, BusType bus = BusCode);
-  addr_t DisassembleLine(addr_t addr, std::string sComDel, std::string sComHdr, std::string labelDelim, BusType bus = BusCode);
+  bool Parse(int nPass, int bus = BusCode);
+  bool DisassembleComments(addr_t addr, bool bAfterLine, std::string sComDel, int bus = BusCode);
+  bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, int bus = BusCode);
+  bool DisassembleLabels(std::string sComDel, std::string sComHdr, int bus = BusCode);
+  bool DisassembleDefLabels(std::string sComDel, std::string sComHdr, int bus = BusCode);
+  addr_t DisassembleLine(addr_t addr, std::string sComDel, std::string sComHdr, std::string labelDelim, int bus = BusCode);
   bool PrintLine(std::string sLabel = "", std::string smnemo = "", std::string sparm = "", std::string scomment = "", int labelLen = -1);
   bool LoadInfo(std::string fileName, std::vector<std::string> &loadStack, bool bProcInfo = true, bool bSetDasm = false);
   int ParseInfoRange(std::string value, addr_t &from, addr_t &to);
@@ -203,37 +201,37 @@ protected:
   int InfoHelp(bool bQuit = false);
   int Help(bool bQuit = false);
 #ifdef _DEBUG
-  void DumpMem(BusType bus);
+  void DumpMem(int bus);
 #endif
 
   // Comment / Text line handling
-  bool AddComment(addr_t addr, bool bAfter = false, std::string sComment = "", bool bPrepend = false, bool bIsComment = true, BusType bus = BusCode)
+  bool AddComment(addr_t addr, bool bAfter = false, std::string sComment = "", bool bPrepend = false, bool bIsComment = true, int bus = BusCode)
     {
-    comments[bus][bAfter].insert(new Comment(addr, sComment, bIsComment), !bPrepend);
+    comments[bAfter][bus].insert(new Comment(addr, sComment, bIsComment), !bPrepend);
     return true;
     }
-  Comment *GetFirstComment(addr_t addr, CommentArray::iterator &it, bool bAfter = false, BusType bus = BusCode)
-    { return comments[bus][bAfter].GetFirst(addr, it); }
-  Comment *GetNextComment(addr_t addr, CommentArray::iterator &it, bool bAfter = false, BusType bus = BusCode)
-    { return comments[bus][bAfter].GetNext(addr, it); }
+  Comment *GetFirstComment(addr_t addr, CommentArray::iterator &it, bool bAfter = false, int bus = BusCode)
+    { return comments[bAfter][bus].GetFirst(addr, it); }
+  Comment *GetNextComment(addr_t addr, CommentArray::iterator &it, bool bAfter = false, int bus = BusCode)
+    { return comments[bAfter][bus].GetNext(addr, it); }
 
-  int GetCommentCount(bool bAfter, BusType bus = BusCode) { return comments[bus][bAfter].size(); }
-  Comment *CommentAt(bool bAfter, int index, BusType bus = BusCode) { return comments[bus][bAfter].at(index); }
-  void RemoveCommentAt(bool bAfter, int index, BusType bus = BusCode) { comments[bus][bAfter].erase(comments[bus][bAfter].begin() + index); }
+  int GetCommentCount(bool bAfter, int bus = BusCode) { return comments[bAfter][bus].size(); }
+  Comment *CommentAt(bool bAfter, int index, int bus = BusCode) { return comments[bAfter][bus].at(index); }
+  void RemoveCommentAt(bool bAfter, int index, int bus = BusCode) { comments[bAfter][bus].erase(comments[bAfter][bus].begin() + index); }
 
   // Line Comment handling
-  bool AddLComment(addr_t addr, std::string sComment = "", bool bPrepend = false, BusType bus = BusCode)
+  bool AddLComment(addr_t addr, std::string sComment = "", bool bPrepend = false, int bus = BusCode)
     {
     lcomments[bus].insert(new Comment(addr, sComment), !bPrepend);
     return true;
     }
-  Comment *GetFirstLComment(addr_t addr, CommentArray::iterator &it, BusType bus = BusCode)
+  Comment *GetFirstLComment(addr_t addr, CommentArray::iterator &it, int bus = BusCode)
     { return lcomments[bus].GetFirst(addr, it); }
-  Comment *GetNextLComment(addr_t addr, CommentArray::iterator &it, BusType bus = BusCode)
+  Comment *GetNextLComment(addr_t addr, CommentArray::iterator &it, int bus = BusCode)
     { return lcomments[bus].GetNext(addr, it); }
-  int GetLCommentCount(BusType bus = BusCode) { return lcomments[bus].size(); }
-  Comment *LCommentAt(int index, BusType bus = BusCode) { return lcomments[bus].at(index); }
-  void RemoveLCommentAt(int index, BusType bus = BusCode) { lcomments[bus].erase(lcomments[bus].begin() + index); }
+  int GetLCommentCount(int bus = BusCode) { return lcomments[bus].size(); }
+  Comment *LCommentAt(int index, int bus = BusCode) { return lcomments[bus].at(index); }
+  void RemoveLCommentAt(int index, int bus = BusCode) { lcomments[bus].erase(lcomments[bus].begin() + index); }
 
 
 protected:
@@ -249,7 +247,7 @@ protected:
   FILE *out;                            /* output file                       */
 
   bool abortHelp;                       /* abort after help has been given   */
-  BusType infoBus;                      /* current bus selection             */
+  int infoBus;                          /* current info file bus selection   */
   bool showHex;                         /* flag for hex data display         */
   bool showAddr;                        /* flag for address display          */
   bool showAsc;                         /* flag for ASCII content display    */
@@ -263,9 +261,12 @@ protected:
   int uparmLen;                         /* max parm len without lcomment     */
   int dbCount;                          /* min bytes for hex/asc dump        */
 
-  TMemoryArray<addr_t> remaps[BusTypes]; /* remap arrays                     */
-  CommentArray comments[BusTypes][2];   /* comment / line text arrays        */
-  CommentArray lcomments[BusTypes];     /* line comment arrays               */
+  // remap arrays
+  std::vector<TMemoryArray<addr_t>> remaps;
+  // comment / line text arrays
+  std::vector<CommentArray> comments[2];
+  // line comment arrays
+  std::vector<CommentArray> lcomments;
 };
 
 #endif // __dasmfw_h_defined__

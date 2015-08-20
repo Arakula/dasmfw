@@ -41,7 +41,7 @@ class Dasm6801 : public Dasm6800
     virtual std::string GetName() { return "Motorola 6801"; }
 
     // Initialize parsing
-    virtual bool InitParse(BusType bus = BusCode);
+    virtual bool InitParse(int bus = BusCode);
 
   protected:
     // additional 6801 mnemonics

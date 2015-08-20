@@ -33,3 +33,7 @@ v0.7  2015-08-18 Quite some bug fixes, changes and enhancements
                  multilabel option added
                  deflabel directive added
                  reglabel directive added for AVR8 info files
+v0.8  2015-08-19 Bus logic changes
+                 -bus command line option added to allow loading files
+                 into one of the available busses
+                 (automatically for .eep files in AVR8 disassembler)

@@ -122,14 +122,8 @@ const Disassembler::Endian Disassembler::prgEndian = (Disassembler::Endian)*((ui
 
 Disassembler::Disassembler()
 {
-int bus;
 begin = load = NO_ADDRESS;
 end = offset = 0;
-for (bus = BusCode; bus < BusTypes; bus++)
-  {
-  memattr[bus] = NULL;
-  busorder[bus] = (BusType)bus;
-  }
 commentStart = ";";
 #if RB_VARIANT
 labelDelim = ":";
@@ -185,6 +179,67 @@ Disassembler::~Disassembler()
 {
 for (int i = 0; i < GetOptionCount(); i++)
   delete options[i];
+}
+
+/*****************************************************************************/
+/* Setup : Setup disassembler after construction                             */
+/*****************************************************************************/
+
+bool Disassembler::Setup()
+{
+bool bOK = true;
+
+busnames.resize(GetBusCount());
+memory.resize(GetBusCount());
+memattr.resize(GetBusCount());
+Labels.resize(GetBusCount());
+DefLabels.resize(GetBusCount());
+Relatives.resize(GetBusCount());
+Phases.resize(GetBusCount());
+busorder.resize(GetBusCount());
+busbits.resize(GetBusCount());
+
+busnames[BusCode] = "Code";
+
+// default to basic memory attribute handlers
+for (int bus = 0; bus < GetBusCount(); bus++)
+  {
+  memattr[bus] = CreateAttributeHandler();
+  busorder[bus] = bus;
+  bOK &= !!memattr[bus];
+  RecalcBusBits(bus);
+  }
+return bOK;
+}
+
+/*****************************************************************************/
+/* GetBusID : return a bus ID based on its name                              */
+/*****************************************************************************/
+
+int Disassembler::GetBusID(std::string busname)
+{
+bool numeric = !!busname.size();
+for (std::string::size_type s = 0; s < busname.size(); s++)
+  if (busname[s] < '0' || busname[s] > '9')
+    {
+    numeric = false;
+    break;
+    }
+if (numeric)
+  {
+  int i = atoi(busname.c_str());
+  if (i >= 0 && i < GetBusCount())
+    return i;
+  }
+else
+  {
+  busname = lowercase(busname);
+  for (int i = GetBusCount() - 1; i >= 0; i--)
+    if (busname == lowercase(GetBusName(i)))
+      return i;
+  }
+
+return -1;
 }
 
 /*****************************************************************************/
@@ -326,7 +381,7 @@ else if (lname == "loadlabel")
 else if (lname == "multilabel")
   {
   bMultiLabel = !!bnvalue;
-  for (int i = 0; i < BusTypes; i++)
+  for (int i = 0; i < GetBusCount(); i++)
     Labels[i].SetMultipleDefs(bMultiLabel);
   }
 else if (lname == "sysvec")
@@ -382,15 +437,13 @@ std::string Disassembler::Label2String
     addr_t value,
     bool bUseLabel,
     addr_t addr,
-    BusType bus
+    int bus
     )
 {
 std::string sOut;
 addr_t relative = GetRelative(addr, bus);
 addr_t Wrel = (value + relative);
-addr_t hiaddr = ((bus == BusIO) ? GetHighestIOAddr() :
-                 (bus == BusData) ? GetHighestDataAddr() :
-                 GetHighestCodeAddr());
+addr_t hiaddr = GetHighestBusAddr(bus);
 if (++hiaddr)
   Wrel %= hiaddr;
 // % might not be the best choice under all circumstances, but works for me...
@@ -483,7 +536,7 @@ bool Disassembler::AddLabel
     MemoryType memType,
     std::string sLabel,
     bool bUsed,
-    BusType bus
+    int bus
     )
 {
 #if 1
@@ -551,7 +604,7 @@ Label *Disassembler::FindLabel
     (
     addr_t addr,
     MemoryType memType,
-    BusType bus
+    int bus
     )
 {
 LabelArray::iterator it;
@@ -602,7 +655,7 @@ return found;
 /* ResolveLabels : resolve all XXXXXXXX+/-nnnn and definition labels         */
 /*****************************************************************************/
 
-bool Disassembler::ResolveLabels(BusType bus)
+bool Disassembler::ResolveLabels(int bus)
 {
 for (int i = GetLabelCount(bus) - 1; i >= 0; i--)
   {
@@ -659,7 +712,7 @@ std::string Disassembler::DefLabel2String
     addr_t value,
     int nDigits,
     addr_t addr,
-    BusType bus
+    int bus
     )
 {
 std::string svalue = Number2String(value, nDigits, addr, bus);
@@ -679,7 +732,7 @@ return svalue;
 /* GetTypedInt : get memory from given address defined by cell type/size     */
 /*****************************************************************************/
 
-addr_t Disassembler::GetTypedInt(addr_t addr, BusType bus)
+addr_t Disassembler::GetTypedInt(addr_t addr, int bus)
 {
 MemoryType memType = GetMemType(addr, bus);
 int sz = GetCellSize(addr, bus);
@@ -702,7 +755,7 @@ switch (sz)
 /* GetTypedInt : set memory at given address defined by cell type/size       */
 /*****************************************************************************/
 
-void Disassembler::SetTypedInt(addr_t value, addr_t addr, BusType bus)
+void Disassembler::SetTypedInt(addr_t value, addr_t addr, int bus)
 {
 MemoryType memType = GetMemType(addr, bus);
 int sz = GetCellSize(addr, bus);
@@ -749,16 +802,12 @@ bool Disassembler::LoadIntelHex
     std::string filename,
     FILE *f,
     std::string &sLoadType,
-    int interleave
+    int interleave,
+    int bus
     )
 {
 int nCurPos = ftell(f);
-int c = 0, rectype;
-bool done = false;
-int nBytes = 0;
-addr_t fbegin = GetHighestCodeAddr();
-addr_t fend = GetLowestCodeAddr();
-int segment = 0;                        /* segment address                   */
+int c = 0;
 
 if ((c = fgetc(f)) == EOF)              /* look whether starting with ':'    */
   return false;
@@ -767,6 +816,14 @@ if (c != ':')
   ungetc(c, f);
   return false;
   }
+
+int rectype;
+bool done = false;
+int nBytes = 0;
+addr_t fbegin = GetHighestBusAddr(bus);
+addr_t fend = GetLowestBusAddr(bus);
+int segment = 0;                        /* segment address                   */
+MemoryType memType = GetDefaultMemoryType(bus);
 
 while (!done && (nBytes >= 0))          /* while there are lines             */
   {
@@ -783,17 +840,18 @@ while (!done && (nBytes >= 0))          /* while there are lines             */
   nAddr = GetHex(f,4, &chks) + segment; /* get address for bytes             */
   nAddr = (nAddr * interleave) + offset;
   int nSpreadBytes = (nBytesOnLine * interleave) - (interleave - 1);
-  if ((nAddr < GetLowestCodeAddr()) ||  /* if illegal address                */
-      (nAddr + nSpreadBytes > GetHighestCodeAddr()))
+                                        /* if illegal address                */
+  if ((nAddr < GetLowestBusAddr(bus)) ||
+      (nAddr + nSpreadBytes > GetHighestBusAddr(bus)))
     { nBytes = -1; break; }             /* return with error                 */
   if (nAddr < fbegin)                   /* adjust start and end values       */
     {
     fbegin = nAddr;
-    AddMemory(nAddr, nSpreadBytes);
+    AddMemory(nAddr, nSpreadBytes, memType, 0, bus);
     }
   if (nAddr + nSpreadBytes - 1 > fend)
     {
-    AddMemory(nAddr, nSpreadBytes);
+    AddMemory(nAddr, nSpreadBytes, memType, 0, bus);
     fend = nAddr + nSpreadBytes - 1;
     }
   nBytes += nBytesOnLine;
@@ -807,9 +865,10 @@ while (!done && (nBytes >= 0))          /* while there are lines             */
         c = GetHex(f, 2, &chks);        /* retrieve a byte                   */
         if ((c < 0) || (c > 0xff))      /* if illegal byte                   */
           { nBytes = -1; break; }       /* return with error                 */
-        setat(tgtaddr, (uint8_t)c);     /* otherwise add memory byte         */
-        SetCellUsed(tgtaddr);           /* mark as used byte                 */
-        SetDisplay(tgtaddr, defaultDisplay);
+                                        /* otherwise add memory byte         */
+        setat(tgtaddr, (uint8_t)c, bus);
+        SetCellUsed(tgtaddr, true, bus);
+        SetDisplay(tgtaddr, defaultDisplay, bus);
         }
       break;
     case 1 :                            /* End Of File record                */
@@ -826,10 +885,11 @@ while (!done && (nBytes >= 0))          /* while there are lines             */
               segment;
     SetLoadAddr:
       nAddr = (nAddr * interleave) + offset;
-      if ((nAddr < GetLowestCodeAddr()) || /* if illegal address           */
-           (nAddr > GetHighestCodeAddr()))
+                                        /* if illegal address                */
+      if ((nAddr < GetLowestBusAddr(bus)) ||
+           (nAddr > GetHighestBusAddr(bus)))
         nBytes = -1;                    /* return with error                 */
-      else
+      else if (bus == BusCode)
         load = nAddr;
       break;
     case 4 :                            /* Extended Linear Address           */
@@ -882,15 +942,12 @@ bool Disassembler::LoadMotorolaHex
     std::string filename,
     FILE *f,
     std::string &sLoadType,
-    int interleave
+    int interleave,
+    int bus
     )
 {
 int nCurPos = ftell(f);
 int c = 0;
-bool done = false;
-int nBytes = 0;
-addr_t fbegin = GetHighestCodeAddr();
-addr_t fend = GetLowestCodeAddr();
 
 if ((c = fgetc(f)) == EOF)              /* look whether starting with 'S'    */
   return false;
@@ -899,6 +956,12 @@ if (c != 'S')
   ungetc(c, f);
   return false;
   }
+
+bool done = false;
+int nBytes = 0;
+addr_t fbegin = GetHighestBusAddr(bus);
+addr_t fend = GetLowestBusAddr(bus);
+MemoryType memType = GetDefaultMemoryType(bus);
 
 while ((!done) && (nBytes >= 0))        /* while there are lines             */
   {
@@ -928,18 +991,19 @@ while ((!done) && (nBytes >= 0))        /* while there are lines             */
       nAddr = GetHex(f,4, &chks);       /* get address for bytes             */
     data16bit:
       nAddr = (nAddr * interleave) + offset;
-      if ((nAddr < GetLowestCodeAddr()) || /* if illegal address             */
-           (nAddr + nSpreadBytes > GetHighestCodeAddr()))
+                                        /* if illegal address                */
+      if ((nAddr < GetLowestBusAddr(bus)) ||
+           (nAddr + nSpreadBytes > GetHighestBusAddr(bus)))
         { nBytes = -1; break; }         /* return with error                 */
       if (nAddr < fbegin)               /* adjust start and end values       */
         {
         fbegin = nAddr;
-        AddMemory(nAddr, nSpreadBytes);
+        AddMemory(nAddr, nSpreadBytes, memType, 0, bus);
         }
       if (nAddr + nSpreadBytes - 1 > fend)
         {
         fend = nAddr + nSpreadBytes - 1;
-        AddMemory(nAddr, nSpreadBytes);
+        AddMemory(nAddr, nSpreadBytes, memType, 0, bus);
         }
       nBytes += nBytesOnLine;
                                         /* now get the bytes                 */
@@ -949,9 +1013,10 @@ while ((!done) && (nBytes >= 0))        /* while there are lines             */
         c = GetHex(f, 2, &chks);        /* retrieve a byte                   */
         if ((c < 0) || (c > 0xff))      /* if illegal byte                   */
           { nBytes = -1; break; }       /* return with error                 */
-        setat(tgtaddr, (uint8_t)c);     /* otherwise add memory byte         */
-        SetCellUsed(tgtaddr);           /* mark as used byte                 */
-        SetDisplay(tgtaddr, defaultDisplay);
+                                        /* otherwise add memory byte         */
+        setat(tgtaddr, (uint8_t)c, bus);
+        SetCellUsed(tgtaddr, true, bus);
+        SetDisplay(tgtaddr, defaultDisplay, bus);
         }
       break;
     case '2' :                          /* record with 24bit address         */
@@ -976,14 +1041,16 @@ while ((!done) && (nBytes >= 0))        /* while there are lines             */
       nAddr = GetHex(f, 4, &chks);      /* get address to jump to            */
     entry16bit:
       nAddr = (nAddr * interleave) + offset;
-      if ((nAddr < GetLowestCodeAddr()) ||  /* if illegal address            */
-          (nAddr > GetHighestCodeAddr()))
+                                        /* if illegal address                */
+      if ((nAddr < GetLowestBusAddr(bus)) ||
+          (nAddr > GetHighestBusAddr(bus)))
         { nBytes = -1; break; }         /* return with error                 */
       /* the documentation says "if address isn't needed, use 0".
        * bad idea IMO (they should have allowed to pass NO address instead),
        * but, well ... 0 MIGHT be a valid start address, so we need to live
        * with the ambiguity. */
-      load = nAddr;
+      if (bus == BusCode)
+        load = nAddr;
       done = true;
       break;
     default :
@@ -1029,7 +1096,8 @@ bool Disassembler::LoadBinary
     std::string filename,
     FILE *f,
     std::string &sLoadType,
-    int interleave
+    int interleave,
+    int bus
     )
 {
 int nCurPos = ftell(f);
@@ -1038,13 +1106,15 @@ int nCurPos = ftell(f);
 // if the file is unseekable
 int c = fgetc(f);                       /* read first byte from the file     */
 addr_t i, off;
+MemoryType memType = GetDefaultMemoryType(bus);
+
 fseek(f, 0, SEEK_END);                  /* get file length                   */
 off = ftell(f) - nCurPos;
 fseek(f, nCurPos + 1, SEEK_SET);
 
 if (off > 0 &&                          /* restrict to maximum code size     */ 
-    offset + (off * interleave) > GetHighestCodeAddr() + 1)
-  off = ((GetHighestCodeAddr() + 1) / interleave) - offset;
+    offset + (off * interleave) > GetHighestBusAddr(bus) + 1)
+  off = ((GetHighestBusAddr(bus) + 1) / interleave) - offset;
 
 if (begin < 0 || offset < begin)        /* set begin if not specified        */
   begin = offset;
@@ -1054,7 +1124,7 @@ if (off > 0)                            /* set end if not specified          */
   if (end < offset + (off * interleave) - 1)
     end = offset + (off * interleave) -1;
   AddMemory(offset,                     /* make sure memory is there         */
-            off * interleave);
+            off * interleave, memType, 0, bus);
   }
 
 for (i = 0; off < 0 || i < off; i++)    /* mark area as used                 */
@@ -1067,10 +1137,11 @@ for (i = 0; off < 0 || i < off; i++)    /* mark area as used                 */
     }
   addr_t tgtaddr = offset + (i * interleave);
   if (off < 0)                          /* if reading an unseekable stream   */
-    AddMemory(tgtaddr, interleave);     /* assure memory                     */
-  setat(tgtaddr, (uint8_t)c);           /* otherwise add memory byte         */
-  SetCellUsed(tgtaddr);                 /* mark as used byte                 */
-  SetDisplay(tgtaddr, defaultDisplay);
+    AddMemory(tgtaddr, interleave,      /* assure memory                     */
+              memType, 0, bus);
+  setat(tgtaddr, (uint8_t)c, bus);      /* put byte                          */
+  SetCellUsed(tgtaddr, true, bus);      /* mark as used byte                 */
+  SetDisplay(tgtaddr, defaultDisplay, bus);
   c = fgetc(f);                         /* read next byte from the file      */
   }
 
@@ -1087,12 +1158,13 @@ bool Disassembler::LoadFile
     std::string filename,
     FILE *f,
     std::string &sLoadType,
-    int interleave
+    int interleave,
+    int bus
     )
 {
-return LoadIntelHex(filename, f, sLoadType) ||
-       LoadMotorolaHex(filename, f, sLoadType) ||
-       LoadBinary(filename, f, sLoadType);
+return LoadIntelHex(filename, f, sLoadType, interleave, bus) ||
+       LoadMotorolaHex(filename, f, sLoadType, interleave, bus) ||
+       LoadBinary(filename, f, sLoadType, interleave, bus);
 }
 
 /*****************************************************************************/
@@ -1103,14 +1175,15 @@ bool Disassembler::Load
     (
     std::string filename,
     std::string &sLoadType,
-    int interleave
+    int interleave,
+    int bus
     )
 {
 sLoadType.clear();
 FILE *pFile = (filename == "-") ? stdin : fopen(filename.c_str(), "rb");
 if (pFile == NULL)
   return false;
-bool bOK = LoadFile(filename, pFile, sLoadType, interleave);
+bool bOK = LoadFile(filename, pFile, sLoadType, interleave, bus);
 if (pFile != stdin)
   fclose(pFile);
 if (bOK)                                /* if loading done,                  */
