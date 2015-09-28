@@ -305,9 +305,9 @@ Dasm6800::~Dasm6800(void)
 /* Set6800Option : sets a disassembler option                                */
 /*****************************************************************************/
 
-int Dasm6800::Set6800Option(std::string lname, std::string value)
+int Dasm6800::Set6800Option(string lname, string value)
 {
-std::string lvalue(lowercase(value));
+string lvalue(lowercase(value));
 int bnvalue = (lvalue == "off") ? 0 : (lvalue == "on") ? 1 : atoi(value.c_str());
 
 if (lname.substr(0, 2) == "no")         /* obviously a boolean negation      */
@@ -332,7 +332,7 @@ return 1;                               /* name and value consumed           */
 /* Get6800Option : retrieves a disassembler option                           */
 /*****************************************************************************/
 
-std::string Dasm6800::Get6800Option(std::string lname)
+string Dasm6800::Get6800Option(string lname)
 {
 if (lname == "conv")
   return useConvenience ? "on" : "off";
@@ -408,7 +408,7 @@ return true;
 /* LoadFlex : loads a FLEX(9) binary executable                              */
 /*****************************************************************************/
 
-bool Dasm6800::LoadFlex(FILE *f, std::string &sLoadType)
+bool Dasm6800::LoadFlex(FILE *f, string &sLoadType)
 {
 struct SFlexRecord rec;
 int nCurPos = ftell(f);
@@ -473,7 +473,7 @@ return (nRecs > 0);
 /* LoadFile : loads an opened file                                           */
 /*****************************************************************************/
 
-bool Dasm6800::LoadFile(std::string filename, FILE *f, std::string &sLoadType, int interleave, int bus)
+bool Dasm6800::LoadFile(string filename, FILE *f, string &sLoadType, int interleave, int bus)
 {
 return LoadFlex(f, sLoadType) ||  // FLEX9 files need no interleave nor bus
        Disassembler::LoadFile(filename, f, sLoadType, interleave, bus);
@@ -483,7 +483,7 @@ return LoadFlex(f, sLoadType) ||  // FLEX9 files need no interleave nor bus
 /* String2Number : convert a string to a number in all known formats         */
 /*****************************************************************************/
 
-bool Dasm6800::String2Number(std::string s, addr_t &value)
+bool Dasm6800::String2Number(string s, addr_t &value)
 {
 /* Standard formats for known 680x assemblers :
    - a character has a leading '
@@ -504,7 +504,7 @@ else if (s[0] == '\'' && s.size() > 1)
   }
 else if (s[0] == '%')
   {
-  for (std::string::size_type i = 1; i < s.size(); i++)
+  for (string::size_type i = 1; i < s.size(); i++)
     {
     char c = s[i];
     if (c >= '0' && c <= '1')
@@ -522,7 +522,7 @@ return Disassembler::String2Number(s, value);
 /* Number2String : converts a number to a string in a variety of formats     */
 /*****************************************************************************/
 
-std::string Dasm6800::Number2String
+string Dasm6800::Number2String
     (
     addr_t value,
     int nDigits,
@@ -530,7 +530,7 @@ std::string Dasm6800::Number2String
     int bus
     )
 {
-std::string s;
+string s;
 
 /* Standard formats for known 680x assemblers :
    - a character has a leading '
@@ -642,7 +642,7 @@ return Disassembler::InitParse(bus);
 addr_t Dasm6800::ParseData
     (
     addr_t addr,
-    int bus                         /* ignored for 6800 and derivates    */
+    int bus                             /* ignored for 6800 and derivates    */
     )
 {
 SetLabelUsed(addr, Const, bus);         /* mark DefLabels as used            */
@@ -669,7 +669,7 @@ addr_t Dasm6800::FetchInstructionDetails
     uint16_t &W,
     int &MI,
     const char *&I,
-    std::string *smnemo
+    string *smnemo
     )
 {
 O = T = GetUByte(PC++);
@@ -689,7 +689,7 @@ return PC;
 addr_t Dasm6800::ParseCode
     (
     addr_t addr,
-    int bus                         /* ignored for 6800 and derivates    */
+    int bus                             /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -798,14 +798,14 @@ return PC - addr;                       /* pass back # processed bytes       */
 bool Dasm6800::DisassembleLabel
     (
     Label *label,
-    std::string &slabel,
-    std::string &smnemo,
-    std::string &sparm,
+    string &slabel,
+    string &smnemo,
+    string &sparm,
     int bus
     )
 {
-std::string lbltxt = label->GetText();
-if (lbltxt.find_first_of("+-") == std::string::npos)
+string lbltxt = label->GetText();
+if (lbltxt.find_first_of("+-") == string::npos)
   {
   addr_t laddr = label->GetAddress();
   if (lbltxt.size() && !GetRelative(laddr, bus))
@@ -826,9 +826,9 @@ return false;
 bool Dasm6800::DisassembleDefLabel
     (
     DefLabel *label,
-    std::string &slabel,
-    std::string &smnemo,
-    std::string &sparm,
+    string &slabel,
+    string &smnemo,
+    string &sparm,
     int bus
     )
 {
@@ -847,10 +847,10 @@ addr_t Dasm6800::DisassembleData
     addr_t addr,
     addr_t end,
     uint32_t flags,
-    std::string &smnemo,
-    std::string &sparm,
+    string &smnemo,
+    string &sparm,
     int maxparmlen,
-    int bus                         /* ignored for 6800 and derivates    */
+    int bus                             /* ignored for 6800 and derivates    */
     )
 {
 addr_t done;
@@ -869,7 +869,7 @@ else if (useFCC && (flags & SHMF_TXT))  /* if FCC (text) allowed             */
   sparm = '"';                          /* start the game                    */
   for (done = addr; done < end; done++) /* assemble as many as possible      */
     {                                   /* if this would become too long     */
-    if (sparm.size() + 2 > (std::string::size_type)maxparmlen ||
+    if (sparm.size() + 2 > (string::size_type)maxparmlen ||
         FindLabel(done, Const, bus))    /* or a DefLabel chimes in           */
       break;                            /* terminate the loop                */
     sparm += *getat(done);
@@ -883,10 +883,10 @@ else if (flags & 0xff)                  /* if not byte-sized                 */
                                         /* assemble as many as possible      */
   for (done = addr; done < end; done += 2)
     {
-    std::string s = Label2String(GetUWord(done), !IsConst(done), done);
+    string s = Label2String(GetUWord(done), !IsConst(done), done);
     if (sparm.size())                   /* if already something there        */
       {                                 /* if this would become too long     */
-      if (sparm.size() + s.size() + 1 > (std::string::size_type)maxparmlen)
+      if (sparm.size() + s.size() + 1 > (string::size_type)maxparmlen)
         break;                          /* terminate the loop                */
       sparm += ',';                     /* add separator                     */
       }
@@ -900,14 +900,14 @@ else                                    /* if FCB (hex or binary)            */
   for (done = addr; done < end; done++)
     {
     Label *deflbl = FindLabel(done, Const, bus);
-    std::string s;
+    string s;
     if (deflbl)
       s = deflbl->GetText();
     else
       s = Number2String(*getat(done), 2, done);
     if (sparm.size())                   /* if already something there        */
       {                                 /* if this would become too long     */
-      if (sparm.size() + s.size() + 1 > (std::string::size_type)maxparmlen)
+      if (sparm.size() + s.size() + 1 > (string::size_type)maxparmlen)
         break;                          /* terminate the loop                */
       sparm += ',';                     /* add separator                     */
       }
@@ -925,9 +925,9 @@ return done - addr;
 addr_t Dasm6800::DisassembleCode
     (
     addr_t addr,
-    std::string &smnemo,
-    std::string &sparm,
-    int bus                         /* ignored for 6800 and derivates    */
+    string &smnemo,
+    string &sparm,
+    int bus                             /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -1059,7 +1059,7 @@ bool Dasm6800::DisassembleChanges
     addr_t prevaddr,
     addr_t prevsz,
     bool bAfterLine,
-    std::vector<LineChange> &changes,
+    vector<LineChange> &changes,
     int bus
     )
 {
@@ -1080,7 +1080,7 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
     changes.push_back(chg);
     }
   }
-else if (bus == BusCode)                /* no Harvard architecture here.     */
+else // no bus check necessary, there's only one
   {
   addr_t org = DephaseOuter(addr, addr);
   addr_t prevorg = DephaseOuter(prevaddr, prevaddr);

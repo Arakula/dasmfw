@@ -42,9 +42,11 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+
 #include <string>
 #include <vector>
 #include <memory>
+using namespace std;
 
 #ifndef _countof
 #define _countof(a) (sizeof(a) / sizeof(a[0]))
@@ -54,7 +56,7 @@
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.8"
+#define DASMFW_VERSION  "0.9"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t caddr_t;               /* container for maximal code address*/
@@ -81,14 +83,14 @@ enum
 /* Global functions                                                          */
 /*****************************************************************************/
 
-std::string lowercase(std::string s);
-std::string uppercase(std::string s);
-std::string ltrim(std::string s);
-std::string trim(std::string s);
-std::string sformat(const std::string fmt_str, ...);
-std::string triminfo
+string lowercase(string s);
+string uppercase(string s);
+string ltrim(string s);
+string trim(string s);
+string sformat(const string fmt_str, ...);
+string triminfo
     (
-    std::string s,
+    string s,
     bool bCutComment = true,
     bool bUnescape = true,
     bool bDotStart = false
@@ -100,7 +102,7 @@ std::string triminfo
 /*****************************************************************************/
 
 class Disassembler;
-bool RegisterDisassembler(std::string name, Disassembler * (*CreateDisassembler)());
+bool RegisterDisassembler(string name, Disassembler * (*CreateDisassembler)());
 
 // This one relies on the global functions above
 #include "Memory.h"
@@ -112,7 +114,7 @@ bool RegisterDisassembler(std::string name, Disassembler * (*CreateDisassembler)
 class Comment : public AddrText
   {
   public:
-    Comment(addr_t addr = 0, std::string sline = "", bool bIsComment = true)
+    Comment(addr_t addr = 0, string sline = "", bool bIsComment = true)
       : AddrText(addr, Data, sline), bIsComment(bIsComment)
       { }
     virtual ~Comment() { }
@@ -166,9 +168,9 @@ public:
 
   int Run();
 
-  bool LoadInfo(std::string fileName, bool bProcInfo = true, bool bSetDasm = false)
+  bool LoadInfo(string fileName, bool bProcInfo = true, bool bSetDasm = false)
     {
-    std::vector<std::string> loadStack;
+    vector<string> loadStack;
     return LoadInfo(fileName, loadStack, bProcInfo, bSetDasm);
     }
 
@@ -176,18 +178,18 @@ protected:
   bool LoadFiles();
   bool LoadInfoFiles();
   bool Parse(int nPass, int bus = BusCode);
-  bool DisassembleComments(addr_t addr, bool bAfterLine, std::string sComDel, int bus = BusCode);
+  bool DisassembleComments(addr_t addr, bool bAfterLine, string sComDel, int bus = BusCode);
   bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, int bus = BusCode);
-  bool DisassembleLabels(std::string sComDel, std::string sComHdr, int bus = BusCode);
-  bool DisassembleDefLabels(std::string sComDel, std::string sComHdr, int bus = BusCode);
-  addr_t DisassembleLine(addr_t addr, std::string sComDel, std::string sComHdr, std::string labelDelim, int bus = BusCode);
-  bool PrintLine(std::string sLabel = "", std::string smnemo = "", std::string sparm = "", std::string scomment = "", int labelLen = -1);
-  bool LoadInfo(std::string fileName, std::vector<std::string> &loadStack, bool bProcInfo = true, bool bSetDasm = false);
-  int ParseInfoRange(std::string value, addr_t &from, addr_t &to);
+  bool DisassembleLabels(string sComDel, string sComHdr, int bus = BusCode);
+  bool DisassembleDefLabels(string sComDel, string sComHdr, int bus = BusCode);
+  addr_t DisassembleLine(addr_t addr, string sComDel, string sComHdr, string labelDelim, int bus = BusCode);
+  bool PrintLine(string sLabel = "", string smnemo = "", string sparm = "", string scomment = "", int labelLen = -1);
+  bool LoadInfo(string fileName, vector<string> &loadStack, bool bProcInfo = true, bool bSetDasm = false);
+  int ParseInfoRange(string value, addr_t &from, addr_t &to);
   int ParseOption
     (
-    std::string option,                 /* option name                       */
-    std::string value,                  /* new option value                  */
+    string option,                 /* option name                       */
+    string value,                  /* new option value                  */
     bool bSetDasm = false,              /* flag whether set disassembler     */
     bool bProcInfo = true               /* flag whether to fully process info*/
     );
@@ -197,15 +199,15 @@ protected:
     char* argv[],
     bool bSetDasm = false               /* flag whether set disassembler     */
     );
-  void ListOptions();
+  void ListOptions(bool bAllOptions = false);
   int InfoHelp(bool bQuit = false);
-  int Help(bool bQuit = false);
+  int Help(bool bQuit = false, bool bAllOptions = false);
 #ifdef _DEBUG
   void DumpMem(int bus);
 #endif
 
   // Comment / Text line handling
-  bool AddComment(addr_t addr, bool bAfter = false, std::string sComment = "", bool bPrepend = false, bool bIsComment = true, int bus = BusCode)
+  bool AddComment(addr_t addr, bool bAfter = false, string sComment = "", bool bPrepend = false, bool bIsComment = true, int bus = BusCode)
     {
     comments[bAfter][bus].insert(new Comment(addr, sComment, bIsComment), !bPrepend);
     return true;
@@ -220,7 +222,7 @@ protected:
   void RemoveCommentAt(bool bAfter, int index, int bus = BusCode) { comments[bAfter][bus].erase(comments[bAfter][bus].begin() + index); }
 
   // Line Comment handling
-  bool AddLComment(addr_t addr, std::string sComment = "", bool bPrepend = false, int bus = BusCode)
+  bool AddLComment(addr_t addr, string sComment = "", bool bPrepend = false, int bus = BusCode)
     {
     lcomments[bus].insert(new Comment(addr, sComment), !bPrepend);
     return true;
@@ -237,13 +239,13 @@ protected:
 protected:
   int argc;
   char **argv;
-  std::string sDasmName;                /* program name                      */
+  string sDasmName;                /* program name                      */
   Disassembler *pDasm;                  /* selected disassembler             */
   int iDasm;                            /* index of selected disassembler    */
-  std::vector<std::string> saFNames;    /* array of files to load            */
-  std::vector<std::string> saINames;    /* array of info files to load       */
-  std::vector<std::string> saPINames;   /* array of processed info files     */
-  std::string outname;                  /* output file name                  */
+  vector<string> saFNames;    /* array of files to load            */
+  vector<string> saINames;    /* array of info files to load       */
+  vector<string> saPINames;   /* array of processed info files     */
+  string outname;                  /* output file name                  */
   FILE *out;                            /* output file                       */
 
   bool abortHelp;                       /* abort after help has been given   */
@@ -262,11 +264,11 @@ protected:
   int dbCount;                          /* min bytes for hex/asc dump        */
 
   // remap arrays
-  std::vector<TMemoryArray<addr_t>> remaps;
+  vector<TMemoryArray<addr_t>> remaps;
   // comment / line text arrays
-  std::vector<CommentArray> comments[2];
+  vector<CommentArray> comments[2];
   // line comment arrays
-  std::vector<CommentArray> lcomments;
+  vector<CommentArray> lcomments;
 };
 
 #endif // __dasmfw_h_defined__

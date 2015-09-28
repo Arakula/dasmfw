@@ -57,7 +57,7 @@ class Dasm6800 :
   // Overrides
   public:
     // return processor long name
-    virtual std::string GetName() { return "Motorola 6800"; }
+    virtual string GetName() { return "Motorola 6800"; }
     // return whether big- or little-endian
     virtual Endian GetEndianness() { return BigEndian; }
     // return bus width
@@ -77,8 +77,8 @@ class Dasm6800 :
 
   // Options handler
   protected:
-    int Set6800Option(std::string name, std::string value);
-    std::string Get6800Option(std::string name);
+    int Set6800Option(string name, string value);
+    string Get6800Option(string name);
 
   protected:
     // parse data area for labels
@@ -86,28 +86,28 @@ class Dasm6800 :
     // parse instruction at given memory address for labels
     virtual addr_t ParseCode(addr_t addr, int bus = BusCode);
     // pass back correct mnemonic and parameters for a label
-    virtual bool DisassembleLabel(Label *label, std::string &slabel, std::string &smnemo, std::string &sparm, int bus = BusCode);
+    virtual bool DisassembleLabel(Label *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode);
     // pass back correct mnemonic and parameters for a DefLabel
-    virtual bool DisassembleDefLabel(DefLabel *label, std::string &slabel, std::string &smnemo, std::string &sparm, int bus = BusCode);
+    virtual bool DisassembleDefLabel(DefLabel *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode);
     // disassemble data area at given memory address
-    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, std::string &smnemo, std::string &sparm, int maxparmlen, int bus = BusCode);
+    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, int bus = BusCode);
+    virtual addr_t DisassembleCode(addr_t addr, string &smnemo, string &sparm, int bus = BusCode);
   public:
     // Initialize parsing
     virtual bool InitParse(int bus = BusCode);
     // pass back disassembler-specific state changes before/after a disassembly line
-    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, std::vector<LineChange> &changes, int bus = BusCode);
+    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode);
 
 
   protected:
-    bool LoadFlex(FILE *f, std::string &sLoadType);
-    virtual bool LoadFile(std::string filename, FILE *f, std::string &sLoadType, int interleave = 1, int bus = BusCode);
-    virtual bool String2Number(std::string s, addr_t &value);
-    virtual std::string Number2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode);
-    virtual std::string Address2String(addr_t addr, int bus = BusCode)
+    bool LoadFlex(FILE *f, string &sLoadType);
+    virtual bool LoadFile(string filename, FILE *f, string &sLoadType, int interleave = 1, int bus = BusCode);
+    virtual bool String2Number(string s, addr_t &value);
+    virtual string Number2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode);
+    virtual string Address2String(addr_t addr, int bus = BusCode)
       { return sformat("$%04X", addr); }
-    virtual addr_t FetchInstructionDetails(addr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, std::string *smnemo = NULL);
+    virtual addr_t FetchInstructionDetails(addr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, string *smnemo = NULL);
 
   protected:
     // 6800 addressing modes

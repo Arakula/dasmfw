@@ -168,7 +168,7 @@ class Disassembler
   // Information about the processor's capabilities
   public:
     // return processor long name
-    virtual std::string GetName() = 0;
+    virtual string GetName() = 0;
     // return whether big- or little-endian
     virtual Endian GetEndianness() = 0;
     // return architecture type
@@ -185,13 +185,13 @@ class Disassembler
     virtual addr_t GetHighestBusAddr(int bus = BusCode)
       { return (addr_t)(((addr_t)1 << GetBusWidth(bus)) - 1); }
     // return a bus name
-    virtual std::string GetBusName(int bus = BusCode)
+    virtual string GetBusName(int bus = BusCode)
       {
       if (bus < 0 || bus >= GetBusCount()) return "";
       return busnames[bus];
       }
     // return a bus ID based on its name (or -1 if unknown)
-    virtual int GetBusID(std::string busname);
+    virtual int GetBusID(string busname);
     // return the default memory type for a bus (used in loading)
     virtual MemoryType GetDefaultMemoryType(int bus = BusCode)
       { return Code; }
@@ -219,31 +219,31 @@ class Disassembler
 
   // Generic options handler
   protected:
-    typedef int (Disassembler::*PSetter)(std::string lname, std::string value);
-    typedef std::string (Disassembler::*PGetter)(std::string lname);
+    typedef int (Disassembler::*PSetter)(string lname, string value);
+    typedef string (Disassembler::*PGetter)(string lname);
     struct OptionHandler
       {
-      std::string name;
-      std::string help;
+      string name;
+      string help;
       PSetter setter;
       PGetter getter;
       };
-    std::vector<OptionHandler *> options;
-    bool AddOption(std::string name, std::string help, PSetter setter, PGetter getter);
+    vector<OptionHandler *> options;
+    bool AddOption(string name, string help, PSetter setter, PGetter getter);
     // 
-    int DisassemblerSetOption(std::string lname, std::string value);
-    std::string DisassemblerGetOption(std::string lname);
+    int DisassemblerSetOption(string lname, string value);
+    string DisassemblerGetOption(string lname);
   public:
     int GetOptionCount() { return options.size(); }
-    int FindOption(std::string name);
-    std::string GetOptionName(int idx) { return options[idx]->name; }
-    std::string GetOptionHelp(int idx) { return options[idx]->help; }
-    int SetOption(int idx, std::string value) { return ((*this).*(options[idx]->setter))(options[idx]->name, value); }
-    int SetOption(std::string name, std::string value);
-    std::string GetOption(int idx) { return ((*this).*(options[idx]->getter))(options[idx]->name); }
-    std::string GetOption(std::string name);
+    int FindOption(string name);
+    string GetOptionName(int idx) { return options[idx]->name; }
+    string GetOptionHelp(int idx) { return options[idx]->help; }
+    int SetOption(int idx, string value) { return ((*this).*(options[idx]->setter))(options[idx]->name, value); }
+    int SetOption(string name, string value);
+    string GetOption(int idx) { return ((*this).*(options[idx]->getter))(options[idx]->name); }
+    string GetOption(string name);
     // print disassembler-specific info file help
-    virtual std::string InfoHelp() { return ""; }
+    virtual string InfoHelp() { return ""; }
     // global typed options
     addr_t GetBegin() { return begin; }
     addr_t GetEnd() { return end; }
@@ -352,15 +352,15 @@ class Disassembler
     bool SetDouble(addr_t addr, double val, int bus = BusCode)
       { return setat(addr, (uint8_t *)&val, sizeof(val), bus); }
     // Get/set delimited ASCII string
-    std::string GetString(addr_t addr, char cTerm = '\0', int bus = BusCode)
+    string GetString(addr_t addr, char cTerm = '\0', int bus = BusCode)
       {
-      std::string s;
+      string s;
       char c;
       while ((c = (char)getat(addr++)) != cTerm)
         s += c;
       return s;
       }
-    bool SetString(addr_t addr, std::string s, char cTerm = '\0', int bus = BusCode)
+    bool SetString(addr_t addr, string s, char cTerm = '\0', int bus = BusCode)
       {
       if (setat(addr, (uint8_t *)s.c_str(), s.size(), bus))
         return setat(addr + s.size(), (uint8_t)cTerm, bus);
@@ -490,7 +490,7 @@ class Disassembler
 
   // Label handling
   public:
-    bool AddLabel(addr_t addr, MemoryType memType = Code, std::string sLabel = "", bool bUsed = false, int bus = BusCode);
+    bool AddLabel(addr_t addr, MemoryType memType = Code, string sLabel = "", bool bUsed = false, int bus = BusCode);
     Label *GetFirstLabel(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, int bus = BusCode)
       { return Labels[bus].GetFirst(addr, it, memType); }
     Label *GetNextLabel(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, int bus = BusCode)
@@ -506,7 +506,7 @@ class Disassembler
     void RemoveLabelAt(int index, int bus = BusCode) { Labels[bus].erase(Labels[bus].begin() + index); }
     virtual bool ResolveLabels(int bus = BusCode);
     // convenience functionality for the above
-    std::string GetLabel(addr_t addr, MemoryType memType = Untyped, int bus = BusCode)
+    string GetLabel(addr_t addr, MemoryType memType = Untyped, int bus = BusCode)
       {
       // NB: this returns the LAST label for this address and type!
       Label *p = FindLabel(addr, memType, bus);
@@ -576,7 +576,7 @@ class Disassembler
 
   // Definition Label handling
     public:
-      bool AddDefLabel(addr_t addr, std::string sLabel = "", std::string sDefinition = "", MemoryType memType = Code, int bus = BusCode)
+      bool AddDefLabel(addr_t addr, string sLabel = "", string sDefinition = "", MemoryType memType = Code, int bus = BusCode)
         {
         if (!DefLabels[bus].Find(sLabel))
           DefLabels[bus].insert(new DefLabel(DefLabels[bus].size(),
@@ -593,9 +593,9 @@ class Disassembler
   // File handling
   public:
     // load a code file; interleave can be >1 for interleaved Low/High EPROM pairs, for example
-    bool Load(std::string filename, std::string &sLoadType, int interleave = 1, int bus = BusCode);
+    bool Load(string filename, string &sLoadType, int interleave = 1, int bus = BusCode);
     // process an info file line
-    virtual bool ProcessInfo(std::string key, std::string value, addr_t &from, addr_t &to, bool bProcInfo = true, int bus = BusCode) { return false; }
+    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, bool bProcInfo = true, int bus = BusCode) { return false; }
 
   // the real disassembler activities
   protected:
@@ -604,9 +604,9 @@ class Disassembler
     // parse instruction at given memory address for labels
     virtual addr_t ParseCode(addr_t addr, int bus = BusCode) = 0;
     // disassemble data area at given memory address
-    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, std::string &smnemo, std::string &sparm, int maxparmlen, int bus = BusCode) = 0;
+    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode) = 0;
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, int bus = BusCode) = 0;
+    virtual addr_t DisassembleCode(addr_t addr, string &smnemo, string &sparm, int bus = BusCode) = 0;
   // globally accessible dispatchers for the above
   public:
     // Initialize parsing
@@ -620,7 +620,7 @@ class Disassembler
     addr_t Parse(addr_t addr, int bus = BusCode)
       { return IsCode(addr, bus) ? ParseCode(addr, bus) : ParseData(addr, bus); }
     // Disassemble a line in the memory area
-    addr_t Disassemble(addr_t addr, std::string &smnemo, std::string &sparm, int maxparmlen, int bus = BusCode)
+    addr_t Disassemble(addr_t addr, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode)
       {
       if (IsCode(addr, bus)) return DisassembleCode(addr, smnemo, sparm, bus);
       uint32_t flags = 0;
@@ -628,19 +628,19 @@ class Disassembler
       return DisassembleData(addr, end, flags, smnemo, sparm, maxparmlen, bus);
       }
     // pass back correct mnemonic and parameters for a label
-    virtual bool DisassembleLabel(Label *label, std::string &slabel, std::string &smnemo, std::string &sparm, int bus = BusCode)
+    virtual bool DisassembleLabel(Label *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode)
       { return false; } // no changes in base implementation
     // pass back correct mnemonic and parameters for a DefLabel
-    virtual bool DisassembleDefLabel(DefLabel *label, std::string &slabel, std::string &smnemo, std::string &sparm, int bus = BusCode)
+    virtual bool DisassembleDefLabel(DefLabel *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode)
       { return false; } // no changes in base implementation
     // pass back disassembler-specific state changes before/after a disassembly line
     struct LineChange
       {
-      std::string label;
-      std::string oper;
-      std::string opnds;
+      string label;
+      string oper;
+      string opnds;
       };
-    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, std::vector<LineChange> &changes, int bus = BusCode)
+    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode)
       { return changes.size() != 0; } // no additional changes in base implementation
 
   protected:
@@ -663,10 +663,10 @@ class Disassembler
       { return memory[bus].setat(addr, val, len, (GetEndianness() != prgEndian)); }
 
     // load opened file (overridable for specific file types)
-    virtual bool LoadFile(std::string filename, FILE *f, std::string &sLoadType, int interleave = 1, int bus = BusCode);
-    bool LoadIntelHex(std::string filename, FILE *f, std::string &sLoadType, int interleave = 1, int bus = BusCode);
-    bool LoadMotorolaHex(std::string filename, FILE *f, std::string &sLoadType, int interleave = 1, int bus = BusCode);
-    bool LoadBinary(std::string filename, FILE *f, std::string &sLoadType, int interleave = 1, int bus = BusCode);
+    virtual bool LoadFile(string filename, FILE *f, string &sLoadType, int interleave = 1, int bus = BusCode);
+    bool LoadIntelHex(string filename, FILE *f, string &sLoadType, int interleave = 1, int bus = BusCode);
+    bool LoadMotorolaHex(string filename, FILE *f, string &sLoadType, int interleave = 1, int bus = BusCode);
+    bool LoadBinary(string filename, FILE *f, string &sLoadType, int interleave = 1, int bus = BusCode);
 
     // calculate bits needed for an address
     int CalcBitsForHighestAddr(addr_t addr)
@@ -686,58 +686,19 @@ class Disassembler
     virtual void RecalcBusBits(int bus = BusCode)
       { busbits[bus] = CalcBitsForHighestAddr(GetHighestBusAddr(bus)); }
     // calculate consecutive data range (i.e., same type for all)
-    addr_t GetConsecutiveData(addr_t addr, uint32_t &flags, int maxparmlen, int bus = BusCode)
-      {
-      addr_t end;
-      addr_t maxaddr = GetHighestBusAddr(bus);
-                                        /* get flags for current byte        */
-      flags = GetDisassemblyFlags(addr, bus) &
-              (~(SHMF_BREAK |           /* without break flag                */
-                 SHMF_NOTXT));          /* and without NoText flag           */
-      flags &= disassemblyFlagMask;
-      // safety fuse - process no more than maxparmlen at a time unless it's
-      // RMB. This may still be too much, but should not be too far off.
-      if (!(flags & SHMF_RMB) &&
-          addr + (addr_t)maxparmlen > addr &&
-          addr + (addr_t)maxparmlen <= maxaddr)
-        maxaddr = addr + (addr_t)maxparmlen - 1;
-
-      for (end = addr + 1;              /* find end of block                 */
-           end > addr && end <= maxaddr;
-           end++)
-        {
-        uint32_t fEnd = GetDisassemblyFlags(end, bus);
-        fEnd &= ~SHMF_NOTXT;
-        fEnd &= disassemblyFlagMask;
-        if (fEnd != flags)
-          break;
-        }
-      if (flags & 0xff)                 /* if not 1-sized,                   */
-        {
-        int dsz = (int)(flags & 0xff) + 1;
-        addr_t rest = (end - addr) % dsz;
-        if (rest)                       /* don't use incomplete last item    */
-          end -= rest;
-        if (end == addr)                /* if there's nothing left           */
-          end = addr + dsz;             /* use at least 1 item               */
-        // NB: defining n-byte fields starting at less than (n-1) bytes
-        // before the end of the highest memory address will produce garbage,
-        // but... well... GIGO. Should be caught by info file parser anyway.
-        }
-      return end;                       /* pass back last + 1                */
-      }
+    addr_t GetConsecutiveData(addr_t addr, uint32_t &flags, int maxparmlen, int bus = BusCode);
 
   public:
     // return address bits for a specific bus
     int BusAddressBits(int bus = BusCode) { return busbits[bus]; }
     // convert a string to an integer number, (dis)assembler-specific
-    virtual bool String2Number(std::string s, addr_t &value)
+    virtual bool String2Number(string s, addr_t &value)
       {
       int base = pbase;
       s = trim(s);
       // Only thing that should always work...
       // C-style number strings should be universal
-      std::string sFmt = s.substr(0, 2);
+      string sFmt = s.substr(0, 2);
       if (sFmt == "0x")
         {
         base = 16;
@@ -756,10 +717,10 @@ class Disassembler
       // return end && !*end;
 #endif
       }
-    virtual int String2Range(std::string s, addr_t &from, addr_t &to)
+    virtual int String2Range(string s, addr_t &from, addr_t &to)
       {
       from = to = NO_ADDRESS;
-      std::string::size_type midx = s.find('-');
+      string::size_type midx = s.find('-');
       if (midx == 0)
         {
         midx = s.substr(1).find('-');
@@ -772,14 +733,14 @@ class Disassembler
         return (int)String2Number(s, from);
       }
     // convert a string to a floating-point number, (dis)assembler-specific
-    virtual bool String2Double(std::string s, double &value)
+    virtual bool String2Double(string s, double &value)
       {
       // Only thing that should always work...
       value = 0.;
       return (sscanf(s.c_str(), "%lf", &value) == 1);
       }
     // convert a number to a string
-    virtual std::string Number2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode)
+    virtual string Number2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode)
       {
 #if 0
       MemoryType memType = GetMemType(addr);
@@ -798,9 +759,9 @@ class Disassembler
       // Only thing that should always work...
       return sformat(IsSigned(addr, bus) ? "%d" : "%u", value);
       }
-    virtual std::string SignedNumber2String(saddr_t value, int nDigits, addr_t addr, int bus = BusCode)
+    virtual string SignedNumber2String(saddr_t value, int nDigits, addr_t addr, int bus = BusCode)
       {
-      std::string s;
+      string s;
       // specialization for things that have to be signed in any case
       if (value < 0)
         {
@@ -809,12 +770,12 @@ class Disassembler
         }
       return s + Number2String((addr_t)value, nDigits, addr, bus);
       }
-    virtual std::string Address2String(addr_t addr, int bus = BusCode)
+    virtual string Address2String(addr_t addr, int bus = BusCode)
       { return sformat("%d", addr); }
-    virtual std::string Label2String(addr_t value, bool bUseLabel, addr_t addr, int bus = BusCode);
-    virtual std::string DefLabel2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode);
+    virtual string Label2String(addr_t value, bool bUseLabel, addr_t addr, int bus = BusCode);
+    virtual string DefLabel2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode);
     // generate text for an unnamed label
-    virtual std::string UnnamedLabel(addr_t addr, bool bCode, int bus = BusCode)
+    virtual string UnnamedLabel(addr_t addr, bool bCode, int bus = BusCode)
       {
       const char *cType = bCode ? "Z" : "M";
       int bits = busbits[bus];
@@ -825,15 +786,15 @@ class Disassembler
     static const Endian prgEndian;
     // For all [BusTypes] arrays below:
     // [0]: instruction bus; [1]: data bus, if separate; [2]: I/O bus, if separate
-    std::vector<std::string> busnames;
-    std::vector<MemoryArray> memory;
-    std::vector<MemAttributeHandler *> memattr;
-    std::vector<LabelArray> Labels;
-    std::vector<DefLabelArray> DefLabels;
-    std::vector<TMemoryArray<addr_t>> Relatives;
-    std::vector<TMemoryArray<addr_t, addr_t>> Phases;
-    std::vector<int> busorder;
-    std::vector<int> busbits;
+    vector<string> busnames;
+    vector<MemoryArray> memory;
+    vector<MemAttributeHandler *> memattr;
+    vector<LabelArray> Labels;
+    vector<DefLabelArray> DefLabels;
+    vector<TMemoryArray<addr_t>> Relatives;
+    vector<TMemoryArray<addr_t, addr_t>> Phases;
+    vector<int> busorder;
+    vector<int> busbits;
 
     // begin / end / load (i.e., entry point) address
     addr_t begin, end, load, offset;
@@ -846,14 +807,14 @@ class Disassembler
     // default display format
     MemAttribute::Display defaultDisplay;
     // disassembler-specific comment start character
-    std::string commentStart;
+    string commentStart;
     // disassembler-specific label delimiter
-    std::string labelDelim;
+    string labelDelim;
     // parsing radix (default 10)
     int pbase;
     uint32_t disassemblyFlagMask;
 
-    std::vector<OpCode> mnemo;
+    vector<OpCode> mnemo;
 
   };
 

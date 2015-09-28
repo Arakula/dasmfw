@@ -41,7 +41,7 @@ enum
 class Avr8RegLabel : public Label
   {
   public:
-    Avr8RegLabel(addr_t addr = 0, std::string sLabel = "", int nRegNum = 0)
+    Avr8RegLabel(addr_t addr = 0, string sLabel = "", int nRegNum = 0)
       : Label(addr, Const, sLabel, true), nRegNum(nRegNum)
       { }
   // Attributes
@@ -102,7 +102,7 @@ class DasmAvr8 :
   // Overrides
   public:
     // return processor long name
-    virtual std::string GetName() { return "ATMEL AVR8"; }
+    virtual string GetName() { return "ATMEL AVR8"; }
     // return whether big- or little-endian
     virtual Endian GetEndianness() { return LittleEndian; }
     // return number of busses
@@ -140,14 +140,14 @@ class DasmAvr8 :
     virtual bool Setup();
 
     // print disassembler-specific info file help
-    virtual std::string InfoHelp();
+    virtual string InfoHelp();
 
   // Options handler
   protected:
-    int SetAvr8Option(std::string name, std::string value);
-    std::string GetAvr8Option(std::string name);
+    int SetAvr8Option(string name, string value);
+    string GetAvr8Option(string name);
 
-    virtual bool ProcessInfo(std::string key, std::string value, addr_t &from, addr_t &to, bool bProcInfo = true, int bus = BusCode);
+    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, bool bProcInfo = true, int bus = BusCode);
 
   protected:
     // parse data area for labels
@@ -155,22 +155,22 @@ class DasmAvr8 :
     // parse instruction at given memory address for labels
     virtual addr_t ParseCode(addr_t addr, int bus = BusCode);
     // pass back correct mnemonic and parameters for a label
-    virtual bool DisassembleLabel(Label *label, std::string &slabel, std::string &smnemo, std::string &sparm, int bus = BusCode);
+    virtual bool DisassembleLabel(Label *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode);
     // pass back correct mnemonic and parameters for a DefLabel
-    virtual bool DisassembleDefLabel(DefLabel *label, std::string &slabel, std::string &smnemo, std::string &sparm, int bus = BusCode);
+    virtual bool DisassembleDefLabel(DefLabel *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode);
     // disassemble data area at given memory address
-    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, std::string &smnemo, std::string &sparm, int maxparmlen, int bus = BusCode);
+    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, int bus = BusCode);
+    virtual addr_t DisassembleCode(addr_t addr, string &smnemo, string &sparm, int bus = BusCode);
   public:
     // Initialize parsing
     virtual bool InitParse(int bus = BusCode);
     // pass back disassembler-specific state changes before/after a disassembly line
-    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, std::vector<LineChange> &changes, int bus = BusCode);
+    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode);
 
   // Register label handling
   protected:
-    bool AddRegLabel(addr_t addr, std::string sText = "", int nRegNum = 0)
+    bool AddRegLabel(addr_t addr, string sText = "", int nRegNum = 0)
       {
       RegLabels.insert(new Avr8RegLabel(addr, sText, nRegNum));
       return true;
@@ -181,25 +181,26 @@ class DasmAvr8 :
       { return RegLabels.GetNext(addr, it); }
 
   protected:
-    bool LoadAtmelGeneric(FILE *f, std::string &sLoadType, int bus = BusCode);
-    virtual bool LoadFile(std::string filename, FILE *f, std::string &sLoadType, int interleave = 1, int bus = BusCode);
-    virtual bool String2Number(std::string s, addr_t &value);
-    virtual std::string Number2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode);
-    virtual std::string Address2String(addr_t addr, int bus = BusCode)
+    bool LoadAtmelGeneric(FILE *f, string &sLoadType, int bus = BusCode);
+    virtual bool LoadFile(string filename, FILE *f, string &sLoadType, int interleave = 1, int bus = BusCode);
+    virtual bool String2Number(string s, addr_t &value);
+    virtual string Number2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode);
+    virtual string Address2String(addr_t addr, int bus = BusCode)
       { return sformat("0x%0*x", (busbits[bus] + 3) / 4, addr); }
-    std::string RegName(int regnum)
+    string RegName(int regnum, bool with_label = true)
       {
-      if (CurRegLabel[regnum].size())
+      static const char *reghdr[] = { "R", "r" };
+      if (with_label && CurRegLabel[regnum].size())
         return CurRegLabel[regnum];
-      return sformat("R%d", regnum);
+      return sformat("%s%d", reghdr[avr_gcc], regnum);
       }
-    std::string IORegName(int regnum)
+    string IORegName(addr_t addr)
       {
-      Label *pLbl = FindLabel(regnum, Untyped, BusIO);
-      return (pLbl)? pLbl->GetText() : sformat("0x%02x", regnum);
+      Label *pLbl = FindLabel(addr, Untyped, BusIO);
+      return (pLbl)? pLbl->GetText() : sformat("0x%02x", addr);
       }
     // generate text for an unnamed label
-    virtual std::string UnnamedLabel(addr_t addr, bool bCode, int bus = BusCode)
+    virtual string UnnamedLabel(addr_t addr, bool bCode, int bus = BusCode)
       {
       const char *cType;
       int bits;
@@ -250,7 +251,9 @@ class DasmAvr8 :
     uint32_t GetDisassemblyTextFlags(addr_t addr, int bus = BusCode)
       {
       uint32_t flags = GetDisassemblyFlags(addr, bus);
-      if ((flags & (SHMF_DATA | SHMF_RMB | SHMF_TXT)) == SHMF_DATA &&
+      
+      if ((avr_gcc) &&  // Doesn't work in AVRASM2, only in avr-gcc
+		  (flags & (SHMF_DATA | SHMF_RMB | SHMF_TXT)) == SHMF_DATA &&
           !(flags & (SHMF_NOTXT | 0xff)))
         {
         switch (*getat(addr, bus))
@@ -264,6 +267,7 @@ class DasmAvr8 :
         }
       return flags;
       }
+	int DisassembleString(addr_t addr, addr_t end, uint32_t flags, string &s, int maxparmlen, int bus = BusCode);
 
   protected:
     // Enumeration for all types of AVR operands
@@ -435,15 +439,19 @@ class DasmAvr8 :
       _d_org,
       _d_port,
       _d_set,
+	  _d_string,
+	  _d_stringz,
 
       mnemoAvr8_count
       };
 
     static OpCode opcodes[mnemoAvr8_count];
     static avrInstructionInfo AVR_Instruction_Set[];
-    std::vector<addr_t> highaddr;
+    vector<addr_t> highaddr;
     Avr8RegLabelArray RegLabels;
-    std::string CurRegLabel[32];
+    string CurRegLabel[32];
+    bool dbalign, dbalignchg;
+    bool avr_gcc;
   };
 
 #endif // defined(__DasmAvr8_h_defined__)

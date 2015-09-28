@@ -38,7 +38,7 @@ class Dasm6801 : public Dasm6800
   // Overrides
   public:
     // return processor long name
-    virtual std::string GetName() { return "Motorola 6801"; }
+    virtual string GetName() { return "Motorola 6801"; }
 
     // Initialize parsing
     virtual bool InitParse(int bus = BusCode);

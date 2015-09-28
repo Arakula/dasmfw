@@ -32,17 +32,17 @@
 
 static struct DisassemblerCreators      /* structure for dasm creators:      */
   {
-  std::string name;                     /* code name of the disassembler     */
+  string name;                          /* code name of the disassembler     */
   Disassembler *(*Factory)();           /* factory to create it              */
   } *Disassemblers = NULL;
 static int nRegDisassemblers = 0;       /* # registered disassemblers        */
 static int nAllocDisassemblers = 0;     /* # allocated disassembler structs  */
 
 /*****************************************************************************/
-/* RegisterDisassembler : registers a processor handler                         */
+/* RegisterDisassembler : registers a disassembler                           */
 /*****************************************************************************/
 
-bool RegisterDisassembler(std::string name, Disassembler *(*CreateDisassembler)())
+bool RegisterDisassembler(string name, Disassembler *(*CreateDisassembler)())
 {
 if (nRegDisassemblers + 1 > nAllocDisassemblers)
   {
@@ -52,6 +52,7 @@ if (nRegDisassemblers + 1 > nAllocDisassemblers)
     pNew = new DisassemblerCreators[nRegDisassemblers + 10];
     if (!pNew)  // deal with very old style allocator
       return false;
+    nAllocDisassemblers = nRegDisassemblers + 10;
     }
   catch(...)
     {
@@ -90,7 +91,7 @@ return true;
 /* CreateDisassembler : creates a disassembler with a given code name        */
 /*****************************************************************************/
 
-Disassembler *CreateDisassembler(std::string name, int *pidx = NULL)
+Disassembler *CreateDisassembler(string name, int *pidx = NULL)
 {
 for (int da = 0; da < nRegDisassemblers; da++)
   if (Disassemblers[da].name == name)
@@ -102,19 +103,22 @@ return NULL;
 }
 
 /*****************************************************************************/
-/* ListDisassemblers : lists out all known disassemblers                     */
+/* ListDisassemblers : lists out all registered disassemblers                */
 /*****************************************************************************/
 
-static void ListDisassemblers()
+static void ListDisassemblers(int indent = 0)
 {
-printf("\nRegistered disassemblers:\n"
-       "%-8s %-16s %s\n"
-       "--------------------------------------------------------------\n",
-       "Code", "Instruction Set", "Attributes");
+printf("%*sRegistered disassemblers:\n"
+       "%*s%-8s %-16s %s\n"
+       "%*s--------------------------------------------------------------\n",
+       indent, "",
+       indent, "", "Code", "Instruction Set", "Attributes",
+       indent, "");
 for (int da = 0; da < nRegDisassemblers; da++)
   {
   Disassembler *pDasm = Disassemblers[da].Factory();
-  printf("%-8s %-16s (%d/%d bits data/code, %s-endian",
+  printf("%*s%-8s %-16s (%d/%d bits data/code, %s-endian",
+         indent, "",
          Disassemblers[da].name.c_str(),
          pDasm->GetName().c_str(),
          pDasm->GetDataBits(),
@@ -128,13 +132,13 @@ for (int da = 0; da < nRegDisassemblers; da++)
 }
 
 /*****************************************************************************/
-/* sformat : sprintf for std::string                                         */
+/* sformat : sprintf for string                                              */
 /*****************************************************************************/
 
-std::string sformat(const std::string fmt_str, ...)
+string sformat(const string fmt_str, ...)
 {
 int final_n, n = ((int)fmt_str.size()) * 2;
-std::vector<char> formatted;
+vector<char> formatted;
 va_list ap;
 while (1)
   {
@@ -147,18 +151,18 @@ while (1)
   else
     break;
   }
-return std::string(&formatted[0]);
+return string(&formatted[0]);
 }
 
 /*****************************************************************************/
 /* lowercase : create lowercase copy of a string                             */
 /*****************************************************************************/
 
-std::string lowercase(std::string s)
+string lowercase(string s)
 {
-std::string sout;
+string sout;
 // primitive ASCII implementation
-for (std::string::size_type i = 0; i < s.size(); i++)
+for (string::size_type i = 0; i < s.size(); i++)
   sout += tolower(s[i]);
 return sout;
 }
@@ -167,11 +171,11 @@ return sout;
 /* uppercase : create uppercase copy of a string                             */
 /*****************************************************************************/
 
-std::string uppercase(std::string s)
+string uppercase(string s)
 {
-std::string sout;
+string sout;
 // primitive ASCII implementation
-for (std::string::size_type i = 0; i < s.size(); i++)
+for (string::size_type i = 0; i < s.size(); i++)
   sout += toupper(s[i]);
 return sout;
 }
@@ -180,10 +184,10 @@ return sout;
 /* ltrim : remove leading blanks from string                                 */
 /*****************************************************************************/
 
-std::string ltrim(std::string s)
+string ltrim(string s)
 {
 if (s.empty()) return s;
-std::string::size_type from = s.find_first_not_of(" ");
+string::size_type from = s.find_first_not_of(" ");
 if (from == s.npos)
   return "";
 return from ? s.substr(from) : s;
@@ -193,10 +197,10 @@ return from ? s.substr(from) : s;
 /* trim : remove leading and trailing blanks from string                     */
 /*****************************************************************************/
 
-std::string trim(std::string s)
+string trim(string s)
 {
 if (s.empty()) return s;
-std::string::size_type from = s.find_first_not_of(" ");
+string::size_type from = s.find_first_not_of(" ");
 if (from == s.npos)
   return "";
 return s.substr(from, s.find_last_not_of(" ") - from + 1);
@@ -250,7 +254,7 @@ out = stdout;
 
 // pre-load matching disassembler, if possible
 sDasmName = argv[0];
-std::string::size_type idx = sDasmName.find_last_of("\\/");
+string::size_type idx = sDasmName.find_last_of("\\/");
 if (idx != sDasmName.npos)
   sDasmName = sDasmName.substr(idx + 1);
 idx = sDasmName.rfind('.');
@@ -260,7 +264,7 @@ if (idx != sDasmName.npos)
 if (lowercase(sDasmName.substr(0, 4)) == "dasm")
   pDasm = CreateDisassembler(sDasmName.substr(4), &iDasm);
 
-printf("%s: %s\n", sDasmName.c_str(), "Disassembler Framework V" DASMFW_VERSION);
+printf("%s: Disassembler Framework V%s\n", sDasmName.c_str(), DASMFW_VERSION);
 }
 
 /*****************************************************************************/
@@ -280,17 +284,17 @@ int Application::Run()
 if (argc < 2)                           /* if no arguments given, give help  */
   return Help();                        /* and exit                          */
 
-std::string defnfo[2];                  /* global / user default info files  */
+string defnfo[2];                       /* global / user default info files  */
 #ifdef _MSC_VER
 // Microsoft C - guaranteed Windows environment
 char const *pHomePath = getenv("USERPROFILE");
 defnfo[0] = pHomePath ?
-    std::string(pHomePath) + "\\.dasmfw\\" + sDasmName + ".nfo" :
+    string(pHomePath) + "\\.dasmfw\\" + sDasmName + ".nfo" :
     "";
 #else
 char const *pHomePath = getenv("HOME");
 defnfo[0] = pHomePath ?
-    std::string(pHomePath) + "/.dasmfw/" + sDasmName + ".nfo" :
+    string(pHomePath) + "/.dasmfw/" + sDasmName + ".nfo" :
     "";
 #endif
 defnfo[1] = sDasmName + ".nfo";
@@ -343,10 +347,10 @@ for (i = 0; i < pDasm->GetBusCount(); i++)
   }
 
 // set up often used texts and flags
-std::string labelDelim = pDasm->GetOption("ldchar");
-std::string sComDel = pDasm->GetOption("cchar");
-std::string sComBlk = sComDel + " ";
-std::string sComHdr(sComDel);
+string labelDelim = pDasm->GetOption("ldchar");
+string sComDel = pDasm->GetOption("cchar");
+string sComBlk = sComDel + " ";
+string sComHdr(sComDel);
 while (sComHdr.size() < 53)
   sComHdr += '*';
 
@@ -478,7 +482,7 @@ for (int i = 0;                         /* load file(s) given on commandline */
     ParseOption("bus", saFNames[i].substr(5));
   else
     {
-    std::string sLoadType;
+    string sLoadType;
     bool bOK = pDasm->Load(saFNames[i], sLoadType, nInterleave, infoBus);
     saFNames[i] = sformat("%soaded: %s file \"%s\"",
                           bOK ? "L" : "NOT l",
@@ -560,7 +564,7 @@ bool Application::DisassembleComments
     (
     addr_t addr,
     bool bAfterLine,
-    std::string sComDel,
+    string sComDel,
     int bus
     )
 {
@@ -569,8 +573,8 @@ sComDel += " ";
 Comment *pComment = GetFirstComment(addr, it, bAfterLine, bus);
 while (pComment)
   {
-  std::string sTxt(pComment->GetText());
-  std::string sHdr((pComment->IsComment() && sTxt.size()) ? sComDel : "");
+  string sTxt(pComment->GetText());
+  string sHdr((pComment->IsComment() && sTxt.size()) ? sComDel : "");
   if (showComments || !pComment->IsComment())
     PrintLine(sHdr + sTxt);
   pComment = GetNextComment(addr, it, bAfterLine, bus);
@@ -591,14 +595,14 @@ bool Application::DisassembleChanges
     int bus
     )
 {
-std::vector<Disassembler::LineChange> changes;
+vector<Disassembler::LineChange> changes;
 bool bRC = pDasm->DisassembleChanges(addr,
                                      prevaddr, prevsz,
                                      bAfterLine,
                                      changes,
                                      bus);
 
-for (std::vector<Disassembler::LineChange>::size_type i = 0;
+for (vector<Disassembler::LineChange>::size_type i = 0;
      i < changes.size();
      i++)
   {
@@ -613,12 +617,12 @@ return bRC;
 
 bool Application::DisassembleLabels
     (
-    std::string sComDel,
-    std::string sComHdr,
+    string sComDel,
+    string sComHdr,
     int bus
     )
 {
-std::string sComBlk(sComDel + " ");
+string sComBlk(sComDel + " ");
 CommentArray::iterator it;
 Comment *pComment;
 static bool bULHOut = false;
@@ -633,7 +637,7 @@ for (int l = 0; l < pDasm->GetLabelCount(bus); l++)
   bShow &= (memType == Untyped);
   if (bShow)
     {
-    std::string slabel, smnemo, sparm;
+    string slabel, smnemo, sparm;
     if (pDasm->DisassembleLabel(pLbl, slabel, smnemo, sparm, bus))
       {
       // header, if not yet done
@@ -654,7 +658,7 @@ for (int l = 0; l < pDasm->GetLabelCount(bus); l++)
       // the line itself
       pComment = (showComments && laddr != paddr) ?
                      GetFirstLComment(laddr, it, bus) : NULL;
-      std::string scomment = pComment ? pComment->GetText() : "";
+      string scomment = pComment ? pComment->GetText() : "";
       if (scomment.size()) scomment = sComBlk + scomment;
       PrintLine(slabel, smnemo, sparm, scomment, lLabelLen);
       if (pComment)
@@ -681,18 +685,18 @@ return true;
 
 bool Application::DisassembleDefLabels
     (
-    std::string sComDel,
-    std::string sComHdr,
+    string sComDel,
+    string sComHdr,
     int bus
     )
 {
-std::string sComBlk(sComDel + " ");
+string sComBlk(sComDel + " ");
 
 static bool bULHOut = false;
 for (int l = 0; l < pDasm->GetDefLabelCount(bus); l++)
   {
   DefLabel *pLbl = pDasm->DefLabelAt(l, bus);
-  std::string slabel, smnemo, sparm;
+  string slabel, smnemo, sparm;
   // DefLabels got no comments ATM
   if (pLbl &&
       pDasm->DisassembleDefLabel(pLbl, slabel, smnemo, sparm, bus))
@@ -722,13 +726,13 @@ return true;
 addr_t Application::DisassembleLine
     (
     addr_t addr,
-    std::string sComDel,
-    std::string sComHdr,
-    std::string labelDelim,
+    string sComDel,
+    string sComHdr,
+    string labelDelim,
     int bus
     )
 {
-std::string sLabel, sMnemo, sParms, sComBlk(sComDel + " ");
+string sLabel, sMnemo, sParms, sComBlk(sComDel + " ");
 CommentArray::iterator it;
 Comment *pComment;
 bool bWithComments = showHex || showAsc || showAddr;
@@ -749,7 +753,7 @@ while (pNext)
   // multiple labels get their own lines
   if (p != pNext && pNext && pNext->IsUsed() && !pNext->IsConst())
     {
-    std::string s = p->GetText();
+    string s = p->GetText();
     if (s.size())
       PrintLine(s + labelDelim);
     }
@@ -761,14 +765,14 @@ pComment = showComments ? GetFirstLComment(addr, it, bus) : NULL;
 int maxparmlen = (bWithComments || pComment) ? (cparmLen - 1) : uparmLen;
 addr_t sz = pDasm->Disassemble(addr, sMnemo, sParms, maxparmlen, bus);
 
-std::string scomment;
+string scomment;
 if (showAddr)
   scomment += sformat("%0*X%s",
                       (pDasm->BusAddressBits(bus) + 3) / 4, addr,
                       (showHex || showAsc) ? ": " : " ");
 if ((showHex || showAsc) && !pDasm->IsBss(addr, bus))
   {
-  std::string sHex, sAsc("\'");
+  string sHex, sAsc("\'");
   addr_t i;
   for (i = 0; i < sz; i++)
     {
@@ -819,10 +823,10 @@ return sz;
 
 bool Application::PrintLine
     (
-    std::string sLabel,
-    std::string smnemo,
-    std::string sparm,
-    std::string scomment,
+    string sLabel,
+    string smnemo,
+    string sparm,
+    string scomment,
     int labelLen
     )
 {
@@ -866,7 +870,7 @@ return nLen > 0;
 /* ParseInfoRange : parses a range definition from an info file              */
 /*****************************************************************************/
 
-int Application::ParseInfoRange(std::string value, addr_t &from, addr_t &to)
+int Application::ParseInfoRange(string value, addr_t &from, addr_t &to)
 {
 int n = pDasm ? pDasm->String2Range(value, from, to) : 0;
 if (n < 1)
@@ -903,9 +907,9 @@ return n;
 /* triminfo : trims an info line's value, cutting at comment character       */
 /*****************************************************************************/
 
-std::string triminfo
+string triminfo
     (
-    std::string s,
+    string s,
     bool bCutComment,
     bool bUnescape,
     bool bDotStart
@@ -913,13 +917,13 @@ std::string triminfo
 {
 // copied from trim()
 if (s.empty()) return s;
-std::string::size_type from = s.find_first_not_of(" \t");
+string::size_type from = s.find_first_not_of(" \t");
 if (from == s.npos)
   return "";
 // up to here. The rest is info-specific
 if (bDotStart && s[from] == '.')        /* '.' can allow leading blanks      */
   from++;                               /* (redundant f9dasm behavior)       */
-std::string sout;
+string sout;
 for (; from < s.size(); from++)         /* copy the rest, with unescaping    */
   {
   if (bUnescape && s[from] == '\\' && (from + 1) < s.size())
@@ -940,8 +944,8 @@ return sout.substr(0, sout.find_last_not_of(" ") + 1);
 
 bool Application::LoadInfo
     (
-    std::string fileName,
-    std::vector<std::string> &loadStack,
+    string fileName,
+    vector<string> &loadStack,
     bool bProcInfo,
     bool bSetDasm
     )
@@ -949,7 +953,7 @@ bool Application::LoadInfo
 if (!pDasm && bProcInfo)                /* no disassembler, no work.         */
   return false;
                                         /* inhibit recursion                 */
-for (std::vector<std::string>::const_iterator lsi = loadStack.begin();
+for (vector<string>::const_iterator lsi = loadStack.begin();
      lsi != loadStack.end();
      lsi++)
   if (*lsi == fileName)
@@ -957,7 +961,7 @@ for (std::vector<std::string>::const_iterator lsi = loadStack.begin();
 
 if (bProcInfo)                          /* if in processing mode             */
   {                                     /* assure this is only done once     */
-  for (std::vector<std::string>::const_iterator lsi = saPINames.begin();
+  for (vector<string>::const_iterator lsi = saPINames.begin();
        lsi != saPINames.end();
        lsi++)
      if (*lsi == fileName)
@@ -1126,7 +1130,7 @@ if (!fp)
   return false;
 
 int fc;
-std::string line;
+string line;
 bool bMod = false, bEnd = false;
 do
   {
@@ -1148,8 +1152,8 @@ do
   if (line.size() &&                    /* if line has contents              */
       line[0] != '*' && line[0] != ';')
     {
-    std::string key, value;
-    std::string::size_type idx = line.find_first_of(" \t");
+    string key, value;
+    string::size_type idx = line.find_first_of(" \t");
     if (idx == line.npos) idx = line.size();
     key = uppercase(line.substr(0, idx));
     value = trim(line.substr(idx));
@@ -1162,16 +1166,16 @@ do
         break;
         }
 
-    int tgtBus = infoBus;           /* target bus identification         */
+    int tgtBus = infoBus;               /* target bus identification         */
     idx = value.find_first_of(" \t");
     if (idx != value.npos &&
         lowercase(value.substr(0, idx)) == "bus")
       {
-      std::string bval(trim(value.substr(idx)));
+      string bval(trim(value.substr(idx)));
       idx = bval.find_first_of(" \t");
       if (idx != bval.npos)
         {
-        std::string tgtbus = lowercase(bval.substr(0, idx));
+        string tgtbus = lowercase(bval.substr(0, idx));
         bval = trim(bval.substr(idx));
         int bus = pDasm ? pDasm->GetBusID(tgtbus) : -1;
         if (bus >= 0)
@@ -1217,8 +1221,8 @@ do
       case infoInclude :                /* INCLUDE filename                  */
         {
         char delim1 = ' ', delim2 = '\t';
-        std::string fn;
-        std::string::size_type i = 0;
+        string fn;
+        string::size_type i = 0;
         if (value[i] == '\"' || value[i] == '\'')
           {
           delim1 = value[i++];
@@ -1234,8 +1238,8 @@ do
       case infoFile :                   /* FILE filename [offset]            */
         {
         char delim1 = ' ', delim2 = '\t';
-        std::string fn;
-        std::string::size_type i = 0;
+        string fn;
+        string::size_type i = 0;
         if (value[i] == '\"' || value[i] == '\'')
           {
           delim1 = value[i++];
@@ -1256,7 +1260,7 @@ do
         break;
       case infoOption :                 /* OPTION name value                 */
         {
-        std::string option;
+        string option;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
         option = value.substr(0, idx);
@@ -1266,7 +1270,7 @@ do
         break;
       case infoRemap :                  /* REMAP addr[-addr] offset          */
         {
-        std::string range;
+        string range;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
@@ -1466,7 +1470,7 @@ do
         break;
       case infoRelative :               /* RELATIVE addr[-addr] rel          */
         {
-        std::string range;
+        string range;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
@@ -1500,7 +1504,7 @@ do
       case infoUsedLabel :              /* USEDLABEL addr[-addr] [label]     */
         {
         addr_t from, to;
-        std::string range;
+        string range;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
@@ -1548,7 +1552,7 @@ do
         break;
       case infoPhase :                  /* PHASE addr[-addr] [+|-]phase      */
         {
-        std::string range;
+        string range;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
@@ -1619,14 +1623,14 @@ do
                        cmdType == infoPrepComm;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
-        std::string after = lowercase(value.substr(0, idx));
+        string after = lowercase(value.substr(0, idx));
         if (after == "after")
           {
           bAfter = true;
           value = (idx < value.size()) ? trim(value.substr(idx)) : "";
           }
         addr_t from, to;
-        std::string range;
+        string range;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
@@ -1666,7 +1670,7 @@ do
         bool bAfter = false;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
-        std::string after = lowercase(value.substr(0, idx));
+        string after = lowercase(value.substr(0, idx));
         if (after == "after")
           {
           bAfter = true;
@@ -1707,7 +1711,7 @@ do
       case infoPatchFloat :             /* PATCHF addr [float]*              */
         {
         addr_t from, to;
-        std::string range;
+        string range;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
@@ -1723,7 +1727,7 @@ do
               break;
             idx = value.find_first_of(" \t");
             if (idx == value.npos) idx = value.size();
-            std::string item = value.substr(0, idx);
+            string item = value.substr(0, idx);
             value = (idx >= value.size()) ? "" : trim(value.substr(idx));
             to = 0;
             switch (cmdType)
@@ -1810,13 +1814,13 @@ return true;
 
 int Application::ParseOption
     (
-    std::string option,                 /* option name                       */
-    std::string value,                  /* new option value                  */
+    string option,                      /* option name                       */
+    string value,                       /* new option value                  */
     bool bSetDasm,                      /* flag whether set disassembler     */
     bool bProcInfo                      /* flag whether to fully process info*/
     )
 {
-std::string lvalue(lowercase(value));
+string lvalue(lowercase(value));
 int iValue = atoi(value.c_str());
 int bnvalue = (lvalue == "off") ? 0 : (lvalue == "on") ? 1 : atoi(value.c_str());
 
@@ -1845,8 +1849,11 @@ if (option == "?" || option == "help")
     }
   else
     {
-    Help(true);
+    Help(true, lvalue == "options");
+#if 0
+    // Help quits the application. No need for the return statement
     return (lvalue == "options") ? 1 : 0;
+#endif
     }
   }
 else if (option == "out")
@@ -1939,7 +1946,7 @@ void Application::ParseOptions
     bool bSetDasm
     )
 {
-std::string curBegin, curEnd, curOff, curIlv("1");
+string curBegin, curEnd, curOff, curIlv("1");
 int curBus = BusCode;
 
 // parse command line
@@ -1948,9 +1955,9 @@ for (int arg = 1; arg < argc; arg++)
   if (argv[arg][0] == '-' && argv[arg][1])
     {
     // allow -option:value or -option=value syntax, too
-    std::string s(argv[arg] + 1);
-    std::string::size_type x = s.find_first_of("=:");
-    if (x != std::string::npos)
+    string s(argv[arg] + 1);
+    string::size_type x = s.find_first_of("=:");
+    if (x != string::npos)
       ParseOption(s.substr(0, x), s.substr(x + 1),
                   bSetDasm, false);
     else
@@ -1959,13 +1966,13 @@ for (int arg = 1; arg < argc; arg++)
     }
   else if (!bSetDasm)
     {
-    std::string name(argv[arg]);
-    std::string silv("1");
+    string name(argv[arg]);
+    string silv("1");
     if (name.size() > 2)
       {
       // name can be name:interleave
-      std::string::size_type idx = name.rfind(':');
-      if (idx != std::string::npos)
+      string::size_type idx = name.rfind(':');
+      if (idx != string::npos)
         {
         silv = name.substr(idx + 1);
         if (silv.size() == 1 &&
@@ -1977,19 +1984,19 @@ for (int arg = 1; arg < argc; arg++)
       }
     // in any case, the file relies on the current begin/end/offset settings
     // so their current setting must be preserved.
-    std::string newBegin(pDasm->GetOption("begin"));
+    string newBegin(pDasm->GetOption("begin"));
     if (newBegin != curBegin)
       {
       saFNames.push_back("-begin:"+newBegin);
       curBegin = newBegin;
       }
-    std::string newEnd(pDasm->GetOption("end"));
+    string newEnd(pDasm->GetOption("end"));
     if (newEnd != curEnd)
       {
       saFNames.push_back("-end:"+newEnd);
       curEnd = newEnd;
       }
-    std::string newOff(pDasm->GetOption("offset"));
+    string newOff(pDasm->GetOption("offset"));
     if (newOff != curOff)
       {
       saFNames.push_back("-offset:"+newOff);
@@ -2017,15 +2024,15 @@ for (int arg = 1; arg < argc; arg++)
 
 static void inline ListOptionLine
     (
-    std::string name,
-    std::string text,
-    std::string current = ""
+    string name,
+    string text,
+    string current = ""
     )
 {
 printf("  %-13s ", name.c_str());
-std::string::size_type idx = text.find('\t');
-std::string optxt;
-if (idx != std::string::npos)
+string::size_type idx = text.find('\t');
+string optxt;
+if (idx != string::npos)
   {
   optxt = text.substr(0, idx);
   text = text.substr(idx + 1);
@@ -2038,7 +2045,7 @@ if (current.size())
 printf("\n");
 }
 
-void Application::ListOptions()
+void Application::ListOptions(bool bAllOptions)
 {
 printf("\nAvailable options");
 #if 0
@@ -2050,21 +2057,24 @@ if (pDasm)
 printf(":\n");
 ListOptionLine("?|help", "[options|info]\tHelp for options or info file");
 ListOptionLine("dasm", "{code}\tDisassembler to use",
-               pDasm ? Disassemblers[iDasm].name : std::string(""));
+               pDasm ? Disassemblers[iDasm].name : string(""));
 
 if (!pDasm)
   {
+  printf("\n");
   ListDisassemblers();
   printf("\nTo show the available options for a disassembler, select one first\n"
          "and append -? to the command line\n");
   }
 else
   {
+  if (bAllOptions)
+    ListDisassemblers(4);
   ListOptionLine("out", "Output File name", outname.size() ? outname : "console");
   ListOptionLine("info", "Info File name");
   if (pDasm->GetBusCount() > 1)
     {
-    std::string busses;
+    string busses;
     for (int bus = 0; bus < pDasm->GetBusCount(); bus++)
       {
       if (bus) busses += '|';
@@ -2103,11 +2113,11 @@ printf("\nOptions can be given in the following formats:\n"
 /* Help : give help about the application                                    */
 /*****************************************************************************/
 
-int Application::Help(bool bQuit)
+int Application::Help(bool bQuit, bool bAllOptions)
 {
-printf("Usage: dasmfw [-option]* [filename]*\n");
+printf("Usage: %s [-option]* [filename]*\n", sDasmName.c_str());
 
-ListOptions();                          /* list options for selected dasm    */
+ListOptions(bAllOptions);               /* list options for selected dasm    */
 
 if (bQuit) abortHelp = true;
 return 1;
@@ -2119,27 +2129,32 @@ return 1;
 
 int Application::InfoHelp(bool bQuit)
 {
-std::string busses;
+bool multibus = false;
+string busses;
 if (!pDasm)
   busses = "code";
 else
+  {
+  multibus = pDasm->GetBusCount() > 1;
   for (int bus = 0; bus < pDasm->GetBusCount(); bus++)
     {
     if (bus)
       busses += '|';
     busses += lowercase(pDasm->GetBusName(bus));
     }
-printf("Info file contents:\n"
+  }
 #if RB_VARIANT
-      "\nLabel file comments\n"
-       "\t* comment line\n"
-       "\t; comment line\n"
-      "\nOutput control\n"
-       "\tPREPEND [AFTER] [addr[-addr]] text to be prepended to the output\n"
-       "\tPREPCOMM [AFTER] [addr[-addr]] comment text to be prepended to the output\n"
-      "\nMemory content definitions\n"
-       "\tBus definition:     BUS {%s}\n"
-       "\tunused area:        UNUSED from-to\n"
+printf("Info file contents:\n"
+       "\nLabel file comments\n"
+        "\t* comment line\n"
+        "\t; comment line\n"
+       "\nOutput control\n"
+        "\tPREPEND [AFTER] [addr[-addr]] text to be prepended to the output\n"
+        "\tPREPCOMM [AFTER] [addr[-addr]] comment text to be prepended to the output\n"
+       "\nMemory content definitions\n");
+if (multibus)
+  printf("\tBus definition:     BUS {%s}\n", busses.c_str());
+printf("\tunused area:        UNUSED from-to\n"
        "\treserved area:      RMB from-to\n"
        "\tcode area:          CODE from[-to]\n"
        "\tdata area:          DATA from[-to] (default: hex byte data)\n"
@@ -2150,54 +2165,67 @@ printf("Info file contents:\n"
        "\tunsigned data area: UNSIGNED from[-to]\n"
        "\tconstants in memory:CONST from[-to] (like hex)\n"
        "\tchar data area:     CHAR from[-to] (like hex, but ASCII if possible)\n"
-       "\tword data area:     WORD from[-to] (like hex, but 16 bit)\n"
-       "\tcode vector area:   CVEC[TOR] [BUS {%s}] from[-to]\n" 
-       "\t                    (like WORD, but adds target labels if necessary)\n"
-       "\tdata vector area:   DVEC[TOR] [BUS {%s}] from[-to]\n"
-       "\t                    (like WORD, but adds target labels if necessary)\n"
-      "\nAddressing control\n"
-       "\tforce addressing relative to base:\n"
-       "\t\t\t    REL[ATIVE] addr[-addr] baseaddr\n"
-       "\tunset relative addressing:\n"
-       "\t\t\t    UNREL[ATIVE] addr[-addr]\n"
-       "\tmap memory addresses to different base:\n"
-       "\t\t\t    REMAP addr[-addr] offset\n"
-       "\tmap file contents to different base:\n"
-       "\t\t\t    PHASE addr[-addr] phase\n"
-      "\nLabel control\n"
-       "\tdefine label:       LABEL addr name\n"
-       "\tremove label:       UNLABEL addr[-addr]\n"
-       "\tdon't apply label name to constant but treat it as a number\n"
-       "\t\t\t    CONST from[-to]\n"
-       "\tmark auto-generated label as used\n"
-       "\t\t\t    USED[LABEL] addr\n"
-      "\nCommenting\n"
-       "\tcomment:            COMM[ENT] [AFTER] addr[-addr] text\n"
-       "\tsuppress comments:  UNCOMM[ENT] [AFTER] addr[-addr] text\n"
-       "\tappended comments:  LCOMM[ENT] addr[-addr] text\n"
-       "\tprepended comments: PREPLCOMM[ENT] addr[-addr] text\n"
-       "\tsuppress lcomments: UNLCOMM[ENT] addr[-addr]\n"
-      "\nMisc control\n"
-       "\tinsert byte data:   PATCH addr[-addr] data[...]\n"
-       "\tinsert word data:   PATCHW addr[-addr] data[...]\n"
-       "\tinsert dword data:  PATCHDW addr[-addr] data[...]\n"
-       "\tinsert float data:  PATCHF addr[-addr] data[...]\n"
-       "\tinsert text:        INSERT [AFTER] addr[-addr] embedded line\n"
-       "\tinclude label file: INCLUDE filename\n"
-       "\tload binary file:   FILE filename [baseaddr]\n"
-       "\tstop parsing:       END\n"
+       "\tword data area:     WORD from[-to] (like hex, but 16 bit)\n");
+if (multibus)
+  printf("\tcode vector area:   CVEC[TOR] [BUS {%s}] from[-to]\n", busses.c_str());
+else
+  printf("\tcode vector area:   CVEC[TOR] from[-to]\n");
+printf("\t                    (like WORD, but adds target labels if necessary)\n"
+if (multibus)
+  printf("\tdata vector area:   DVEC[TOR] [BUS {%s}] from[-to]\n", busses.c_str());
+else
+  printf("\tdata vector area:   DVEC[TOR] from[-to]\n");
+printf("\t                    (like WORD, but adds target labels if necessary)\n"
+       "\nAddressing control\n"
+        "\tforce addressing relative to base:\n"
+        "\t\t\t    REL[ATIVE] addr[-addr] baseaddr\n"
+        "\tunset relative addressing:\n"
+        "\t\t\t    UNREL[ATIVE] addr[-addr]\n"
+        "\tmap memory addresses to different base:\n"
+        "\t\t\t    REMAP addr[-addr] offset\n"
+        "\tmap file contents to different base:\n"
+        "\t\t\t    PHASE addr[-addr] phase\n"
+       "\nLabel control\n"
+        "\tdefine label:       LABEL addr name\n"
+        "\tremove label:       UNLABEL addr[-addr]\n"
+        "\tdon't apply label name to constant but treat it as a number\n"
+        "\t\t\t    CONST from[-to]\n"
+        "\tmark auto-generated label as used\n"
+        "\t\t\t    USED[LABEL] addr\n"
+       "\nCommenting\n"
+        "\tcomment:            COMM[ENT] [AFTER] addr[-addr] text\n"
+        "\tsuppress comments:  UNCOMM[ENT] [AFTER] addr[-addr] text\n"
+        "\tappended comments:  LCOMM[ENT] addr[-addr] text\n"
+        "\tprepended comments: PREPLCOMM[ENT] addr[-addr] text\n"
+        "\tsuppress lcomments: UNLCOMM[ENT] addr[-addr]\n"
+       "\nMisc control\n"
+        "\tinsert byte data:   PATCH addr[-addr] data[...]\n"
+        "\tinsert word data:   PATCHW addr[-addr] data[...]\n"
+        "\tinsert dword data:  PATCHDW addr[-addr] data[...]\n"
+        "\tinsert float data:  PATCHF addr[-addr] data[...]\n"
+        "\tinsert text:        INSERT [AFTER] addr[-addr] embedded line\n"
+        "\tinclude label file: INCLUDE filename\n"
+        "\tload binary file:   FILE filename [baseaddr]\n"
+        "\tstop parsing:       END\n"
+       );
 #else
+printf("Info file contents:\n"
        "Consists of text records of one of the following formats:\n"
-       "* comment line\n"
+       "* comment line\n");
+if (multibus)
+  printf("BUS {%s}\n", busses.c_str());
 
-       "BUS {%s}\n"
-
-       "CODE addr[-addr]\n"
+printf("CODE addr[-addr]\n"
        "DATA addr[-addr]\n"
-       "CONST from[-to]\n"
-       "CVEC[TOR] [BUS {%s}] addr[-addr] (forced code vectors)\n"
-       "DVEC[TOR] [BUS {%s}] addr[-addr] (forced data vectors)\n"
-       "RMB addr[-addr]\n"
+       "CONST from[-to]\n");
+if (multibus)
+  printf("CVEC[TOR] [BUS {%s}] addr[-addr] (forced code vectors)\n"
+         "DVEC[TOR] [BUS {%s}] addr[-addr] (forced data vectors)\n",
+         busses.c_str(), busses.c_str());
+else
+  printf("CVEC[TOR] addr[-addr] (forced code vectors)\n"
+         "DVEC[TOR] addr[-addr] (forced data vectors)\n");
+printf("RMB addr[-addr]\n"
        "UNUSED addr[-addr]\n"
 
        "BYTE addr[-addr] (forced byte data)\n"
@@ -2249,13 +2277,12 @@ printf("Info file contents:\n"
        "PATCHF addr [float]*\n"
 
        "END\n"
-#endif
-       , busses.c_str(), busses.c_str(), busses.c_str()
        );
+#endif
 
 if (pDasm)
   {
-  std::string sDasmInfo = pDasm->InfoHelp();
+  string sDasmInfo = pDasm->InfoHelp();
   if (sDasmInfo.size())
     printf("\nDisassembler-specific info commands:\n%s", sDasmInfo.c_str());
   }
@@ -2273,7 +2300,7 @@ void Application::DumpMem(int bus)
 {
 if (!pDasm) return;
 
-std::string sComBlk = pDasm->GetOption("cchar") + " ";
+string sComBlk = pDasm->GetOption("cchar") + " ";
 
 int mac = pDasm->GetMemoryArrayCount(bus);
 int maac = pDasm->GetMemAttrArrayCount(bus);

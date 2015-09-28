@@ -463,9 +463,9 @@ Dasm6809::~Dasm6809(void)
 /* Set6809Option : sets a disassembler option                                */
 /*****************************************************************************/
 
-int Dasm6809::Set6809Option(std::string lname, std::string value)
+int Dasm6809::Set6809Option(string lname, string value)
 {
-std::string lvalue(lowercase(value));
+string lvalue(lowercase(value));
 int bnvalue = (lvalue == "off") ? 0 : (lvalue == "on") ? 1 : atoi(value.c_str());
 
 if (lname == "flex")      useFlex = !!bnvalue;
@@ -479,7 +479,7 @@ return 1;                               /* name and value consumed           */
 /* Get6809Option : retrieves a disassembler option                           */
 /*****************************************************************************/
 
-std::string Dasm6809::Get6809Option(std::string lname)
+string Dasm6809::Get6809Option(string lname)
 {
 if (lname == "flex")     return useFlex ? "on" : "off";
 else if (lname == "os9") return os9Patch ? "on" : "off";
@@ -490,7 +490,7 @@ return "";
 /* InfoHelp : print disassembler-specific info file help                     */
 /*****************************************************************************/
 
-std::string Dasm6809::InfoHelp()
+string Dasm6809::InfoHelp()
 {
 return
 #if RB_VARIANT
@@ -509,8 +509,8 @@ return
 
 bool Dasm6809::ProcessInfo
     (
-    std::string key,
-    std::string value,
+    string key,
+    string value,
     addr_t &from,
     addr_t &to, 
     bool bProcInfo,
@@ -550,8 +550,8 @@ switch (cmdType)
   {
   case infoSetDP :                      /* SETDP [addr[-addr]] dp            */
     {
-    std::string srange;
-    std::string::size_type idx = value.find_first_of(" \t");
+    string srange;
+    string::size_type idx = value.find_first_of(" \t");
     if (idx == value.npos) idx = value.size();
     srange = value.substr(0, idx);
     addr_t dp = NO_ADDRESS;
@@ -652,7 +652,7 @@ addr_t Dasm6809::FetchInstructionDetails
     uint16_t &W,
     int &MI,
     const char *&I,
-    std::string *smnemo
+    string *smnemo
     )
 {
 O = T = GetUByte(PC++);
@@ -774,9 +774,8 @@ if (T & 0x80)
       W = GetUWord(PC);
       Wrel += W;
       PC += 2;
-                                        /* no labels in indirect addressing! */
-                                        /* ...except when they are explicitly*/
-                                        /* given in the info file, of course */
+      // no labels in indirect addressing!
+      // ...except when they are explicitly given in the info file, of course
       if (W != Wrel ||                  /* if it's relative, or label's there*/
           FindLabel(Wrel))
         AddLabel(Wrel,                  /* mark it as used                   */
@@ -835,12 +834,12 @@ return PC;
 /* IndexString : converts index to string                                    */
 /*****************************************************************************/
 
-std::string Dasm6809::IndexString(addr_t &pc)
+string Dasm6809::IndexString(addr_t &pc)
 {
 uint8_t T;
 uint16_t W, Wrel;
 char R;
-std::string buf;
+string buf;
 addr_t PC = pc;
 bool bGetLabel;
 Label *lbl;
@@ -882,14 +881,38 @@ if (T & 0x80)
       break;
     case 0x08:
       bGetLabel = !IsConst(PC);
+#if 1
+      // looks better...
+      T = GetUByte(PC);
+      W = T + (uint16_t)GetDirectPage(PC);
+      Wrel = W + (uint16_t)GetRelative(PC);
+      lbl = (bGetLabel || Wrel != W) ? NULL : FindLabel(PC, Const);
+      if (bGetLabel && (Wrel != W || FindLabel(Wrel)))
+        {
+        string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+        buf = sformat("<%s,%c", slbl.c_str(), R);
+        }
+      else
+        {
+        string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
+        buf = sformat("<%s,%c", slbl.c_str(), R);
+        }
+      PC++;
+#else
       T = GetUByte(PC);
       Wrel = (uint16_t)GetRelative(PC);
       lbl = (bGetLabel || Wrel) ? NULL : FindLabel(PC, Const);
       PC++;
+      /*
+      Something's definitely not right here. This needs a bit of redesign.
+      0x08 should be like 0x09, just with Direct addressing, and forward
+      references should be qualified with "<" to assure they're not treated
+      as Extended by the Assembler.
+      */
       if (Wrel)
         {
         W = (int)((char)T) + Wrel;
-        std::string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)((int)((char)T)), bGetLabel, PC - 1);
+        string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)((int)((char)T)), bGetLabel, PC - 1);
                                         /* "<" needed for forward declaration*/
         buf = sformat(
                 ((W > PC) || (Wrel > PC)) ? "<%s,%c" : "%s,%c",
@@ -898,20 +921,19 @@ if (T & 0x80)
         }
       else
         {
-        std::string slbl = lbl ? lbl->GetText() : SignedNumber2String((int)((char)T), 2, PC - 1);
-        buf = sformat("%s,%c",
-                slbl.c_str(),
-                R);
+        string slbl = lbl ? lbl->GetText() : SignedNumber2String((int)((char)T), 2, PC - 1);
+        buf = sformat("%s,%c", slbl.c_str(), R);
         }
+#endif
       break;
     case 0x09:
       bGetLabel = !IsConst(PC);
       W = GetUWord(PC);
       Wrel = W + (uint16_t)GetRelative(PC);
       lbl = (bGetLabel || Wrel) ? NULL : FindLabel(PC, Const);
-      if ((Wrel != W) || (FindLabel(Wrel)))
+      if ((Wrel != W) || FindLabel(Wrel))
         {
-        std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+        string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
         if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
           buf = sformat(">%s,%c", slbl.c_str(), R);
         else
@@ -919,7 +941,7 @@ if (T & 0x80)
         }
       else
         {
-        std::string slbl;
+        string slbl;
         if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
           {
           slbl = lbl ? lbl->GetText() : SignedNumber2String((int)(short)W, 4, PC);
@@ -947,7 +969,7 @@ if (T & 0x80)
       else
         {
         lbl = FindLabel(PC, Const);
-        std::string slbl = lbl ? lbl->GetText() : Number2String((uint16_t)(int)(char)T, 2, PC);
+        string slbl = lbl ? lbl->GetText() : Number2String((uint16_t)(int)(char)T, 2, PC);
         buf = slbl + ",PC";
         }
 #endif
@@ -959,7 +981,7 @@ if (T & 0x80)
       lbl = bGetLabel ? NULL : FindLabel(PC, Const);
       W = GetUWord(PC);
       PC += 2;
-      std::string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)(W + PC), bGetLabel, PC - 2);
+      string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)(W + PC), bGetLabel, PC - 2);
       if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
         buf = sformat(">%s,PCR", slbl.c_str());
       else
@@ -985,7 +1007,7 @@ if (T & 0x80)
       {
       lbl = FindLabel(PC, Const);
       T = GetUByte(PC);
-      std::string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
+      string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
       buf = sformat("[%s,%c]",
               slbl.c_str(),
               R);
@@ -997,7 +1019,7 @@ if (T & 0x80)
       bGetLabel = !IsConst(PC);
       lbl = bGetLabel ? NULL : FindLabel(PC, Const);
       W = GetUWord(PC);
-      std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+      string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
       buf = sformat("[%s,%c]", slbl.c_str(), R);
       PC += 2;
       }
@@ -1009,7 +1031,7 @@ if (T & 0x80)
       {
       lbl = FindLabel(PC, Const);
       T = GetUByte(PC);
-      std::string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
+      string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
       buf = sformat("[%s,PC]", slbl.c_str());
       PC++;
       }
@@ -1019,7 +1041,7 @@ if (T & 0x80)
       bGetLabel = !IsConst(PC);
       lbl = bGetLabel ? NULL : FindLabel(PC, Const);
       W = GetUWord(PC);
-      std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+      string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
       buf = sformat("[%s,PC]", slbl.c_str());
       PC += 2;
       }
@@ -1039,7 +1061,7 @@ if (T & 0x80)
         bGetLabel = !IsConst(PC);
         lbl = bGetLabel ? NULL : FindLabel(PC, Const);
         W = GetUWord(PC);
-        std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+        string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
         buf = sformat("[%s]", slbl.c_str());
         PC += 2;
         }
@@ -1051,21 +1073,22 @@ if (T & 0x80)
   }
 else
   {
+  // lowest 5 bits are a signed offset in range [-16..+15]
   char c = T & 0x1F;
   if (c & 0x10)
     c |= 0xf0;
+  bGetLabel = !IsConst(PC - 1);
   Wrel = (uint16_t)GetRelative(PC - 1);
   if (Wrel)
     {
-    bGetLabel = !IsConst(PC - 1);
     lbl = bGetLabel ? NULL : FindLabel(PC - 1, Const);
-    std::string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)c, bGetLabel, PC - 1);
+    string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)c, bGetLabel, PC - 1);
     buf = sformat("%s,%c", slbl.c_str(), R);
     }
   else
     {
     lbl = FindLabel(PC - 1, Const);
-    std::string slbl = lbl ? lbl->GetText() : SignedNumber2String(c, 2, PC - 1);
+    string slbl = lbl ? lbl->GetText() : SignedNumber2String(c, 2, PC - 1);
     buf = sformat("%s,%c", slbl.c_str(), R);
     }
   }
@@ -1081,7 +1104,7 @@ return buf;
 addr_t Dasm6809::ParseCode
     (
     addr_t addr,
-    int bus                         /* ignored for 6800 and derivates    */
+    int bus                             /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -1156,9 +1179,9 @@ return PC - addr;                       /* pass back # processed bytes       */
 addr_t Dasm6809::DisassembleCode
     (
     addr_t addr,
-    std::string &smnemo,
-    std::string &sparm,
-    int bus                         /* ignored for 6800 and derivates    */
+    string &smnemo,
+    string &sparm,
+    int bus                             /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -1258,7 +1281,7 @@ switch (M)                              /* which mode is this?               */
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
-    std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+    string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
     if (dp != NO_ADDRESS &&
         forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp)
       sparm = ">" + slbl;
@@ -1458,7 +1481,7 @@ bool Dasm6809::DisassembleChanges
     addr_t prevaddr,
     addr_t prevsz,
     bool bAfterLine,
-    std::vector<LineChange> &changes,
+    vector<LineChange> &changes,
     int bus
     )
 {
@@ -1607,7 +1630,7 @@ for (int i = 0; i < _countof(FlexLbls); i++)
   {
   for (addr_t a = FlexLbls[i].from; a <= FlexLbls[i].to; a++)
     {
-    std::string s(FlexLbls[i].txt);
+    string s(FlexLbls[i].txt);
     if (a != FlexLbls[i].from)
       s += sformat("+%s", Number2String(a - FlexLbls[i].from, 4, a).c_str());
     AddLabel(a, Untyped, s);

@@ -42,7 +42,7 @@ e) if not code (or data reference / constant in code),
 /* TMemory : template for a vector with a start address                      */
 /*****************************************************************************/
 
-template<class T, class TType = uint8_t> class TMemory : public std::vector<T>
+template<class T, class TType = uint8_t> class TMemory : public vector<T>
   {
   public:
     TMemory(addr_t addrStart = 0, addr_t memSize = 0, TType newType = (TType)0)
@@ -61,15 +61,15 @@ template<class T, class TType = uint8_t> class TMemory : public std::vector<T>
     void SetStart(addr_t addrStart = 0) { label.SetAddress(addrStart); }
     addr_t GetStart() const { return label.GetAddress(); }
     addr_t GetEnd() const { return GetStart() + size() - 1; }
-    std::string GetLabel() { return label.GetText(); }
-    bool SetLabel(std::string sNewText = "") { return label.SetText(sNewText); }
+    string GetLabel() { return label.GetText(); }
+    bool SetLabel(string sNewText = "") { return label.SetText(sNewText); }
     TType GetType() { return memType; }
     void SetType(TType newType) { memType = newType; }
     bool TypeMatches(TType chkType) { return memType == chkType; }
 
-    // std::vector specializations
-    const_reference at(size_type _Pos) const { return std::vector<T>::at(_Pos - GetStart()); }
-    reference at(size_type _Pos) { return std::vector<T>::at(_Pos - GetStart()); }
+    // vector specializations
+    const_reference at(size_type _Pos) const { return vector<T>::at(_Pos - GetStart()); }
+    reference at(size_type _Pos) { return vector<T>::at(_Pos - GetStart()); }
 	const_reference operator[](size_type _Pos) const { return at(_Pos); }
 	reference operator[](size_type _Pos) { return at(_Pos); }
 
@@ -92,12 +92,13 @@ template<class T, class TType = uint8_t> class TMemory : public std::vector<T>
 /*****************************************************************************/
 
 template<class T, class TType = uint8_t>
-    class TMemoryArray : public std::vector<TMemory<T, TType>>
+    class TMemoryArray : public vector<TMemory<T, TType>>
   {
   public:
+    TMemoryArray() { ResetLast(); }
     bool AddMemory(addr_t addrStart = 0, addr_t memSize = 0, TType memType = (TType)0, T *contents = NULL)
       {
-      std::vector<TMemory<T, TType>>::iterator i;
+      vector<TMemory<T, TType>>::iterator i;
       if (memSize)
         {
         addr_t addrEnd = addrStart + memSize - 1;
@@ -161,6 +162,7 @@ template<class T, class TType = uint8_t>
                   TMemory<T, TType>(addrStart, 0, memType));
       if (memSize)
         t.resize(memSize);
+      ResetLast();
       // done this way to avoid creating a potentially large temporary object
       if (contents && memSize)
         {
@@ -172,11 +174,18 @@ template<class T, class TType = uint8_t>
     // find memory area index for a given address
     addr_t GetMemIndex(addr_t addr)
       {
+      // little speedup for multiple accesses in scattered environments
+      if (addr >= last.start && addr <= last.end) return last.idx;
       for (TMemoryArray<T, TType>::size_type i = 0; i < size(); i++)
         {
         TMemory<T, TType> &mem = at(i);
         if (mem.GetStart() <= addr && (addr_t)(mem.GetStart() + mem.size()) > addr)
+          {
+          last.start = mem.GetStart();
+          last.end = mem.GetEnd();
+          last.idx = i;
           return i;
+          }
         }
       return NO_ADDRESS;
       }
@@ -243,6 +252,14 @@ template<class T, class TType = uint8_t>
         }
       return true;
       }
+    protected:
+      struct
+        {
+        addr_t start;
+        addr_t end;
+        addr_t idx;
+        } last;
+      void ResetLast() { last.start = last.end = last.idx = NO_ADDRESS; }
   };
 
 

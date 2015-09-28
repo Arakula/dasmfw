@@ -38,13 +38,13 @@ class Dasm6301 : public Dasm6801
   // Overrides
   public:
     // return processor long name
-    virtual std::string GetName() { return "Hitachi 6301"; }
+    virtual string GetName() { return "Hitachi 6301"; }
 
   protected:
     // parse instruction at given memory address for labels
     virtual addr_t ParseCode(addr_t addr, int bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, int bus = BusCode);
+    virtual addr_t DisassembleCode(addr_t addr, string &smnemo, string &sparm, int bus = BusCode);
 
   protected:
     // additional 6309 addressing modes

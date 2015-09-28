@@ -98,7 +98,7 @@ if (plbl && plbl->IsUsed())
   {
   // labels containing '+' or '-' are no real labels; they are
   // references to another label (e.g., "OLBL+4")
-  std::string &s = plbl->GetText();
+  string &s = plbl->GetText();
   if (s.find('-') == s.npos && s.find('+') == s.npos)
     wf |= SHMF_BREAK;
   }
@@ -216,10 +216,10 @@ return bOK;
 /* GetBusID : return a bus ID based on its name                              */
 /*****************************************************************************/
 
-int Disassembler::GetBusID(std::string busname)
+int Disassembler::GetBusID(string busname)
 {
 bool numeric = !!busname.size();
-for (std::string::size_type s = 0; s < busname.size(); s++)
+for (string::size_type s = 0; s < busname.size(); s++)
   if (busname[s] < '0' || busname[s] > '9')
     {
     numeric = false;
@@ -248,14 +248,14 @@ return -1;
 
 bool Disassembler::AddOption
     (
-    std::string name,
-    std::string help,
+    string name,
+    string help,
     PSetter setter,
     PGetter getter
     )
 {
 // allow overriding of base class option handlers
-std::string lname(lowercase(name));
+string lname(lowercase(name));
 for (int i = 0; i < GetOptionCount(); i++)
   if (GetOptionName(i) == lname)
     {
@@ -289,9 +289,9 @@ return true;
 /* FindOption : returns index for an option or -1                            */
 /*****************************************************************************/
 
-int Disassembler::FindOption(std::string name)
+int Disassembler::FindOption(string name)
 {
-std::string lname(lowercase(name));
+string lname(lowercase(name));
 for (int i = 0; i < GetOptionCount(); i++)
   if (name == options[i]->name)
     return i;
@@ -302,9 +302,9 @@ return -1;
 /* SetOption : sets a disassembler option                                    */
 /*****************************************************************************/
 
-int Disassembler::SetOption(std::string name, std::string value)
+int Disassembler::SetOption(string name, string value)
 {
-std::string lname(lowercase(name));
+string lname(lowercase(name));
 
 for (int i = 0; i < GetOptionCount(); i++)
   if (name == options[i]->name)
@@ -317,9 +317,9 @@ return 0;
 /* GetOption : retrieves a disassembler option                               */
 /*****************************************************************************/
 
-std::string Disassembler::GetOption(std::string name)
+string Disassembler::GetOption(string name)
 {
-std::string lname(lowercase(name));
+string lname(lowercase(name));
 
 for (int i = 0; i < GetOptionCount(); i++)
   if (name == options[i]->name)
@@ -332,10 +332,10 @@ return "";
 /* DisassemblerSetOption : disassembler base class option handler            */
 /*****************************************************************************/
 
-int Disassembler::DisassemblerSetOption(std::string lname, std::string value)
+int Disassembler::DisassemblerSetOption(string lname, string value)
 {
 // this could be expanded ... "0x" or "$" header come to mind...
-std::string lvalue(lowercase(value));
+string lvalue(lowercase(value));
 addr_t ivalue = (addr_t)strtoul(value.c_str(), NULL, 10);
 addr_t avalue;
 String2Number(value, avalue);
@@ -396,9 +396,9 @@ return 1;                               /* option + value consumed           */
 /* DisassemblerGetOption : disassembler base class option retrieval          */
 /*****************************************************************************/
 
-std::string Disassembler::DisassemblerGetOption(std::string lname)
+string Disassembler::DisassemblerGetOption(string lname)
 {
-std::string oval;
+string oval;
 if (lname == "pbase") oval = sformat("%ld", pbase);
 else if (lname == "defdisp")
   {
@@ -432,7 +432,7 @@ return oval;
 /* Label2String : converts a value to a (label) string                       */
 /*****************************************************************************/
 
-std::string Disassembler::Label2String
+string Disassembler::Label2String
     (
     addr_t value,
     bool bUseLabel,
@@ -440,7 +440,7 @@ std::string Disassembler::Label2String
     int bus
     )
 {
-std::string sOut;
+string sOut;
 addr_t relative = GetRelative(addr, bus);
 addr_t Wrel = (value + relative);
 addr_t hiaddr = GetHighestBusAddr(bus);
@@ -451,7 +451,7 @@ if (++hiaddr)
 // NB: this always uses the LAST found label for this address.
 // There's no way to find out which should be used for multiples.
 Label *pLbl = (bUseLabel) ? FindLabel(Wrel, Untyped, bus) : NULL;
-std::string sLabel;
+string sLabel;
 // DefLabel is independent of bUseLabel and is used if no normal label is there
 #if 1
 if (!pLbl)
@@ -479,7 +479,7 @@ else
 
 if (relative)                           /* if it's relative addressing       */
   {
-  std::string sAdd("-");
+  string sAdd("-");
   bool bInvert = true;
   int32_t nDiff = Wrel - value;         /* get difference                    */
 
@@ -509,7 +509,7 @@ if (relative)                           /* if it's relative addressing       */
 
   if (bInvert)                          /* if inverting necessary,           */
     {
-    std::string::iterator i = sAdd.begin();
+    string::iterator i = sAdd.begin();
     i++;
     while (i != sAdd.end())             /* invert signs!                     */
       {
@@ -534,7 +534,7 @@ bool Disassembler::AddLabel
     (
     addr_t addr,
     MemoryType memType,
-    std::string sLabel,
+    string sLabel,
     bool bUsed,
     int bus
     )
@@ -660,8 +660,8 @@ bool Disassembler::ResolveLabels(int bus)
 for (int i = GetLabelCount(bus) - 1; i >= 0; i--)
   {
   Label *pLbl = LabelAt(i, bus);
-  std::string s = pLbl->GetText();
-  std::string::size_type p = s.find_first_of("+-");
+  string s = pLbl->GetText();
+  string::size_type p = s.find_first_of("+-");
   if (!pLbl->IsUsed())
     continue;
   // first, check for +/-nnnn offset
@@ -707,7 +707,7 @@ return true;
 /* DefLabel2String : DefLabel or numeric constant to string                  */
 /*****************************************************************************/
 
-std::string Disassembler::DefLabel2String
+string Disassembler::DefLabel2String
     (
     addr_t value,
     int nDigits,
@@ -715,13 +715,13 @@ std::string Disassembler::DefLabel2String
     int bus
     )
 {
-std::string svalue = Number2String(value, nDigits, addr, bus);
+string svalue = Number2String(value, nDigits, addr, bus);
 // NB: this always uses the FIRST found label for this address.
 // There's no way to find out which should be used for multiples.
 Label *pLabel = FindLabel(addr, Const, bus);
 if (pLabel)
   {
-  std::string dname = pLabel->GetText();
+  string dname = pLabel->GetText();
   if (DefLabels[bus].Find(dname))
     svalue = dname;
   }
@@ -799,9 +799,9 @@ switch (sz)
 
 bool Disassembler::LoadIntelHex
     (
-    std::string filename,
+    string filename,
     FILE *f,
-    std::string &sLoadType,
+    string &sLoadType,
     int interleave,
     int bus
     )
@@ -939,9 +939,9 @@ return (nBytes > 0);                    /* pass back #bytes interpreted      */
 
 bool Disassembler::LoadMotorolaHex
     (
-    std::string filename,
+    string filename,
     FILE *f,
-    std::string &sLoadType,
+    string &sLoadType,
     int interleave,
     int bus
     )
@@ -1093,9 +1093,9 @@ return (nBytes > 0);                    /* pass back #bytes interpreted      */
 
 bool Disassembler::LoadBinary
     (
-    std::string filename,
+    string filename,
     FILE *f,
-    std::string &sLoadType,
+    string &sLoadType,
     int interleave,
     int bus
     )
@@ -1155,9 +1155,9 @@ return true;
 
 bool Disassembler::LoadFile
     (
-    std::string filename,
+    string filename,
     FILE *f,
-    std::string &sLoadType,
+    string &sLoadType,
     int interleave,
     int bus
     )
@@ -1173,8 +1173,8 @@ return LoadIntelHex(filename, f, sLoadType, interleave, bus) ||
 
 bool Disassembler::Load
     (
-    std::string filename,
-    std::string &sLoadType,
+    string filename,
+    string &sLoadType,
     int interleave,
     int bus
     )
@@ -1189,4 +1189,56 @@ if (pFile != stdin)
 if (bOK)                                /* if loading done,                  */
   offset = end + 1;                     /* prepare for next file             */
 return bOK;
+}
+
+/*****************************************************************************/
+/* GetConsecutiveData : calculate consecutive data range                     */
+/*                      (i.e., same type for all)                            */
+/*****************************************************************************/
+
+addr_t Disassembler::GetConsecutiveData
+    (
+    addr_t addr,
+    uint32_t &flags,
+    int maxparmlen,
+    int bus
+    )
+{
+addr_t end;
+addr_t maxaddr = GetHighestBusAddr(bus);
+                                        /* get flags for current byte        */
+flags = GetDisassemblyFlags(addr, bus) &
+        (~(SHMF_BREAK |                 /* without break flag                */
+           SHMF_NOTXT));                /* and without NoText flag           */
+      flags &= disassemblyFlagMask;
+// safety fuse - process no more than maxparmlen at a time unless it's
+// RMB. This may still be too much, but should not be too far off.
+if (!(flags & SHMF_RMB) &&
+    addr + (addr_t)maxparmlen > addr &&
+    addr + (addr_t)maxparmlen <= maxaddr)
+  maxaddr = addr + (addr_t)maxparmlen - 1;
+
+for (end = addr + 1;                    /* find end of block                 */
+     end > addr && end <= maxaddr;
+     end++)
+  {
+  uint32_t fEnd = GetDisassemblyFlags(end, bus);
+  fEnd &= ~SHMF_NOTXT;
+  fEnd &= disassemblyFlagMask;
+  if (fEnd != flags)
+    break;
+  }
+if (flags & 0xff)                       /* if not 1-sized,                   */
+  {
+  int dsz = (int)(flags & 0xff) + 1;
+  addr_t rest = (end - addr) % dsz;
+  if (rest)                             /* don't use incomplete last item    */
+    end -= rest;
+  if (end == addr)                      /* if there's nothing left           */
+    end = addr + dsz;                   /* use at least 1 item               */
+  // NB: defining n-byte fields starting at less than (n-1) bytes
+  // before the end of the highest memory address will produce garbage,
+  // but... well... GIGO. Should be caught by info file parser anyway.
+  }
+return end;                             /* pass back last + 1                */
 }

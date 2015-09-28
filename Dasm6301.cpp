@@ -166,7 +166,7 @@ Dasm6301::~Dasm6301(void)
 addr_t Dasm6301::ParseCode
     (
     addr_t addr,
-    int bus                         /* ignored for 6800 and derivates    */
+    int bus                             /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -223,9 +223,9 @@ return PC - addr;                       /* pass back # processed bytes       */
 addr_t Dasm6301::DisassembleCode
     (
     addr_t addr,
-    std::string &smnemo,
-    std::string &sparm,
-    int bus                         /* ignored for 6800 and derivates    */
+    string &smnemo,
+    string &sparm,
+    int bus                             /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -267,14 +267,14 @@ switch (M)                              /* which mode is this?               */
     {
     lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
     M = GetUByte(PC);
-    std::string snum = lbl ? lbl->GetText() : Number2String(M, 2, PC);
+    string snum = lbl ? lbl->GetText() : Number2String(M, 2, PC);
     PC++;
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     W = GetUByte(PC);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
-    std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+    string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
     sparm = sformat("#%s,%s", 
                     snum.c_str(),
                     slbl.c_str());

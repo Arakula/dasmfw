@@ -472,12 +472,12 @@ return Dasm6809::IndexParse(MI, pc);
 /* IndexString : converts index to string                                    */
 /*****************************************************************************/
 
-std::string Dasm6309::IndexString(addr_t &pc)
+string Dasm6309::IndexString(addr_t &pc)
 {
 uint8_t T;
 uint16_t W;
 char R;
-std::string buf;
+string buf;
 addr_t PC = pc;
 bool bGetLabel;
 Label *lbl;
@@ -521,7 +521,7 @@ if (T & 0x80)
           bGetLabel = !IsConst(PC);
           lbl = bGetLabel ? NULL : FindLabel(PC, Const);
           W = GetUWord(PC);
-          std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+          string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
           buf = sformat("%s,W", slbl.c_str());
           PC += 2;
           }
@@ -531,7 +531,7 @@ if (T & 0x80)
           bGetLabel = !IsConst(PC);
           lbl = bGetLabel ? NULL : FindLabel(PC, Const);
           W = GetUWord(PC);
-          std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+          string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
           buf = sformat("[%s,W]", slbl.c_str());
           PC += 2;
           }
@@ -567,7 +567,7 @@ return Dasm6809::IndexString(pc);
 addr_t Dasm6309::ParseCode
     (
     addr_t addr,
-    int bus                         /* ignored for 6800 and derivates    */
+    int bus                             /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -678,10 +678,10 @@ addr_t Dasm6309::DisassembleData
     addr_t addr,
     addr_t end,
     uint32_t flags,
-    std::string &smnemo,
-    std::string &sparm,
+    string &smnemo,
+    string &sparm,
     int maxparmlen,
-    int bus                         /* ignored for 6800 and derivates    */
+    int bus                             /* ignored for 6800 and derivates    */
     )
 {
 if (!(flags & SHMF_RMB) &&              /* if display necessary              */
@@ -694,10 +694,10 @@ if (!(flags & SHMF_RMB) &&              /* if display necessary              */
   for (done = addr; done < end; done += 4)
     {
     // these are constants in any case.
-    std::string s = Number2String(GetUWord(done), 8, done);
+    string s = Number2String(GetUWord(done), 8, done);
     if (sparm.size())                   /* if already something there        */
       {                                 /* if this would become too long     */
-      if (sparm.size() + s.size() + 1 >= (std::string::size_type)maxparmlen)
+      if (sparm.size() + s.size() + 1 >= (string::size_type)maxparmlen)
         break;                          /* terminate the loop                */
       sparm += ',';                     /* add separator                     */
       }
@@ -716,9 +716,9 @@ return Dasm6809::DisassembleData(addr, end, flags, smnemo, sparm, maxparmlen, bu
 addr_t Dasm6309::DisassembleCode
     (
     addr_t addr,
-    std::string &smnemo,
-    std::string &sparm,
-    int bus                         /* ignored for 6800 and derivates    */
+    string &smnemo,
+    string &sparm,
+    int bus                             /* ignored for 6800 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -753,7 +753,7 @@ switch (M)                              /* which mode is this?               */
     {
     lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
     M = GetUByte(PC);
-    std::string snum = lbl ? lbl->GetText() : Number2String(M, 2, PC);
+    string snum = lbl ? lbl->GetText() : Number2String(M, 2, PC);
     PC++;
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
@@ -763,14 +763,14 @@ switch (M)                              /* which mode is this?               */
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC - 1);
-      std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+      string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
       sparm = sformat("#%s,%s",
                       snum.c_str(),
                       slbl.c_str());
       }
     else
       {
-      std::string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
+      string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
       sparm = sformat("#%s,<%s",
                       snum.c_str(),
                       slbl.c_str());
@@ -783,7 +783,7 @@ switch (M)                              /* which mode is this?               */
     {
     T = GetUByte(PC);
     lbl = FindLabel(PC, Const);
-    std::string scn = lbl ? lbl->GetText() : Number2String(T, 2, PC);
+    string scn = lbl ? lbl->GetText() : Number2String(T, 2, PC);
     PC++;
     sparm = sformat("#%s,", I, scn.c_str());
     sparm += IndexString(PC);
@@ -794,14 +794,14 @@ switch (M)                              /* which mode is this?               */
     {
     lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
     T = GetUByte(PC);
-    std::string snum = lbl ? lbl->GetText() : Number2String(T, 2, PC);
+    string snum = lbl ? lbl->GetText() : Number2String(T, 2, PC);
     PC++;
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     W = GetUWord(PC);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, addr);
-    std::string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+    string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
     if ((dp != NO_ADDRESS) &&
         ((W & (uint16_t)0xff00) == (uint16_t)dp) &&
         (forceExtendedAddr))
@@ -820,11 +820,11 @@ switch (M)                              /* which mode is this?               */
     {
     lbl = FindLabel(PC, Const, bus);
     M = GetUByte(PC);
-    std::string snum = lbl ? lbl->GetText() : sformat("%d", M & 7);
+    string snum = lbl ? lbl->GetText() : sformat("%d", M & 7);
     PC++;
     lbl = FindLabel(PC, Const, bus);
     T = GetUByte(PC);
-    std::string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
+    string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
     sparm = sformat("%s,%d,%s,%s%s",
                     bit_r[M >> 6],
                     (M >> 3) & 7,

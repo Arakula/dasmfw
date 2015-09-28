@@ -115,7 +115,7 @@ class AddrType
 /* AddrTypeArray : array of address/type-sorted structures                   */
 /*****************************************************************************/
 
-class AddrTypeArray : public std::vector<AddrType*>
+class AddrTypeArray : public vector<AddrType*>
   {
   public:
     AddrTypeArray(bool bMultipleDefs = false)
@@ -136,7 +136,7 @@ class AddrTypeArray : public std::vector<AddrType*>
         AddrType *p = *cit;
         delete p;
         }
-      std::vector<AddrType*>::clear();
+      vector<AddrType*>::clear();
       }
     // binary search in sorted array
     iterator find(const AddrType &l, bool bTypeMatch = false)
@@ -246,14 +246,14 @@ class AddrTypeArray : public std::vector<AddrType*>
           }
         it = (mid > max) ? end() : (begin() + mid);
         }
-      return std::vector<AddrType*>::insert(it, pNewEl);
+      return vector<AddrType*>::insert(it, pNewEl);
       }
     // erase an element
     iterator erase(iterator _Where)
       {
       AddrType *p = *_Where;
       delete p;
-      return std::vector<AddrType*>::erase(_Where);
+      return vector<AddrType*>::erase(_Where);
       }
     iterator erase(iterator _First, iterator _Last)
       {
@@ -264,7 +264,7 @@ class AddrTypeArray : public std::vector<AddrType*>
         AddrType *p = *cit;
         delete p;
         }
-      return std::vector<AddrType*>::erase(_First, _Last);
+      return vector<AddrType*>::erase(_First, _Last);
       }
 
 
@@ -281,7 +281,7 @@ template<class T> class TAddrTypeArray : public AddrTypeArray
   public:
     TAddrTypeArray(bool bMultipleDefs = false)
       : AddrTypeArray(bMultipleDefs) { }
-    // std::vector<> specializations
+    // vector<> specializations
     T const *at(size_type _Pos) const { return (T const *)AddrTypeArray::at(_Pos); }
     T * at(size_type _Pos) { return (T *)AddrTypeArray::at(_Pos); }
 	T const * operator[](size_type _Pos) const { return at(_Pos); }
@@ -314,7 +314,7 @@ template<class T> class TAddrTypeArray : public AddrTypeArray
 class AddrText : public AddrType
   {
   public:
-    AddrText(addr_t addr = 0, MemoryType memType = Code, std::string stext = "")
+    AddrText(addr_t addr = 0, MemoryType memType = Code, string stext = "")
       : AddrType(addr, memType), stext(stext)
       { }
     virtual ~AddrText() { }
@@ -322,8 +322,8 @@ class AddrText : public AddrType
   // Attributes
   public:
     // Label Text
-    std::string GetText() const { return stext; }
-    bool SetText(std::string sNewText = "") { stext = sNewText; return true; }
+    string GetText() const { return stext; }
+    bool SetText(string sNewText = "") { stext = sNewText; return true; }
     bool HasText() const { return !!stext.size(); }
 
     void CopyUnset(const AddrText &other)
@@ -333,7 +333,7 @@ class AddrText : public AddrType
       }
 
   protected:
-    std::string stext;
+    string stext;
 
   };
 
@@ -352,7 +352,7 @@ class AddrTextArray : public TAddrTypeArray<AddrText>
 class Label : public AddrText
   {
   public:
-    Label(addr_t addr = 0, MemoryType memType = Code, std::string sLabel = "", bool bUsed = false)
+    Label(addr_t addr = 0, MemoryType memType = Code, string sLabel = "", bool bUsed = false)
       : AddrText(addr, memType, sLabel), bUsed(bUsed)
       { }
     virtual ~Label() { }
@@ -412,17 +412,17 @@ class LabelArray : public TAddrTypeArray<Label>
 class DefLabel : public Label
   {
   public:
-    DefLabel(addr_t addr = 0, MemoryType memType = Const, std::string sLabel = "", std::string sDefinition = "")
+    DefLabel(addr_t addr = 0, MemoryType memType = Const, string sLabel = "", string sDefinition = "")
       : Label(addr, memType, sLabel, true), sDefinition(sDefinition)
       { }
 
   // Attributes
   public:
-    void SetDefinition(std::string sTxt = "") { sDefinition = sTxt; }
-    std::string GetDefinition() { return sDefinition; }
+    void SetDefinition(string sTxt = "") { sDefinition = sTxt; }
+    string GetDefinition() { return sDefinition; }
 
   protected:
-    std::string sDefinition;
+    string sDefinition;
   };
 
 /*****************************************************************************/
@@ -444,14 +444,14 @@ class DefLabelArray : public TAddrTypeArray<DefLabel>
       DefLabelArray::iterator p = find(addr, memType);
       return (p != end()) ? (DefLabel *)(*p) : NULL;
       }
-    DefLabel *Find(std::string sLabel)
+    DefLabel *Find(string sLabel)
       {
       // this is not really performant, but I don't think adding
       // a separate index for the names is necessary
       if (!caseSensitive) sLabel = lowercase(sLabel);
       for (LabelArray::iterator p = begin(); p != end(); p++)
         {
-        std::string sChk(((DefLabel*)*p)->GetText());
+        string sChk(((DefLabel*)*p)->GetText());
         if (!caseSensitive)
           sChk = lowercase(sChk);
         if (sChk == sLabel)

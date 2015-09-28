@@ -113,15 +113,15 @@ class Dasm6809 : public Dasm6800
   // Overrides
   public:
     // return processor long name
-    virtual std::string GetName() { return "Motorola 6809"; }
+    virtual string GetName() { return "Motorola 6809"; }
 
     // print disassembler-specific info file help
-    virtual std::string InfoHelp();
+    virtual string InfoHelp();
 
   // Options handler
   protected:
-    int Set6809Option(std::string name, std::string value);
-    std::string Get6809Option(std::string name);
+    int Set6809Option(string name, string value);
+    string Get6809Option(string name);
 
     // Get/Set additional cell information
     addr_t GetDirectPage(addr_t addr, int bus = BusCode)
@@ -135,16 +135,16 @@ class Dasm6809 : public Dasm6800
       { if (memattr[bus]) ((MemAttribute6809Handler *)memattr[bus])->SetDirectPage(addr, dp); }
 
     virtual bool InitParse(int bus = BusCode);
-    virtual bool ProcessInfo(std::string key, std::string value, addr_t &from, addr_t &to, bool bProcInfo = true, int bus = BusCode);
+    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, bool bProcInfo = true, int bus = BusCode);
 
   protected:
     // parse instruction at given memory address for labels
     virtual addr_t ParseCode(addr_t addr, int bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, std::string &smnemo, std::string &sparm, int bus = BusCode);
+    virtual addr_t DisassembleCode(addr_t addr, string &smnemo, string &sparm, int bus = BusCode);
   public:
     // pass back disassembler-specific state changes before/after a disassembly line
-    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, std::vector<LineChange> &changes, int bus = BusCode);
+    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode);
 
   protected:
 
@@ -248,9 +248,9 @@ class Dasm6809 : public Dasm6800
     // must not be called from constructor!
     virtual MemAttributeHandler *CreateAttributeHandler() { return new MemAttribute6809Handler; }
 
-    virtual addr_t FetchInstructionDetails(addr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, std::string *smnemo = NULL);
+    virtual addr_t FetchInstructionDetails(addr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, string *smnemo = NULL);
     virtual addr_t IndexParse(int MI, addr_t pc);
-    virtual std::string IndexString(addr_t &pc);
+    virtual string IndexString(addr_t &pc);
     void AddFlexLabels();
 
   };
