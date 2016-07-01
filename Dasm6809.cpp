@@ -514,7 +514,8 @@ bool Dasm6809::ProcessInfo
     addr_t &from,
     addr_t &to, 
     bool bProcInfo,
-    int bus
+    int bus,
+    int tgtbus
     )
 {
 if (!bProcInfo || bus != BusCode)       /* only if processing code bus...    */

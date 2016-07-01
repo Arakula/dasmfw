@@ -35,6 +35,101 @@ enum
   };
 
 /*****************************************************************************/
+/* MemAttributeAvr8 : description of a memory cell's attributes for AVR8     */
+/*****************************************************************************/
+
+struct MemAttributeAvr8 : public MemAttribute
+  {
+  unsigned relType: 3;
+  unsigned relBus:3;
+  addr_t addrRelative;
+
+  enum RelType
+    {
+    RelLow,
+    RelHigh,
+    RelLowMinus,
+    RelHighMinus,
+    RelLow2,
+    RelHigh2,
+    RelUntyped,
+    };
+  MemAttributeAvr8(MemoryType memType = Code,
+       int cellSize = 1,
+       bool bUsed = true,
+       Type cellType = UnsignedInt,
+       Display display = DefaultDisplay,
+       bool breakBefore = false,
+       RelType relType = RelUntyped,
+       int bus = Avr8BusTypes,
+       addr_t rel = NO_ADDRESS)
+       : MemAttribute(memType, cellSize, bUsed, cellType, display, breakBefore),
+         relType(relType), addrRelative(rel)
+    {
+    }
+
+  RelType GetRelative(addr_t &rel, int &bus)
+    { rel = addrRelative; bus = relBus; return (RelType)relType; }
+  void SetRelative(RelType newType = RelUntyped, addr_t rel = NO_ADDRESS, int newBus = Avr8BusTypes)
+    { relType = newType; addrRelative = rel; relBus = newBus; }
+  };
+
+/*****************************************************************************/
+/* MemAttributeAvr8Handler : memory attribute handler for Avr8               */
+/*****************************************************************************/
+
+class MemAttributeAvr8Handler : public MemAttributeHandler
+{
+public:
+    MemAttributeAvr8Handler() { }
+    virtual ~MemAttributeAvr8Handler() { }
+
+    virtual bool AddMemory(addr_t addrStart = 0, addr_t memSize = 0, MemoryType memType = Code)
+      { return attr.AddMemory(addrStart, memSize, memType); }
+    virtual MemoryType GetMemType(addr_t addr)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetMemType() : Untyped; }
+    virtual void SetMemType(addr_t addr, MemoryType newType = Code)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetMemType(newType); }
+    virtual bool IsCellUsed(addr_t addr)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); return pAttr ? pAttr->IsUsed() : false; }
+    virtual void SetCellUsed(addr_t addr, bool bUsed = true)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetUsed(bUsed); }
+    virtual MemAttribute::Type GetCellType(addr_t addr)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetCellType() : MemAttributeAvr8::CellUntyped; }
+    virtual void SetCellType(addr_t addr, MemAttribute::Type newType)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetCellType(newType); }
+    virtual int GetCellSize(addr_t addr)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetSize() : 0; }
+    virtual void SetCellSize(addr_t addr, int newSize = 1)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetSize(newSize); }
+    virtual MemAttribute::Display GetDisplay(addr_t addr)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetDisplay() : MemAttributeAvr8::CellUndisplayable; }
+    virtual void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetDisplay(newDisp); }
+    virtual bool GetBreakBefore(addr_t addr)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetBreakBefore() : false; }
+    virtual void SetBreakBefore(addr_t addr, bool bOn = true)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetBreakBefore(bOn); }
+    virtual uint32_t GetDisassemblyFlags(addr_t addr, uint8_t mem, Label *plbl)
+      { return GetBasicDisassemblyFlags(attr.getat(addr), mem, plbl); }
+    // basic access
+    virtual size_t size() { return (size_t)attr.size(); }
+    virtual addr_t GetStart(int index) { return attr[index].GetStart(); }
+    virtual size_t size(int index) { return attr[index].size(); }
+
+    // additional attributes for Avr8
+    virtual MemAttributeAvr8::RelType GetRelative(addr_t addr, addr_t &rel, int &bus)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetRelative(rel, bus) : MemAttributeAvr8::RelUntyped; }
+    virtual void SetRelative(addr_t addr, MemAttributeAvr8::RelType newType = MemAttributeAvr8::RelUntyped, addr_t rel = NO_ADDRESS, int newBus = Avr8BusTypes)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetRelative(newType, rel, newBus); }
+
+protected:
+    TMemoryArray <MemAttributeAvr8, MemoryType> attr;
+
+};
+
+
+/*****************************************************************************/
 /* Avr8RegLabel : definition of a register label                             */
 /*****************************************************************************/
 
@@ -147,7 +242,18 @@ class DasmAvr8 :
     int SetAvr8Option(string name, string value);
     string GetAvr8Option(string name);
 
-    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, bool bProcInfo = true, int bus = BusCode);
+    // Get/Set additional cell information
+    bool IsRelative(addr_t addr, int bus = BusCode)
+      {
+      addr_t rel; int relBus;
+      return memattr[bus] ? (((MemAttributeAvr8Handler *)memattr[bus])->GetRelative(addr, rel, relBus) != MemAttributeAvr8::RelUntyped) : false;
+      }
+    MemAttributeAvr8::RelType GetRelative(addr_t addr, addr_t &rel, int &relBus, int bus = BusCode)
+      { return memattr[bus] ? ((MemAttributeAvr8Handler *)memattr[bus])->GetRelative(addr, rel, relBus) : MemAttributeAvr8::RelUntyped; }
+    void SetRelative(addr_t addr, MemAttributeAvr8::RelType newType = MemAttributeAvr8::RelUntyped, addr_t rel = NO_ADDRESS, int relBus = Avr8BusTypes, int bus = BusCode)
+      { if (memattr[bus]) ((MemAttributeAvr8Handler *)memattr[bus])->SetRelative(addr, newType, rel, relBus); }
+
+    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode);
 
   protected:
     // parse data area for labels
@@ -202,6 +308,14 @@ class DasmAvr8 :
     // generate text for an unnamed label
     virtual string UnnamedLabel(addr_t addr, bool bCode, int bus = BusCode)
       {
+      if (bAutoLabel)
+        {
+        // auto-label based on previous constant, if possible
+        string s = AutoLabel2String(addr, bCode, bus);
+        if (s.size())
+          return s;
+        }
+
       const char *cType;
       int bits;
       switch (bus)
@@ -452,6 +566,10 @@ class DasmAvr8 :
     string CurRegLabel[32];
     bool dbalign, dbalignchg;
     bool avr_gcc;
+
+  protected:
+    // must not be called from constructor!
+    virtual MemAttributeHandler *CreateAttributeHandler() { return new MemAttributeAvr8Handler; }
   };
 
 #endif // defined(__DasmAvr8_h_defined__)

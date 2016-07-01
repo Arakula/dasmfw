@@ -37,5 +37,7 @@ v0.8  2015-08-19 Bus logic changes
                  -bus command line option added to allow loading files
                  into one of the available busses
                  (automatically for .eep files in AVR8 disassembler)
-v0.9  2015-??-?? Code cleanups, little performance enhancements
+v0.9  2015-09-28 Code cleanups, little performance enhancements
                  avr-gcc option added to AVR8 disassembler
+v0.10 2016-07-01 autolabel option added
+                 LOW, HIGH, MLOW, MHIGH, LOW2, HIGH2 directives added for AVR8

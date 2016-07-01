@@ -429,9 +429,23 @@ return bOK;
 
 string DasmAvr8::InfoHelp()
 {
-return "REGLABEL addr Reg [text]\n"
-       "UNREGLABEL addr Reg\n"
-       ;
+string busses = GetBusNames();
+const char *szb = busses.c_str();
+return sformat("REGLABEL addr Reg [text]\n"
+               "UNREGLABEL addr Reg\n"
+               "HIGH [BUS {%s}] addr[-addr] reladdr\n"
+               "LOW [BUS {%s}] addr[-addr] reladdr\n"
+               "MHIGH [BUS {%s}] addr[-addr] reladdr\n"
+               "MLOW [BUS {%s}] addr[-addr] reladdr\n"
+               "HIGH2 [BUS {%s}] addr[-addr] reladdr\n"
+               "LOW2 [BUS {%s}] addr[-addr] reladdr\n"
+               , szb
+               , szb
+               , szb
+               , szb
+               , szb
+               , szb
+               );
 }
 
 /*****************************************************************************/
@@ -445,7 +459,8 @@ bool DasmAvr8::ProcessInfo
     addr_t &from,                       /* from/to (if range given)          */
     addr_t &to, 
     bool bProcInfo,                     /* flag whether processing           */
-    int bus                             /* target bus                        */
+    int bus,                            /* target bus for command            */
+    int tgtbus                          /* target bus for parameters         */
     )
 {
 if (!bProcInfo)                         /* only if processing                */
@@ -456,6 +471,12 @@ enum InfoCmd
   infoUnknown = -1,                     /* unknown info command              */
   infoRegLabel,                         /* REGLABEL addr Rxx [Text]          */
   infoUnregLabel,                       /* UNREGLABEL addr Rxx               */
+  infoHigh,                             /* HIGH [BUS bus] addr[-addr] addr   */
+  infoLow,                              /* LOW [BUS bus] addr[-addr] addr    */
+  infoMHigh,                            /* MHIGH [BUS bus] addr[-addr] addr  */
+  infoMLow,                             /* MLOW [BUS bus] addr[-addr] addr   */
+  infoHigh2,                            /* HIGH2 [BUS bus] addr[-addr] addr/2*/
+  infoLow2,                             /* LOW2 [BUS bus] addr[-addr] addr/2 */
   };
 static struct                           /* structure to convert key to type  */
   {
@@ -465,6 +486,12 @@ static struct                           /* structure to convert key to type  */
   {
   { "REGLABEL",     infoRegLabel },
   { "UNREGLABEL",   infoUnregLabel },
+  { "HIGH",         infoHigh },
+  { "LOW",          infoLow },
+  { "MHIGH",        infoMHigh },
+  { "MLOW",         infoMLow },
+  { "HIGH2",        infoHigh2 },
+  { "LOW2",         infoLow2 },
   };
 
 InfoCmd cmdType = infoUnknown;
@@ -504,6 +531,61 @@ switch (cmdType)
       }
     if (bus == BusCode && from != NO_ADDRESS && nRegNum >= 0)
       AddRegLabel(from, value, nRegNum);
+    }
+    break;
+  case infoHigh :                       /* HIGH [BUS bus] addr[-addr] addr   */
+  case infoLow :                        /* LOW [BUS bus] addr[-addr] addr    */
+  case infoMHigh :                      /* MHIGH [BUS bus] addr[-addr] addr  */
+  case infoMLow :                       /* MLOW [BUS bus] addr[-addr] addr   */
+  case infoHigh2 :                      /* HIGH2 [BUS bus] addr[-addr] addr/2*/
+  case infoLow2 :                       /* LOW2 [BUS bus] addr[-addr] addr/2 */
+    {
+    string srange;
+    string::size_type idx = value.find_first_of(" \t");
+    if (idx == value.npos) idx = value.size();
+    srange = value.substr(0, idx);
+    addr_t rel = NO_ADDRESS;
+    value = (idx == value.size()) ? "" : trim(value.substr(idx));
+    if (value.size() &&                 /* if addr[-addr] dp                 */
+        value[0] != '*')
+      String2Number(value, rel);
+    
+    if (from != NO_ADDRESS)
+      {
+      MemAttributeAvr8::RelType rt;
+      switch (cmdType)
+        {
+        case infoHigh :
+          rt = MemAttributeAvr8::RelHigh;
+          break;
+        case infoLow :
+          rt = MemAttributeAvr8::RelLow;
+          break;
+        case infoMHigh :
+          rt = MemAttributeAvr8::RelHighMinus;
+          rel = -((int16_t)rel);
+          break;
+        case infoMLow :
+          rt = MemAttributeAvr8::RelLowMinus;
+          rel = -((int16_t)rel);
+          break;
+        case infoHigh2 :
+          rt = MemAttributeAvr8::RelHigh2;
+          rel *= 2;
+          break;
+        case infoLow2 :
+          rt = MemAttributeAvr8::RelLow2;
+          rel *= 2;
+          break;
+        }
+
+      // range check for rel in tgtbus missing.
+
+      for (addr_t scanned = from;
+                  scanned >= from && scanned <= to;
+                  scanned++)
+        SetRelative(scanned, rt, rel, tgtbus, bus);
+      }
     }
     break;
   }
@@ -739,7 +821,13 @@ else if (hdr == "0b")
     if (c >= '0' && c <= '1')
       value = (value << 1) + (c - '0');
     else
+#if 1
+      // terminate on invalid binary sequence
       return false;
+#else
+      // allow base class to check - might be a hex constant without 0x
+      break;
+#endif
     }
   }
 
@@ -780,6 +868,46 @@ else
 
 if (disp == MemAttribute::DefaultDisplay)
   disp = defaultDisplay;
+
+addr_t rel;
+int relBus;
+MemAttributeAvr8::RelType rt = GetRelative(addr, rel, relBus, bus);
+if (rt != MemAttributeAvr8::RelUntyped)
+  {
+  // deal with LOW() / HIGH()
+  if (relBus == Avr8BusTypes)
+    relBus = bus;
+  Label *lbl = (rel == NO_ADDRESS) ? NULL : FindLabel(rel, Untyped, relBus);
+  if (lbl)
+    {
+    string s = Label2String(rel, true, addr, relBus);
+    if ((s.find_first_of("+-") != string::npos) &&
+        (rt == MemAttributeAvr8::RelLowMinus ||
+         rt == MemAttributeAvr8::RelHighMinus ||
+         rt == MemAttributeAvr8::RelLow2 ||
+         rt == MemAttributeAvr8::RelHigh2))
+      s = "(" + s + ")";
+    switch (rt)
+      {
+      case MemAttributeAvr8::RelLow :
+      case MemAttributeAvr8::RelLowMinus :
+      case MemAttributeAvr8::RelLow2 :
+        s = sformat("LOW(%s%s%s)",
+                    (rt == MemAttributeAvr8::RelLowMinus) ? "-" : "",
+                    s.c_str(),
+                    (rt == MemAttributeAvr8::RelLow2) ? ">>1" : "");
+        return s;
+      case MemAttributeAvr8::RelHigh :
+      case MemAttributeAvr8::RelHighMinus :
+      case MemAttributeAvr8::RelHigh2 :
+        s = sformat("HIGH(%s%s%s)",
+                    (rt == MemAttributeAvr8::RelHighMinus) ? "-" : "",
+                    s.c_str(),
+                    (rt == MemAttributeAvr8::RelHigh2) ? ">>1" : "");
+        return s;
+      }
+    }
+  }
 
 if ((nDigits == 2) &&                   /* if 2-digit value                  */
     (disp == MemAttribute::Char))       /* and character output requested    */
@@ -1120,6 +1248,12 @@ for (i = 0; i < numOperands; i++)
       break;
     case OpndData:
       {
+      addr_t rel; int relBus;
+      // if this is relative, make sure a label for the relation is there
+      MemAttributeAvr8::RelType rt = GetRelative(addr, rel, relBus, bus);
+      if (rt != MemAttributeAvr8::RelUntyped)
+        AddLabel(rel, relBus ? Data : Code, "", true, relBus);
+
       Label *lbl = FindLabel(addr, Const, bus);
       if (lbl)
         {

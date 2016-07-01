@@ -136,6 +136,7 @@ disassemblyFlagMask = (uint32_t)-1;
 bLoadLabel = true;
 bSetSysVec = true;
 bMultiLabel = false;
+bAutoLabel = false;
 
 // set up options table
 // base class uses one generic option setter/getter pair (not mandatory)
@@ -164,6 +165,9 @@ AddOption("loadlabel", "{off|on}\tuse entry point label",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
 AddOption("multilabel", "{off|on}\tallow multiple labels for an address",
+          &Disassembler::DisassemblerSetOption,
+          &Disassembler::DisassemblerGetOption);
+AddOption("autolabel", "{off|on}\tset labels based on previous text label",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
 AddOption("sysvec", "{off|on}\tset system vector labels",
@@ -384,6 +388,8 @@ else if (lname == "multilabel")
   for (int i = 0; i < GetBusCount(); i++)
     Labels[i].SetMultipleDefs(bMultiLabel);
   }
+else if (lname == "autolabel")
+  bAutoLabel = !!bnvalue;
 else if (lname == "sysvec")
   bSetSysVec = !!bnvalue;
 else
@@ -424,6 +430,7 @@ else if (lname == "cchar") oval = commentStart;
 else if (lname == "ldchar") oval = labelDelim;
 else if (lname == "loadlabel") oval = bLoadLabel ? "on" : "off";
 else if (lname == "multilabel") oval = bMultiLabel ? "on" : "off";
+else if (lname == "autolabel") oval = bAutoLabel ? "on" : "off";
 else if (lname == "sysvec") oval = bSetSysVec ? "on" : "off";
 return oval;
 }
@@ -633,6 +640,60 @@ while (lbl)
         return lbl;
 #endif
       break;
+    default :
+      if (!lbl->IsConst())
+#if 1
+        // return LAST matching label (single-def-compatibe)
+        found = lbl;
+#else
+        // return FIRST matching label
+        return lbl;
+#endif
+      break;
+    }
+
+  lbl = Labels[bus].GetNext(addr, it, memType);
+  }
+return found;
+}
+
+/*****************************************************************************/
+/* FindPrevNamedLabel : find previous named label for address and type       */
+/*****************************************************************************/
+
+Label *Disassembler::FindPrevNamedLabel
+    (
+    addr_t addr,
+    MemoryType memType,
+    int bus
+    )
+{
+LabelArray::iterator it;
+
+// "Untyped" really means "anything but Const" -
+// Const is reserved for DefLabels, which have to be searched with that type
+
+// search rules:
+// .) if searching for Untyped, return last non-Const
+// .) if searching for Const, return last Const
+// .) if searching for Code/Data, return last matching or Untyped
+
+Label *found = NULL;
+Label *lbl = Labels[bus].GetPrevNamed(addr, it, memType);
+while (lbl)
+  {
+  switch (memType)
+    {
+    case Const :
+      if (lbl->IsConst())
+#if 1
+        // return LAST matching label (single-def-compatibe)
+        found = lbl;
+#else
+        // return FIRST matching label
+        return lbl;
+#endif
+      break;
     // case Untyped :
     default :
       if (!lbl->IsConst())
@@ -647,6 +708,8 @@ while (lbl)
     }
 
   lbl = Labels[bus].GetNext(addr, it, memType);
+  if (found && lbl && (lbl->GetAddress() != found->GetAddress()))
+    break;
   }
 return found;
 }
@@ -726,6 +789,21 @@ if (pLabel)
     svalue = dname;
   }
 return svalue;
+}
+
+/*****************************************************************************/
+/* AutoLabel2String : automatic label generation based on previous label     */
+/*****************************************************************************/
+
+string Disassembler::AutoLabel2String(addr_t addr, bool bCode, int bus)
+{
+Label *pLabel = FindPrevNamedLabel(addr, Untyped /* Const */, bus);
+if (pLabel)
+  {
+  addr_t off = addr - pLabel->GetAddress();
+  return sformat("O%x_%s", off, pLabel->GetText().c_str());
+  }
+return "";
 }
 
 /*****************************************************************************/

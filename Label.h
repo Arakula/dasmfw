@@ -174,6 +174,33 @@ class AddrTypeArray : public vector<AddrType*>
         }
       return end();
       }
+    // binary search in sorted array, returning predecessor if no direct match
+    iterator findimprec(const AddrType &l)
+      {
+      int lo, hi = size() - 1, mid;
+      // little optimization if definitely outside range
+      if (empty() || *at(0) > l)
+        return end();
+      if (*at(hi) < l)
+        lo = hi;
+      else
+        lo = 0;
+      while (lo <= hi)
+        {
+        mid = (hi + lo) / 2;
+        if (*at(mid) < l)
+          lo = mid + 1;
+        else if (*at(mid) > l)
+          hi = mid - 1;
+        else
+          break;
+        }
+      if (hi < lo)
+        hi = mid = lo;
+      while ((*at(mid) > l) && mid)
+        mid--;
+      return (*at(mid) > l) ? end() : begin() + mid;
+      }
     // convenience - find code and/or data labels
     iterator find(addr_t addr, MemoryType memType = Untyped, bool bTypeMatch = false)
       { return find(AddrType(addr, memType), bTypeMatch); }
@@ -386,6 +413,22 @@ class LabelArray : public TAddrTypeArray<Label>
     Label *GetFirst(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped)
       {
       it = find(addr, memType);
+      return (it != end()) ? (Label *)(*it) : NULL;
+      }
+    Label *GetPrevNamed(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped)
+      {
+      // finds the named label of the given  type at this address or before
+      if ((it = findimprec(addr)) == end())
+        return NULL;
+      while (it != begin())
+        {
+        Label *pLabel = (Label *)(*it);
+        MemoryType lblMemType = pLabel->GetType();
+        if (pLabel->HasText() &&
+            ((memType == Untyped && lblMemType != Const) || (memType == lblMemType)))
+          break;
+        it--;
+        }
       return (it != end()) ? (Label *)(*it) : NULL;
       }
     // only makes sense if the label array allows multiples

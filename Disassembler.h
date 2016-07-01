@@ -192,6 +192,18 @@ class Disassembler
       }
     // return a bus ID based on its name (or -1 if unknown)
     virtual int GetBusID(string busname);
+    // return concatenated set of all bus names
+    virtual string GetBusNames(char cDelim = '|')
+      {
+      string busses;
+      for (int bus = 0; bus < GetBusCount(); bus++)
+        {
+        if (bus)
+          busses += cDelim;
+        busses += lowercase(GetBusName(bus));
+        }
+      return busses;
+      }
     // return the default memory type for a bus (used in loading)
     virtual MemoryType GetDefaultMemoryType(int bus = BusCode)
       { return Code; }
@@ -496,6 +508,7 @@ class Disassembler
     Label *GetNextLabel(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, int bus = BusCode)
       { return Labels[bus].GetNext(addr, it, memType); }
     Label *FindLabel(addr_t addr, MemoryType memType = Untyped, int bus = BusCode);
+    Label *FindPrevNamedLabel(addr_t addr, MemoryType memType = Untyped, int bus = BusCode);
     void RemoveLabel(addr_t addr, MemoryType memType = Untyped, int bus = BusCode)
       {
       LabelArray::iterator p = Labels[bus].find(addr, memType);
@@ -595,7 +608,7 @@ class Disassembler
     // load a code file; interleave can be >1 for interleaved Low/High EPROM pairs, for example
     bool Load(string filename, string &sLoadType, int interleave = 1, int bus = BusCode);
     // process an info file line
-    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, bool bProcInfo = true, int bus = BusCode) { return false; }
+    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode) { return false; }
 
   // the real disassembler activities
   protected:
@@ -774,9 +787,18 @@ class Disassembler
       { return sformat("%d", addr); }
     virtual string Label2String(addr_t value, bool bUseLabel, addr_t addr, int bus = BusCode);
     virtual string DefLabel2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode);
+    virtual string AutoLabel2String(addr_t addr, bool bCode, int bus = BusCode);
     // generate text for an unnamed label
     virtual string UnnamedLabel(addr_t addr, bool bCode, int bus = BusCode)
       {
+      if (bAutoLabel)
+        {
+        // auto-label based on previous constant, if possible
+        string s = AutoLabel2String(addr, bCode, bus);
+        if (s.size())
+          return s;
+        }
+
       const char *cType = bCode ? "Z" : "M";
       int bits = busbits[bus];
       return sformat("%s%0*X", cType, (bits + 3) / 4, addr);
@@ -804,6 +826,8 @@ class Disassembler
     bool bSetSysVec;
     // flag whether to allow multiple labels for an address
     bool bMultiLabel;
+    // flag whether to auto-generate labels based on previous defined label
+    bool bAutoLabel;
     // default display format
     MemAttribute::Display defaultDisplay;
     // disassembler-specific comment start character

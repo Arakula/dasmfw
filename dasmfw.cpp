@@ -1190,7 +1190,7 @@ do
       {
       addr_t from, to;                  /* address range has to be first!    */
       ParseInfoRange(value, from, to);
-      if (pDasm->ProcessInfo(key, value, from, to, bProcInfo, infoBus))
+      if (pDasm->ProcessInfo(key, value, from, to, bProcInfo, infoBus, tgtBus))
         cmdType = infoUnknown;
       }
 
@@ -2074,12 +2074,7 @@ else
   ListOptionLine("info", "Info File name");
   if (pDasm->GetBusCount() > 1)
     {
-    string busses;
-    for (int bus = 0; bus < pDasm->GetBusCount(); bus++)
-      {
-      if (bus) busses += '|';
-      busses += lowercase(pDasm->GetBusName(bus));
-      }
+    string busses = pDasm->GetBusNames();
     busses = sformat("{%s}\tBus for next file", busses.c_str());
     ListOptionLine("bus", busses, pDasm->GetBusName(BusCode));
     }
@@ -2136,12 +2131,7 @@ if (!pDasm)
 else
   {
   multibus = pDasm->GetBusCount() > 1;
-  for (int bus = 0; bus < pDasm->GetBusCount(); bus++)
-    {
-    if (bus)
-      busses += '|';
-    busses += lowercase(pDasm->GetBusName(bus));
-    }
+  busses = pDasm->GetBusNames();
   }
 #if RB_VARIANT
 printf("Info file contents:\n"
