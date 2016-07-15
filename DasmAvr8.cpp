@@ -874,36 +874,47 @@ int relBus;
 MemAttributeAvr8::RelType rt = GetRelative(addr, rel, relBus, bus);
 if (rt != MemAttributeAvr8::RelUntyped)
   {
-  // deal with LOW() / HIGH()
+  // deal with LOW()/HIGH() in data (8bit) or code (16bit) format
   if (relBus == Avr8BusTypes)
     relBus = bus;
   Label *lbl = (rel == NO_ADDRESS) ? NULL : FindLabel(rel, Untyped, relBus);
   if (lbl)
     {
     string s = Label2String(rel, true, addr, relBus);
+
     if ((s.find_first_of("+-") != string::npos) &&
         (rt == MemAttributeAvr8::RelLowMinus ||
          rt == MemAttributeAvr8::RelHighMinus ||
          rt == MemAttributeAvr8::RelLow2 ||
          rt == MemAttributeAvr8::RelHigh2))
       s = "(" + s + ")";
+
+    if (rt == MemAttributeAvr8::RelLow2 ||
+        rt == MemAttributeAvr8::RelHigh2)
+      {
+      if (avr_gcc)
+        s = "gs(" + s + ")";
+      else
+        s += ">>1";
+      }
+
     switch (rt)
       {
       case MemAttributeAvr8::RelLow :
       case MemAttributeAvr8::RelLowMinus :
       case MemAttributeAvr8::RelLow2 :
-        s = sformat("LOW(%s%s%s)",
+        s = sformat("%s(%s%s)",
+                    avr_gcc ? "lo8" : "LOW",
                     (rt == MemAttributeAvr8::RelLowMinus) ? "-" : "",
-                    s.c_str(),
-                    (rt == MemAttributeAvr8::RelLow2) ? ">>1" : "");
+                    s.c_str());
         return s;
       case MemAttributeAvr8::RelHigh :
       case MemAttributeAvr8::RelHighMinus :
       case MemAttributeAvr8::RelHigh2 :
-        s = sformat("HIGH(%s%s%s)",
+        s = sformat("%s(%s%s)",
+                    avr_gcc ? "hi8" : "HIGH",
                     (rt == MemAttributeAvr8::RelHighMinus) ? "-" : "",
-                    s.c_str(),
-                    (rt == MemAttributeAvr8::RelHigh2) ? ">>1" : "");
+                    s.c_str());
         return s;
       }
     }
