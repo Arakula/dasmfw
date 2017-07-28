@@ -253,7 +253,8 @@ switch (M)                              /* which mode is this?               */
     if (Wrel)
       {
       W = (int)((unsigned char)T) + (uint16_t)Wrel;
-      sparm += Label2String((addr_t)((int)((unsigned char)T)), bGetLabel, PC) + ",X";
+      sparm += Label2String((addr_t)((int)((unsigned char)T)), 4,
+                            bGetLabel, PC) + ",X";
       }
     else if (lbl)
       sparm += lbl->GetText() + ",X";
@@ -274,7 +275,7 @@ switch (M)                              /* which mode is this?               */
     W = GetUByte(PC);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
-    string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+    string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
     sparm = sformat("#%s,%s", 
                     snum.c_str(),
                     slbl.c_str());

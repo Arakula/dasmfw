@@ -56,7 +56,7 @@ using namespace std;
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.10"
+#define DASMFW_VERSION  "0.11"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t caddr_t;               /* container for maximal code address*/
@@ -188,8 +188,8 @@ protected:
   int ParseInfoRange(string value, addr_t &from, addr_t &to);
   int ParseOption
     (
-    string option,                 /* option name                       */
-    string value,                  /* new option value                  */
+    string option,                      /* option name                       */
+    string value,                       /* new option value                  */
     bool bSetDasm = false,              /* flag whether set disassembler     */
     bool bProcInfo = true               /* flag whether to fully process info*/
     );
@@ -239,13 +239,13 @@ protected:
 protected:
   int argc;
   char **argv;
-  string sDasmName;                /* program name                      */
+  string sDasmName;                     /* program name                      */
   Disassembler *pDasm;                  /* selected disassembler             */
   int iDasm;                            /* index of selected disassembler    */
-  vector<string> saFNames;    /* array of files to load            */
-  vector<string> saINames;    /* array of info files to load       */
-  vector<string> saPINames;   /* array of processed info files     */
-  string outname;                  /* output file name                  */
+  vector<string> saFNames;              /* array of files to load            */
+  vector<string> saINames;              /* array of info files to load       */
+  vector<string> saPINames;             /* array of processed info files     */
+  string outname;                       /* output file name                  */
   FILE *out;                            /* output file                       */
 
   bool abortHelp;                       /* abort after help has been given   */

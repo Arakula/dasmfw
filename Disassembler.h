@@ -418,6 +418,13 @@ class Disassembler
       Label *plbl = FindLabel(addr, Untyped, bus);
       return memattr[bus] ? memattr[bus]->GetDisassemblyFlags(addr, *mem, plbl) : 0;
       }
+    void SetInvalidInstruction(addr_t addr, int newSize = 1, int bus = BusCode)
+      {
+      // this can be called during disassembler parsing to mark an invalid instruction
+      SetMemType(addr, Const);
+      SetCellSize(addr, newSize);
+      SetCellType(addr, MemAttribute::CellUntyped);
+      }
 
     // convenience functionality for the above
     bool IsCode(addr_t addr, int bus = BusCode) { return GetMemType(addr, bus) == Code; }
@@ -608,7 +615,7 @@ class Disassembler
     // load a code file; interleave can be >1 for interleaved Low/High EPROM pairs, for example
     bool Load(string filename, string &sLoadType, int interleave = 1, int bus = BusCode);
     // process an info file line
-    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode) { return false; }
+    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, vector<TMemoryArray<addr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode) { return false; }
 
   // the real disassembler activities
   protected:
@@ -655,6 +662,25 @@ class Disassembler
       };
     virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode)
       { return changes.size() != 0; } // no additional changes in base implementation
+    // create hex / ASCII representation of the current area
+    virtual bool DisassembleHexAsc(addr_t addr, addr_t len, addr_t max, string &sHex, string &sAsc, int bus = BusCode)
+      {
+      sAsc = "\'";
+      addr_t i;
+      for (i = 0; i < len; i++)
+        {
+        uint8_t c = GetUByte(addr + i, bus);
+        sHex += sformat("%02X ", c);
+        sAsc += (isprint(c)) ? c : '.'; 
+        }
+      sAsc += '\'';
+      for (; i < max; i++)
+        {
+        sHex += "   ";
+        sAsc += ' ';
+        }
+      return true;
+      }
 
   protected:
     // must not be called from constructor!
@@ -785,7 +811,7 @@ class Disassembler
       }
     virtual string Address2String(addr_t addr, int bus = BusCode)
       { return sformat("%d", addr); }
-    virtual string Label2String(addr_t value, bool bUseLabel, addr_t addr, int bus = BusCode);
+    virtual string Label2String(addr_t value, int nDigits, bool bUseLabel, addr_t addr, int bus = BusCode);
     virtual string DefLabel2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode);
     virtual string AutoLabel2String(addr_t addr, bool bCode, int bus = BusCode);
     // generate text for an unnamed label

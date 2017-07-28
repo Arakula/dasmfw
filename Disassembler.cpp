@@ -442,6 +442,7 @@ return oval;
 string Disassembler::Label2String
     (
     addr_t value,
+    int nDigits,
     bool bUseLabel,
     addr_t addr,
     int bus
@@ -482,7 +483,7 @@ else if (bUseLabel && memType == Code)
 else if (bUseLabel && memType == Data)
   sOut = UnnamedLabel(Wrel, false, bus);
 else
-  sOut = Number2String(Wrel, 4, addr, bus).c_str();
+  sOut = Number2String(Wrel, nDigits, addr, bus).c_str();
 
 if (relative)                           /* if it's relative addressing       */
   {
@@ -511,7 +512,7 @@ if (relative)                           /* if it's relative addressing       */
                                         /* and make the number positive      */
       relative = (addr_t) (-((int32_t)relative));
       }
-    sAdd += Number2String(relative, 4, addr, bus);
+    sAdd += Number2String(relative, nDigits, addr, bus);
     }
 
   if (bInvert)                          /* if inverting necessary,           */
@@ -1194,15 +1195,22 @@ if (off > 0 &&                          /* restrict to maximum code size     */
     offset + (off * interleave) > GetHighestBusAddr(bus) + 1)
   off = ((GetHighestBusAddr(bus) + 1) / interleave) - offset;
 
-if (begin < 0 || offset < begin)        /* set begin if not specified        */
+if (begin == NO_ADDRESS ||              /* set begin if not specified        */
+    begin < offset)
+// if (begin < 0 || offset < begin)  // we allow begin > offset !
   begin = offset;
 
-if (off > 0)                            /* set end if not specified          */
+if (off > 0)                            /* if file size can be determined    */
   {
-  if (end < offset + (off * interleave) - 1)
+  if (end == 0)                         /* set end if not specified          */
+//  if (end < offset + (off * interleave) - 1)
     end = offset + (off * interleave) -1;
-  AddMemory(offset,                     /* make sure memory is there         */
-            off * interleave, memType, 0, bus);
+  if (end > offset && end < offset + (off * interleave) -1)
+    off = (end + 1 - offset + interleave - 1) / interleave;
+  // account for begin > offset scenarios
+  addr_t memoff = begin > offset ? begin - offset : 0;
+  AddMemory(begin,                      /* make sure memory is there         */
+            (off - 1) * interleave + 1 - memoff, memType, 0, bus);
   }
 
 for (i = 0; off < 0 || i < off; i++)    /* mark area as used                 */
@@ -1214,13 +1222,17 @@ for (i = 0; off < 0 || i < off; i++)    /* mark area as used                 */
     return off < 0;
     }
   addr_t tgtaddr = offset + (i * interleave);
-  if (off < 0)                          /* if reading an unseekable stream   */
-    AddMemory(tgtaddr, interleave,      /* assure memory                     */
-              memType, 0, bus);
-  setat(tgtaddr, (uint8_t)c, bus);      /* put byte                          */
-  SetCellUsed(tgtaddr, true, bus);      /* mark as used byte                 */
-  SetDisplay(tgtaddr, defaultDisplay, bus);
-  c = fgetc(f);                         /* read next byte from the file      */
+  if (tgtaddr >= begin &&
+      tgtaddr <= end)
+    {
+    if (off < 0)                      /* if reading an unseekable stream   */
+      AddMemory(tgtaddr, interleave,  /* assure memory                     */
+                memType, 0, bus);
+    setat(tgtaddr, (uint8_t)c, bus);  /* put byte                          */
+    SetCellUsed(tgtaddr, true, bus);  /* mark as used byte                 */
+    SetDisplay(tgtaddr, defaultDisplay, bus);
+    }
+  c = fgetc(f);                       /* read next byte from the file      */
   }
 
 sLoadType = "binary";

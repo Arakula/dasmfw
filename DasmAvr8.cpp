@@ -458,6 +458,7 @@ bool DasmAvr8::ProcessInfo
     string value,                       /* rest of the line                  */
     addr_t &from,                       /* from/to (if range given)          */
     addr_t &to, 
+    vector<TMemoryArray<addr_t>> &remaps,  /* remaps, if necessary           */
     bool bProcInfo,                     /* flag whether processing           */
     int bus,                            /* target bus for command            */
     int tgtbus                          /* target bus for parameters         */
@@ -580,6 +581,14 @@ switch (cmdType)
         }
 
       // range check for rel in tgtbus missing.
+      // if (tgtbus != bus)
+        {
+        addr_t *pmap = remaps[tgtbus].getat(rel);
+        if (pmap) rel += *pmap;
+        if (rel < GetLowestBusAddr(tgtbus) ||
+            rel > GetHighestBusAddr(tgtbus))
+          break;
+        }
 
       for (addr_t scanned = from;
                   scanned >= from && scanned <= to;
@@ -880,7 +889,7 @@ if (rt != MemAttributeAvr8::RelUntyped)
   Label *lbl = (rel == NO_ADDRESS) ? NULL : FindLabel(rel, Untyped, relBus);
   if (lbl)
     {
-    string s = Label2String(rel, true, addr, relBus);
+    string s = Label2String(rel, 4, true, addr, relBus);
 
     if ((s.find_first_of("+-") != string::npos) &&
         (rt == MemAttributeAvr8::RelLowMinus ||
@@ -1096,9 +1105,9 @@ else if (flags & 0xff)                  /* if not byte-sized                 */
                                         /* assemble as many as possible      */
   for (done = addr; done < end; done += 2)
     {
-    string s = Label2String(GetUWord(done, bus),
-                                 !IsConst(done, bus),
-                                 done);
+    string s = Label2String(GetUWord(done, bus), 4,
+                            !IsConst(done, bus),
+                            done);
     if (sparm.size())                   /* if already something there        */
       {                                 /* if this would become too long     */
       if (sparm.size() + s.size() + 1 > (string::size_type)maxparmlen)
@@ -1444,12 +1453,12 @@ for (i = 0; i < numOperands; i++)
       break;
     case OpndLongAbsAddrData:
     case OpndLongAbsAddr:
-      sparm += Label2String(operand, true, addr,
+      sparm += Label2String(operand, 4, true, addr,
                             (mnemo[ii->mnemonic].memType != Code) ? BusData : BusCode /*bus*/);
       break;
     case OpndBranchAddr:
     case OpndRelAddr:
-      sparm += Label2String(operand + addr + 2, true, addr,
+      sparm += Label2String(operand + addr + 2, 4, true, addr,
                             (mnemo[ii->mnemonic].memType != Code) ? BusData : BusCode /*bus*/);
       break;
     default:
@@ -1477,7 +1486,7 @@ if (label->GetText().find_first_of("+-") == string::npos)
   {
   addr_t laddr = label->GetAddress();
   smnemo = mnemo[(bus == BusIO) ? _d_port : _d_equ].mne;
-  sparm = Label2String(laddr, true, laddr, bus) + sequdelim[avr_gcc] +
+  sparm = Label2String(laddr, 4, true, laddr, bus) + sequdelim[avr_gcc] +
           Address2String(laddr, bus);
   return true;
   }
@@ -1548,7 +1557,7 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
 #if 0
     if (load != NO_ADDRESS &&           /* if entry point address given      */
         bLoadLabel)                     /* and labelling wanted              */
-      chg.opnds = Label2String(load, true, load);
+      chg.opnds = Label2String(load, 4, true, load);
 #endif
     changes.push_back(chg);
 #endif

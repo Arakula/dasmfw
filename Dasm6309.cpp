@@ -521,7 +521,7 @@ if (T & 0x80)
           bGetLabel = !IsConst(PC);
           lbl = bGetLabel ? NULL : FindLabel(PC, Const);
           W = GetUWord(PC);
-          string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+          string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
           buf = sformat("%s,W", slbl.c_str());
           PC += 2;
           }
@@ -531,7 +531,7 @@ if (T & 0x80)
           bGetLabel = !IsConst(PC);
           lbl = bGetLabel ? NULL : FindLabel(PC, Const);
           W = GetUWord(PC);
-          string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+          string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
           buf = sformat("[%s,W]", slbl.c_str());
           PC += 2;
           }
@@ -763,7 +763,7 @@ switch (M)                              /* which mode is this?               */
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC - 1);
-      string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+      string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
       sparm = sformat("#%s,%s",
                       snum.c_str(),
                       slbl.c_str());
@@ -801,7 +801,7 @@ switch (M)                              /* which mode is this?               */
     W = GetUWord(PC);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, addr);
-    string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+    string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
     if ((dp != NO_ADDRESS) &&
         ((W & (uint16_t)0xff00) == (uint16_t)dp) &&
         (forceExtendedAddr))

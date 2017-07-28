@@ -512,7 +512,8 @@ bool Dasm6809::ProcessInfo
     string key,
     string value,
     addr_t &from,
-    addr_t &to, 
+    addr_t &to,
+    vector<TMemoryArray<addr_t>> &remaps,
     bool bProcInfo,
     int bus,
     int tgtbus
@@ -871,7 +872,7 @@ if (T & 0x80)
         bGetLabel = !IsConst(PC - 1);
         buf += sformat("   %s (%s)",
                        commentStart.c_str(),
-                       Label2String(0, bGetLabel, PC - 1).c_str());
+                       Label2String(0, 4, bGetLabel, PC - 1).c_str());
         }
       break;
     case 0x05:
@@ -890,7 +891,7 @@ if (T & 0x80)
       lbl = (bGetLabel || Wrel != W) ? NULL : FindLabel(PC, Const);
       if (bGetLabel && (Wrel != W || FindLabel(Wrel)))
         {
-        string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+        string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
         buf = sformat("<%s,%c", slbl.c_str(), R);
         }
       else
@@ -913,7 +914,7 @@ if (T & 0x80)
       if (Wrel)
         {
         W = (int)((char)T) + Wrel;
-        string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)((int)((char)T)), bGetLabel, PC - 1);
+        string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)((int)((char)T)), 4, bGetLabel, PC - 1);
                                         /* "<" needed for forward declaration*/
         buf = sformat(
                 ((W > PC) || (Wrel > PC)) ? "<%s,%c" : "%s,%c",
@@ -934,7 +935,7 @@ if (T & 0x80)
       lbl = (bGetLabel || Wrel) ? NULL : FindLabel(PC, Const);
       if ((Wrel != W) || FindLabel(Wrel))
         {
-        string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+        string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
         if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
           buf = sformat(">%s,%c", slbl.c_str(), R);
         else
@@ -966,7 +967,8 @@ if (T & 0x80)
       sprintf(buf,"$%s,PC",signed_string((int)(char)T, 2, (word)PC));
 #else
       if (bGetLabel)
-        buf = Label2String((uint16_t)((int)((char)T) + PC + 1), bGetLabel, PC) + ",PCR";
+        buf = Label2String((uint16_t)((int)((char)T) + PC + 1), 4,
+                           bGetLabel, PC) + ",PCR";
       else
         {
         lbl = FindLabel(PC, Const);
@@ -982,7 +984,8 @@ if (T & 0x80)
       lbl = bGetLabel ? NULL : FindLabel(PC, Const);
       W = GetUWord(PC);
       PC += 2;
-      string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)(W + PC), bGetLabel, PC - 2);
+      string slbl = lbl ? lbl->GetText() :
+                          Label2String((uint16_t)(W + PC), 4, bGetLabel, PC - 2);
       if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
         buf = sformat(">%s,PCR", slbl.c_str());
       else
@@ -1020,7 +1023,7 @@ if (T & 0x80)
       bGetLabel = !IsConst(PC);
       lbl = bGetLabel ? NULL : FindLabel(PC, Const);
       W = GetUWord(PC);
-      string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+      string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
       buf = sformat("[%s,%c]", slbl.c_str(), R);
       PC += 2;
       }
@@ -1042,7 +1045,7 @@ if (T & 0x80)
       bGetLabel = !IsConst(PC);
       lbl = bGetLabel ? NULL : FindLabel(PC, Const);
       W = GetUWord(PC);
-      string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+      string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
       buf = sformat("[%s,PC]", slbl.c_str());
       PC += 2;
       }
@@ -1062,7 +1065,7 @@ if (T & 0x80)
         bGetLabel = !IsConst(PC);
         lbl = bGetLabel ? NULL : FindLabel(PC, Const);
         W = GetUWord(PC);
-        string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+        string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
         buf = sformat("[%s]", slbl.c_str());
         PC += 2;
         }
@@ -1083,7 +1086,7 @@ else
   if (Wrel)
     {
     lbl = bGetLabel ? NULL : FindLabel(PC - 1, Const);
-    string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)c, bGetLabel, PC - 1);
+    string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)c, 4, bGetLabel, PC - 1);
     buf = sformat("%s,%c", slbl.c_str(), R);
     }
   else
@@ -1268,7 +1271,7 @@ switch (M)                              /* which mode is this?               */
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC);
-      sparm = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+      sparm = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
       }
     else
       sparm = "<" + (lbl ? lbl->GetText() : Number2String(T, 2, PC));
@@ -1282,7 +1285,7 @@ switch (M)                              /* which mode is this?               */
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
-    string slbl = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+    string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
     if (dp != NO_ADDRESS &&
         forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp)
       sparm = ">" + slbl;
@@ -1336,7 +1339,7 @@ switch (M)                              /* which mode is this?               */
     PC += 2;
     W += (uint16_t)PC;
     W = (uint16_t)DephaseOuter(W, PC - 2);
-    sparm = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC - 2);
+    sparm = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC - 2);
     break;
     
   case _r1:                             /* tfr/exg mode                      */

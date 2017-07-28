@@ -557,6 +557,7 @@ if (disp == MemAttribute::DefaultDisplay)
 if ((nDigits == 2) &&                   /* if 2-digit value                  */
     (disp == MemAttribute::Char))       /* and character output requested    */
   {
+  value &= 0xff;
   if (isprint(value))
     s = sformat("'%c%s", value, closeCC ? "'" : "");
   else
@@ -573,7 +574,13 @@ else if (disp == MemAttribute::Binary)  /* if a binary                       */
     s.push_back('0' + (!!(value & (1 << nBit))));
   }
 else if (disp == MemAttribute::Hex)     /* if hex                            */
+  {
+  addr_t mask = 0;
+  for (int i = 0; i < nDigits; i++)
+    mask |= (0x0f << (i * 4));
+  value &= mask;
   s = sformat("$%0*X", nDigits, value); /* prepare a hex value               */
+  }
 else if (disp == MemAttribute::Octal)   /* if octal display                  */
   s = sformat("@%0*o", (nDigits * 4) + 2 / 3, value);
 else                                    /* otherwise                         */
@@ -587,7 +594,13 @@ else                                    /* otherwise                         */
     s = sformat("%d", sval);            /* prepare signed decimal value      */
     }
   else
+    {
+    addr_t mask = 0;
+    for (int i = 0; i < nDigits; i++)
+      mask |= (0x0f << (i * 4));
+    value &= mask;
     s = sformat("%u", value);           /* prepare unsigned decimal value    */
+    }
   }
 return s;                               /* pass back generated string        */
 }
@@ -811,7 +824,7 @@ if (lbltxt.find_first_of("+-") == string::npos)
   if (lbltxt.size() && !GetRelative(laddr, bus))
     slabel = lbltxt;
   else
-    slabel = Label2String(laddr, true, laddr, bus);
+    slabel = Label2String(laddr, 4, true, laddr, bus);
   smnemo = "EQU";
   sparm = Address2String(laddr, bus);
   return true;
@@ -883,7 +896,7 @@ else if (flags & 0xff)                  /* if not byte-sized                 */
                                         /* assemble as many as possible      */
   for (done = addr; done < end; done += 2)
     {
-    string s = Label2String(GetUWord(done), !IsConst(done), done);
+    string s = Label2String(GetUWord(done), 4, !IsConst(done), done);
     if (sparm.size())                   /* if already something there        */
       {                                 /* if this would become too long     */
       if (sparm.size() + s.size() + 1 > (string::size_type)maxparmlen)
@@ -979,7 +992,7 @@ switch (M)                              /* which mode is this?               */
     W = GetUWord(PC);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
-    sparm = "#" + (lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC));
+    sparm = "#" + (lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC));
     PC += 2;
     break;
 
@@ -990,7 +1003,7 @@ switch (M)                              /* which mode is this?               */
     W = (uint16_t)T;
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
-    sparm = Label2String(W, bGetLabel, PC);
+    sparm = Label2String(W, 4, bGetLabel, PC);
     PC++;
     break;
 
@@ -1001,9 +1014,9 @@ switch (M)                              /* which mode is this?               */
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
     if (forceExtendedAddr && (W & (uint16_t)0xff00) == 0)
-      sparm = ">" + (lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC));
+      sparm = ">" + (lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC));
     else
-      sparm = lbl ? lbl->GetText() : Label2String(W, bGetLabel, PC);
+      sparm = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
     PC += 2;
     break;
     
@@ -1015,7 +1028,8 @@ switch (M)                              /* which mode is this?               */
     if (Wrel)
       {
       W = (int)((unsigned char)T) + (uint16_t)Wrel;
-      sparm = Label2String((addr_t)((int)((unsigned char)T)), bGetLabel, PC) + ",X";
+      sparm = Label2String((addr_t)((int)((unsigned char)T)), 4,
+                           bGetLabel, PC) + ",X";
       }
     else if (lbl)
       sparm = lbl->GetText() + ",X";
@@ -1034,7 +1048,7 @@ switch (M)                              /* which mode is this?               */
       {
       W = (uint16_t)(PC + (int8_t)T);
       W = (uint16_t)DephaseOuter(W, PC - 1);
-      sparm = Label2String(W, bGetLabel, PC - 1);
+      sparm = Label2String(W, 4, bGetLabel, PC - 1);
       }
     else
       {
@@ -1076,7 +1090,7 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
     chg.oper = "END";
     if (load != NO_ADDRESS &&           /* if entry point address given      */
         bLoadLabel)                     /* and labelling wanted              */
-      chg.opnds = Label2String(load, true, load);
+      chg.opnds = Label2String(load, 4, true, load);
     changes.push_back(chg);
     }
   }

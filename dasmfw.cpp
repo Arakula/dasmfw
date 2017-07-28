@@ -52,6 +52,8 @@ if (nRegDisassemblers + 1 > nAllocDisassemblers)
     pNew = new DisassemblerCreators[nRegDisassemblers + 10];
     if (!pNew)  // deal with very old style allocator
       return false;
+    for (int i = nRegDisassemblers; i < nRegDisassemblers + 10; i++)
+      pNew[i].Factory = NULL;;
     nAllocDisassemblers = nRegDisassemblers + 10;
     }
   catch(...)
@@ -72,11 +74,12 @@ for (int i = 0; i < nRegDisassemblers; i++)
   {
   if (Disassemblers[i].name > name)
     {
-    for (int j = ++nRegDisassemblers; j > i; j--)
+    for (int j = nRegDisassemblers; j > i; j--)
       {
       Disassemblers[j].name = Disassemblers[j - 1].name;
       Disassemblers[j].Factory = Disassemblers[j - 1].Factory;
       }
+    nRegDisassemblers++;
     Disassemblers[i].name = name;
     Disassemblers[i].Factory = CreateDisassembler;
     return true;
@@ -212,6 +215,7 @@ return s.substr(from, s.find_last_not_of(" ") - from + 1);
 
 int main(int argc, char* argv[])
 {
+// let's go object-oriented, shall we? :-)
 Application app(argc, argv);
 return app.Run();
 }
@@ -548,7 +552,19 @@ if (!pDasm->IsCellUsed(addr, bus))
 
 while (addr != NO_ADDRESS)
   {
+  MemAttribute::Type oct = pDasm->GetCellType(addr, bus);
   addr_t sz = pDasm->Parse(addr, bus);
+  MemAttribute::Type nct = pDasm->GetCellType(addr, bus);
+  // cell type has been changed by parser?
+  if (oct != nct)
+    {
+    // code changed to untyped data ==> illegal instruction
+    if (nct == MemAttribute::CellUntyped)
+      {
+      if (nPass == 0)
+        AddLComment(addr, "Illegal instruction!", false, bus);
+      }
+    }
   prevaddr = addr;
   addr = pDasm->GetNextAddr(addr + sz - 1, bus);
   }
@@ -759,7 +775,7 @@ while (pNext)
     }
   }
 if (p && p->IsUsed() && !p->IsConst())
-  sLabel = pDasm->Label2String(addr, true, addr, bus) +
+  sLabel = pDasm->Label2String(addr, 4, true, addr, bus) +
            labelDelim;
 pComment = showComments ? GetFirstLComment(addr, it, bus) : NULL;
 int maxparmlen = (bWithComments || pComment) ? (cparmLen - 1) : uparmLen;
@@ -772,24 +788,21 @@ if (showAddr)
                       (showHex || showAsc) ? ": " : " ");
 if ((showHex || showAsc) && !pDasm->IsBss(addr, bus))
   {
-  string sHex, sAsc("\'");
-  addr_t i;
-  for (i = 0; i < sz; i++)
-    {
-    uint8_t c = pDasm->GetUByte(addr + i, bus);
-    sHex += sformat("%02X ", c);
-    sAsc += (isprint(c)) ? c : '.'; 
-    }
-  sAsc += '\'';
+  string sHex, sAsc;
   if (showHex || showAsc)
     {
-    for (; i < (addr_t)dbCount; i++)
+    pDasm->DisassembleHexAsc(addr, sz, (addr_t)dbCount, sHex, sAsc, bus);
+    if (!pComment)
+      sAsc = trim(sAsc);
+#if 0
+    for (addr_t i = sz; i < (addr_t)dbCount; i++)
       {
       if (showHex && showAsc)
         sHex += "   ";
       if (showAsc && pComment)
         sAsc += ' ';
       }
+#endif
     }
 
   if (showHex)
@@ -1190,7 +1203,10 @@ do
       {
       addr_t from, to;                  /* address range has to be first!    */
       ParseInfoRange(value, from, to);
-      if (pDasm->ProcessInfo(key, value, from, to, bProcInfo, infoBus, tgtBus))
+      if (pDasm->ProcessInfo(key, value,
+                             from, to,
+                             remaps, bProcInfo,
+                             infoBus, tgtBus))
         cmdType = infoUnknown;
       }
 
@@ -1829,7 +1845,7 @@ if (bSetDasm)                           /* 1st pass: find only dasm          */
   if (option == "dasm")
     {
     if (pDasm) delete pDasm;            /* use the last one                  */
-    pDasm = CreateDisassembler(lowercase(value), &iDasm);
+    pDasm = CreateDisassembler(lvalue, &iDasm);
     if (!pDasm)
       printf("Unknown disassembler \"%s\"\n", value.c_str());
     return 1;
