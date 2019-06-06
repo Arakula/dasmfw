@@ -465,13 +465,23 @@ Dasm6809::~Dasm6809(void)
 
 int Dasm6809::Set6809Option(string lname, string value)
 {
-string lvalue(lowercase(value));
-int bnvalue = (lvalue == "off") ? 0 : (lvalue == "on") ? 1 : atoi(value.c_str());
+bool bnValue = true;                    /* default to "on"                   */
+bool bIsBool = ParseBool(value, bnValue);
 
-if (lname == "flex")      useFlex = !!bnvalue;
-else if (lname == "os9")  os9Patch = !!bnvalue;
+if (lname == "flex")
+  {
+  useFlex = bnValue;
+  return bIsBool ? 1 : 0;
+  }
+else if (lname == "os9")
+  {
+  os9Patch = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else
   return 0;                             /* only name consumed                */
+
+// should never happen ... but better safe than sorry
 return 1;                               /* name and value consumed           */
 }
 
@@ -724,10 +734,10 @@ if (T & 0x80)
     case 0x1B:
       break;
     case 0x0C:
+    case 0x1C:
       bSetLabel = !IsConst(PC);
-      lbl = bSetLabel ? NULL : FindLabel(PC, Const);
-      if (lbl)
-        lbl->SetUsed();
+      if (!bSetLabel)
+        SetDefLabelUsed(PC);
       T = GetUByte(PC++);
       if (bSetLabel)
         AddLabel((uint16_t)((int)((char)T) + PC), mnemo[MI].memType, "", true);
@@ -739,28 +749,23 @@ if (T & 0x80)
         {
         W = (uint16_t)((int)((char)T));
         bSetLabel = !IsConst(PC);
-        lbl = (bSetLabel || Wrel) ? NULL : FindLabel(PC, Const);
+        if (!bSetLabel && !Wrel)
+          SetDefLabelUsed(PC);
         if (bSetLabel)
           AddLabel((uint16_t)(W + Wrel), mnemo[MI].memType, "", true);
         }
       else
-        lbl = FindLabel(PC, Const);
-      if (lbl)
-        lbl->SetUsed();
+        SetDefLabelUsed(PC);
       PC++;
       break;
     case 0x18:
-    case 0x1C:
-      lbl = FindLabel(PC, Const);
-      if (lbl)
-        lbl->SetUsed();
+      SetDefLabelUsed(PC);
+      Wrel = (uint16_t)GetRelative(PC);
       PC++;
       break;
     case 0x0D:
       bSetLabel = !IsConst(PC);
-      lbl = bSetLabel ? NULL : FindLabel(PC, Const);
-      if (lbl)
-        lbl->SetUsed();
+      SetDefLabelUsed(PC);
       SetCellSize(PC, 2);
       W = GetUWord(PC); PC += 2;
       if (bSetLabel)
@@ -769,9 +774,8 @@ if (T & 0x80)
     case 0x09:
       bSetLabel = !IsConst(PC);
       Wrel = (uint16_t)GetRelative(PC);
-      lbl = (bSetLabel || Wrel) ? NULL : FindLabel(PC, Const);
-      if (lbl)
-        lbl->SetUsed();
+      if (!bSetLabel && !Wrel)
+        SetDefLabelUsed(PC);
       SetCellSize(PC, 2);
       W = GetUWord(PC);
       Wrel += W;
@@ -786,13 +790,12 @@ if (T & 0x80)
     case 0x19:
     case 0x1D:
       bSetLabel = !IsConst(PC);
-      lbl = bSetLabel ? NULL : FindLabel(PC, Const);
-      if (lbl)
-        lbl->SetUsed();
+      if (!bSetLabel)
+        SetDefLabelUsed(PC);
       SetCellSize(PC, 2);
       W = GetUWord(PC); PC += 2;
       if (bSetLabel)
-        AddLabel(W, mnemo[MI].memType, "", true);
+        AddLabel((uint16_t)(W + PC), mnemo[MI].memType, "", true);
       break;
 
     default:
@@ -936,10 +939,9 @@ if (T & 0x80)
       if ((Wrel != W) || FindLabel(Wrel))
         {
         string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+        buf = sformat("%s,%c", slbl.c_str(), R);
         if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
-          buf = sformat(">%s,%c", slbl.c_str(), R);
-        else
-          buf = sformat("%s,%c", slbl.c_str(), R);
+          buf = ">" + buf;
         }
       else
         {
@@ -975,6 +977,8 @@ if (T & 0x80)
         string slbl = lbl ? lbl->GetText() : Number2String((uint16_t)(int)(char)T, 2, PC);
         buf = slbl + ",PC";
         }
+      if (((char)T > 0) && forceDirectAddr)
+        buf = "<" + buf;
 #endif
       PC++;
       break;
@@ -1033,21 +1037,52 @@ if (T & 0x80)
       break;
     case 0x1C:
       {
+#if 1
+      T = GetUByte(PC);
+      bGetLabel = !IsConst(PC);
+      if (bGetLabel)
+        buf = Label2String((uint16_t)((int)((char)T) + PC + 1), 4,
+                           bGetLabel, PC) + ",PCR";
+      else
+        {
+        lbl = FindLabel(PC, Const);
+        string slbl = lbl ? lbl->GetText() : Number2String((uint16_t)(int)(char)T, 2, PC);
+        buf = slbl + ",PC";
+        }
+      if (((char)T > 0) && forceDirectAddr)
+        buf = "<" + buf;
+      buf = "[" + buf + "]";
+      PC++;
+#else
       lbl = FindLabel(PC, Const);
       T = GetUByte(PC);
       string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
       buf = sformat("[%s,PC]", slbl.c_str());
       PC++;
+#endif
       }
       break;
     case 0x1D:
       {
+#if 1
+      bGetLabel = !IsConst(PC);
+      lbl = bGetLabel ? NULL : FindLabel(PC, Const);
+      W = GetUWord(PC);
+      PC += 2;
+      string slbl = lbl ? lbl->GetText() :
+                          Label2String((uint16_t)(W + PC), 4, bGetLabel, PC - 2);
+      if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
+        buf = sformat("[>%s,PCR]", slbl.c_str());
+      else
+        buf = sformat("[%s,PCR]", slbl.c_str());
+#else
       bGetLabel = !IsConst(PC);
       lbl = bGetLabel ? NULL : FindLabel(PC, Const);
       W = GetUWord(PC);
       string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
       buf = sformat("[%s,PC]", slbl.c_str());
       PC += 2;
+#endif
       }
       break;
     case 0x07:
