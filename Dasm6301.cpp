@@ -175,36 +175,29 @@ int MI;
 const char *I;
 addr_t PC = addr;
 bool bSetLabel;
-Label *lbl;
 
 PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
 
 switch (M)                              /* which mode is this ?              */
   {
   case _bi :                            /* Bit Manipulation indexed          */
-    lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
-    if (lbl)
-      lbl->SetUsed();
+    SetDefLabelUsed(PC, bus);           /* the bit part                      */
     PC++;
     bSetLabel = !IsConst(PC);
-    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);
     PC++;
     break;
   case _bd :                            /* Bit Manipulation direct           */
     T = GetUByte(PC);
-    lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
-    if (lbl)
-      lbl->SetUsed();
+    SetDefLabelUsed(PC, bus);           /* the bit part                      */
     PC++;
     bSetLabel = !IsConst(PC);
-    W = GetUByte(PC);
-    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
-    if (bSetLabel)
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);
+    else
       {
+      W = GetUByte(PC);
       W = (uint16_t)PhaseInner(W, PC);
       AddLabel(W, mnemo[MI].memType, "", true);
       }

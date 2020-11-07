@@ -607,13 +607,14 @@ return true;
 
 int DasmAvr8::SetAvr8Option(string lname, string value)
 {
-string lvalue(lowercase(value));
-int bnvalue = (lvalue == "off") ? 0 : (lvalue == "on") ? 1 : atoi(value.c_str());
+bool bnValue = true;                    /* default to "on"                   */
+bool bIsBool = ParseBool(value, bnValue);
 addr_t avalue;
 String2Number(value, avalue);
+int iValue = atoi(value.c_str());
 
-if (lname == "codebits" && bnvalue >= 8 && bnvalue <= 32)
-  busbits[BusCode] = bnvalue;
+if (lname == "codebits" && iValue >= 8 && iValue <= 32)
+  busbits[BusCode] = iValue;
 else if (lname == "highcode" && avalue >= 512 && avalue <= 0x3fffff)
   {
   highaddr[BusCode] = avalue;
@@ -633,8 +634,9 @@ else if (lname == "higheeprom" && avalue >= 128 && avalue <= 0xffff)
   }
 else if (lname == "dbalign")
   {
-  dbalign = !!bnvalue;
+  dbalign = bnValue;
   dbalignchg = true;
+  return bIsBool ? 1 : 0;
   }
 else if (lname == "avr-gcc")
   {
@@ -661,11 +663,12 @@ else if (lname == "avr-gcc")
 	{ _d_string,  { ".db",      ".ascii" } },
 	{ _d_stringz, { ".db",      ".asciz" } },
 	};
-  avr_gcc = !!bnvalue;
+  avr_gcc = bnValue;
   if (!dbalignchg)
     dbalign = !avr_gcc;
   for (int i = 0; i < _countof(smne); i++)
 	mnemo[smne[i].idx].mne = smne[i].txt[avr_gcc];
+  return bIsBool ? 1 : 0;
   }
 
 return 1;                               /* name and value consumed           */
@@ -988,13 +991,14 @@ addr_t DasmAvr8::ParseData
     int bus
     )
 {
-SetLabelUsed(addr, Const, bus);         /* mark DefLabels as used            */
+                                        /* mark DefLabels as used            */
+SetLabelUsed(addr, Const, NO_ADDRESS, bus);
 
 int csz = GetCellSize(addr, bus);
 if (csz == 2)                           /* if WORD data                      */
   {
   if (!IsConst(addr, bus))
-    SetLabelUsed(GetUWord(addr, bus), Untyped, bus);
+    SetLabelUsed(GetUWord(addr, bus), Untyped, addr, bus);
   }
 return csz;
 }
@@ -1229,19 +1233,16 @@ for (i = 0; i < numOperands; i++)
     case OpndRegEvenPStartR24:
       break;
     case OpndIOReg:
-      SetLabelUsed(operand, Untyped, BusIO);
+      SetLabelUsed(operand, Untyped, addr, BusIO);
       break;
     case OpndBit:
     case OpndDESRound:
       {
-      Label *lbl = FindLabel(addr, Const, bus);
+      Label *lbl = SetDefLabelUsed(addr, bus);
       if (lbl)
-        {
-        lbl->SetUsed();
         AddDefLabel(addr, lbl->GetText(),
                     Number2String(operand, 2, addr, bus),
                     Const, bus);
-        }
       }
       break;
     case OpndX:
@@ -1274,14 +1275,11 @@ for (i = 0; i < numOperands; i++)
       if (rt != MemAttributeAvr8::RelUntyped)
         AddLabel(rel, relBus ? Data : Code, "", true, relBus);
 
-      Label *lbl = FindLabel(addr, Const, bus);
+      Label *lbl = SetDefLabelUsed(addr, bus);
       if (lbl)
-        {
-        lbl->SetUsed();
         AddDefLabel(addr, lbl->GetText(),
                     Number2String(operand, 2, addr, bus),
                     Const, bus);
-        }
       }
       break;
       // fall thru on purpose

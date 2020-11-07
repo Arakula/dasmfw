@@ -270,7 +270,6 @@ closeCC = true;
 forceExtendedAddr = true;
 forceDirectAddr = true;
 closeCC = false;
-commentStart = "*";
 #endif
 
 mnemo.resize(mnemo6800_count);          /* set up mnemonics table            */
@@ -307,24 +306,33 @@ Dasm6800::~Dasm6800(void)
 
 int Dasm6800::Set6800Option(string lname, string value)
 {
-string lvalue(lowercase(value));
-int bnvalue = (lvalue == "off") ? 0 : (lvalue == "on") ? 1 : atoi(value.c_str());
+bool bnValue = true;                    /* default to "on"                   */
+bool bIsBool = ParseBool(value, bnValue);
 
-if (lname.substr(0, 2) == "no")         /* obviously a boolean negation      */
-  {
-  lname = lname.substr(2);              /* skip the "no"                     */
-  bnvalue = !bnvalue;                   /* and invert the value              */
-  }
 if (lname == "conv")
-  useConvenience = !!bnvalue;
+  {
+  useConvenience = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else if (lname == "showzero")
-  showIndexedModeZeroOperand = !!bnvalue;
+  {
+  showIndexedModeZeroOperand = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else if (lname == "closecc")
-  closeCC = !!bnvalue;
+  {
+  closeCC = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else if (lname == "fcc")
-  useFCC = !!bnvalue;
+  {
+  useFCC = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else
   return 0;                             /* only name consumed                */
+
+// should never happen ... but better safe than sorry
 return 1;                               /* name and value consumed           */
 }
 
@@ -658,13 +666,13 @@ addr_t Dasm6800::ParseData
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-SetLabelUsed(addr, Const, bus);         /* mark DefLabels as used            */
+SetLabelUsed(addr, Const);              /* mark DefLabels as used            */
 
 int csz = GetCellSize(addr);
 if (csz == 2)                           /* if WORD data                      */
   {
   if (!IsConst(addr))
-    SetLabelUsed(GetUWord(addr));
+    SetLabelUsed(GetUWord(addr), Code, addr);
   }
 return csz;
 }
@@ -711,16 +719,13 @@ int MI;
 const char *I;
 addr_t PC = addr;
 bool bSetLabel;
-Label *lbl;
 
 PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
 
 switch (M)                              /* which mode is this ?              */
   {
   case _nom:                            /* no mode                           */
-    lbl = FindLabel(PC, Const, bus);
-    if (lbl)
-     lbl->SetUsed();
+    SetDefLabelUsed(PC, bus);
     PC = addr + 1;
     break;
 
@@ -728,17 +733,14 @@ switch (M)                              /* which mode is this ?              */
     break;
 
   case _imb:                            /* immediate byte                    */
-    lbl = FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
+    SetDefLabelUsed(PC, bus);
     PC++;
     break;
 
   case _imw:                            /* immediate word                    */
     bSetLabel = !IsConst(PC);
-    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);
     SetCellSize(PC, 2);
     W = GetUWord(PC);
     if (bSetLabel)
@@ -751,9 +753,8 @@ switch (M)                              /* which mode is this ?              */
 
   case _dir:                            /* direct                            */
     bSetLabel = !IsConst(PC);
-    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);
     T = GetUByte(PC);
     if (bSetLabel)
       {
@@ -766,9 +767,8 @@ switch (M)                              /* which mode is this ?              */
 
   case _ext:                            /* extended                          */
     bSetLabel = !IsConst(PC);
-    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);
     SetCellSize(PC, 2);
     if (bSetLabel)
       {
@@ -781,15 +781,14 @@ switch (M)                              /* which mode is this ?              */
     
   case _ix8:                            /* indexed for 6800 (unsigned)       */
     bSetLabel = !IsConst(PC);
-    lbl = (bSetLabel || GetRelative(PC)) ? NULL : FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
+    if (!bSetLabel && !GetRelative(PC))
+      SetDefLabelUsed(PC, bus);
     PC++;
     break;
 
   case _reb:                            /* relative byte                     */
     bSetLabel = !IsConst(PC);
-    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
+    // lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
     T = GetUByte(PC); PC++;
     W = (uint16_t)(PC + (signed char)T);
     if (bSetLabel)

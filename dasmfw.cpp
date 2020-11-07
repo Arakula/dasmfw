@@ -241,6 +241,7 @@ infoBus = BusCode;                      /* start with code bus               */
 showHex = true;                         /* flag for hex data display         */
 showAddr = true;                        /* flag for address display          */
 showComments = true;                    /* flag for comment display          */
+showCref = false;                       /* flag for cross-reference display  */
 f9dasmComp = false;                     /* flag for f9dasm compatibility     */
 labelLen = 8;                           /* minimum label length              */
 lLabelLen = 8;                          /* minimum EQU label length          */
@@ -599,6 +600,43 @@ return true;
 }
 
 /*****************************************************************************/
+/* DisassembleCref : show all cross-references for this line                 */
+/*****************************************************************************/
+
+bool Application::DisassembleCref(Label *pLabel, string sComDel, int bus)
+{
+if (!showCref || !pLabel || !pLabel->RefCount())
+  return false;
+pLabel->SortRefs();
+string sLine(sComDel + " Xref: ");
+AddrBus addrp(NO_ADDRESS, BusCode);
+size_t i, j;
+for (i = j = 0; i < pLabel->RefCount(); i++)
+  {
+  AddrBus &ref = pLabel->GetRef(i);
+  if (ref != addrp)
+    {
+    string sLblText = pDasm->Label2String(ref.addr, 8, false, NO_ADDRESS, ref.bus);
+    if (ref.bus != bus)
+      sLblText += "(" + pDasm->GetBusName(ref.bus) + ")";
+    if (j && sLine.size() + 2 + sLblText.size() > 79)
+      {
+      PrintLine(sLine);
+      sLine = sComDel + "       ";
+      j = 0;
+      }
+    else if (j)
+      sLine += ", ";
+    sLine += sLblText;
+    j++;
+    }
+  addrp = ref;
+  }
+PrintLine(sLine);
+return true;
+}
+
+/*****************************************************************************/
 /* DisassembleChanges : parses pre-/post-changes for a disassembly line      */
 /*****************************************************************************/
 
@@ -670,6 +708,9 @@ for (int l = 0; l < pDasm->GetLabelCount(bus); l++)
       // comments before line
       if (laddr != paddr)
         DisassembleComments(laddr, false, sComDel, bus);
+
+      // Cross-references before label line
+      DisassembleCref(pLbl, sComDel, bus);
 
       // the line itself
       pComment = (showComments && laddr != paddr) ?
@@ -769,11 +810,15 @@ while (pNext)
   // multiple labels get their own lines
   if (p != pNext && pNext && pNext->IsUsed() && !pNext->IsConst())
     {
+    // Cross-references before label line
+    DisassembleCref(pNext, sComDel, bus);
     string s = p->GetText();
     if (s.size())
       PrintLine(s + labelDelim);
     }
   }
+// Cross-references before label line
+DisassembleCref(p, sComDel, bus);
 if (p && p->IsUsed() && !p->IsConst())
   sLabel = pDasm->Label2String(addr, 4, true, addr, bus) +
            labelDelim;
@@ -949,6 +994,20 @@ for (; from < s.size(); from++)         /* copy the rest, with unescaping    */
 
 if (sout.empty()) return sout;
 return sout.substr(0, sout.find_last_not_of(" ") + 1);
+}
+
+/*****************************************************************************/
+/* ParseBool : parses a boolean option value & returns whether it is one     */
+/*****************************************************************************/
+
+bool ParseBool(string value, bool &bResult)
+{
+string lvalue(lowercase(value));
+if (value == "false" || value == "off" || value == "0")
+  { bResult = false; return true; }
+if (value == "true" || value == "on" || value == "1")
+  { bResult = true; return true; }
+return false;
 }
 
 /*****************************************************************************/
@@ -1838,7 +1897,8 @@ int Application::ParseOption
 {
 string lvalue(lowercase(value));
 int iValue = atoi(value.c_str());
-int bnvalue = (lvalue == "off") ? 0 : (lvalue == "on") ? 1 : atoi(value.c_str());
+bool bnValue = true;                    /* default to "on"                   */
+bool bIsBool = ParseBool(value, bnValue);
 
 if (bSetDasm)                           /* 1st pass: find only dasm          */
   {
@@ -1892,36 +1952,43 @@ else if (option == "bus")
   }
 else if (option == "addr")
   {
-  showAddr = !!bnvalue;
-  return 1;
+  showAddr = bnValue;
+  return bIsBool ? 1 : 0;
   }
 else if (option == "noaddr")
   showAddr = false;
 else if (option == "hex")
   {
-  showHex = !!bnvalue;
-  return 1;
+  showHex = bnValue;
+  return bIsBool ? 1 : 0;
   }
 else if (option == "nohex")
   showHex = false;
 else if (option == "asc")
   {
-  showAsc = !!bnvalue;
-  return 1;
+  showAsc = bnValue;
+  return bIsBool ? 1 : 0;
   }
 else if (option == "noasc")
   showAsc = false;
 else if (option == "comment")
   {
-  showComments = !!bnvalue;
-  return 1;
+  showComments = bnValue;
+  return bIsBool ? 1 : 0;
   }
 else if (option == "nocomment")
   showComments = false;
+else if (option == "cref")
+  {
+  showCref = bnValue;
+  return bIsBool ? 1 : 0;
+  }
+else if (option == "nocref")
+  showCref = false;
 else if (option == "unused")
   {
-  showUnused = !!bnvalue;
-  return 1;
+  showUnused = bnValue;
+  return bIsBool ? 1 : 0;
   }
 else if (option == "nounused")
   showUnused = false;
@@ -1943,7 +2010,7 @@ else if (pDasm)
   // as "-option=" (which should default to off)
   if (option.substr(0, 2) == "no" &&
       pDasm->FindOption(option.substr(2)) >= 0)
-    pDasm->SetOption(option.substr(2), "");
+    pDasm->SetOption(option.substr(2), "off");
   else
     return pDasm->SetOption(option, value);
   }
@@ -2099,6 +2166,7 @@ else
   ListOptionLine("hex", "{off|on}\toutput hex dump", showHex ? "on" : "off");
   ListOptionLine("asc", "{off|on}\toutput ASCII rendering of code/data", showAsc ? "on" : "off");
   ListOptionLine("comment", "{off|on}\toutput comments", showComments ? "on" : "off");
+  ListOptionLine("cref", "{off|on}\toutput cross-reference for used labels", showCref ? "on" : "off");
   ListOptionLine("unused", "{off|on}\toutput unused defined labels", showUnused ? "on" : "off");
   ListOptionLine("labellen", "{length}\tspace reserved for labels", sformat("%d", labelLen));
   ListOptionLine("eqlbllen", "{length}\tspace reserved for equ labels", sformat("%d", lLabelLen));

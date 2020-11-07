@@ -326,7 +326,9 @@ OpCode Dasm68000::opcodes[mnemo68000_count] =
     { "TRAPV",   Data },                /* _trapv                            */
     { "TST",     Data },                /* _tst                              */
     { "UNLK",    Data },                /* _unlk                             */
-
+                                        /* Pseudo-Ops:                       */
+    { "DC",      Data },                /* _dc                               */
+    { "RMB",     Data },                /* _rmb                              */
   };
 
 /*****************************************************************************/
@@ -335,12 +337,22 @@ OpCode Dasm68000::opcodes[mnemo68000_count] =
 
 Dasm68000::Dasm68000(void)
 {
+#if 1
+asmtype = "gen";
+#else
 gas = false;
+#endif
 useFCC = true;
 closeCC = true;
 // TEST TETS TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST
 showInstTypes = false;
 commentStart = ";";
+
+sExtByte  = ".B";
+sExtShort = ".S";
+sExtWord  = ".W";
+sExtLong  = ".L";
+sExtQuad  = ".Q";
 
 int i, j;
 mnemo.resize(mnemo68000_count);         /* set up mnemonics table            */
@@ -363,9 +375,15 @@ for (--i; i >= 0; i--)
     }
   }
 
+#if 1
+AddOption("asm", "{gas|bird|gen[eric]}\tCreate output for a specific assembler",
+          static_cast<PSetter>(&Dasm68000::Set68000Option),
+          static_cast<PGetter>(&Dasm68000::Get68000Option));
+#else
 AddOption("gas", "{off|on}\tCreate GNU Assembler compatible output",
           static_cast<PSetter>(&Dasm68000::Set68000Option),
           static_cast<PGetter>(&Dasm68000::Get68000Option));
+#endif
 AddOption("closecc", "{off|on}\tadd closing delimiter to char constants",
           static_cast<PSetter>(&Dasm68000::Set68000Option),
           static_cast<PGetter>(&Dasm68000::Get68000Option));
@@ -396,27 +414,34 @@ if (otIndex)
 
 int Dasm68000::Set68000Option(string lname, string value)
 {
-string lvalue(lowercase(value));
-int bnvalue = (lvalue == "off") ? 0 : (lvalue == "on") ? 1 : atoi(value.c_str());
+bool bnValue = true;                    /* default to "on"                   */
+bool bIsBool = ParseBool(value, bnValue);
 
-if (lname.substr(0, 2) == "no")         /* obviously a boolean negation      */
+if (lname == "asm")
   {
-  lname = lname.substr(2);              /* skip the "no"                     */
-  bnvalue = !bnvalue;                   /* and invert the value              */
-  }
-
-if (lname == "gas")
-  {
-  gas = !!bnvalue;
-  // TODO - a whole lotta stuff to change mnemonics etc.
+  string lvalue(lowercase(value));
+  if (lvalue == "generic")
+    lvalue = "gen";
+  SetAsmType(lvalue);
+  return 1;
   }
 else if (lname == "closecc")
-  closeCC = !!bnvalue;
+  {
+  closeCC = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else if (lname == "fcc")
-  useFCC = !!bnvalue;
+  {
+  useFCC = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else if (lname == "shit")
-  showInstTypes = !!bnvalue;
+  {
+  showInstTypes = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 
+// should never happen ... but better safe than sorry
 return 1;                               /* name and value consumed           */
 }
 
@@ -426,8 +451,8 @@ return 1;                               /* name and value consumed           */
 
 string Dasm68000::Get68000Option(string lname)
 {
-if (lname == "gas")
-  return gas ? "on" : "off";
+if (lname == "asm")
+  return asmtype;
 else if (lname == "closecc")
   return closeCC ? "on" : "off";
 else if (lname == "fcc")
@@ -436,6 +461,57 @@ else if (lname == "shit")
   return showInstTypes ? "on" : "off";
 
 return "";
+}
+
+/*****************************************************************************/
+/* SetAsmType : set up to produce output for a specific assembler            */
+/*****************************************************************************/
+
+void Dasm68000::SetAsmType(string &newType)
+{
+if (newType == "gas" || newType == "bird" || newType == "gen")
+    asmtype = newType;
+
+#if 0
+// let's see whether we need that ...
+int i;
+static struct
+  {
+  int mnemo;                            /* mnemonic                          */
+  const char *asmtype;                  /* assembler output                  */
+  const char *mne;                      /* mnemonic                          */
+  } mnemomod[] =
+  {
+    { _adda, "gen",  "ADDA" },
+    { _adda, "bird", "ADD"  },
+    { _adda, "gen",  "ADDA" },
+    { _addi, "gen",  "ADDI" },
+    { _addi, "bird", "ADD"  },
+    { _addi, "gen",  "ADDI" },
+    { _addq, "gen",  "ADDQ" },
+    { _addq, "bird", "ADD"  },
+    { _addq, "gen",  "ADDQ" },
+  };
+for (i = 0; i < _countof(mnemomod); i++)
+  if (asmtype == mnemomod[i].asmtype)
+    opcodes[mnemomod[i].mnemo].mne = mnemomod[i].mne;
+#endif
+
+if (asmtype == "gas")
+  {
+  sExtShort = ".S";
+
+  }
+else if (asmtype == "bird")
+  {
+  sExtShort = ".W";  // can't do that
+
+  }
+else // "gen" or anything else
+  {
+  sExtShort = ".S";
+
+  }
 }
 
 /*****************************************************************************/
@@ -513,8 +589,8 @@ else
 if (disp == MemAttribute::DefaultDisplay)
   disp = defaultDisplay;
 
-if ((nDigits == 2) &&                   /* if 2-digit value                  */
-    (disp == MemAttribute::Char))       /* and character output requested    */
+if (disp == MemAttribute::Char &&       /* if character output requested     */
+    (nDigits == 2 || isprint(value)))   /* and printable or 2-digit          */
   {
   value &= 0xff;
   if (isprint(value))
@@ -538,7 +614,15 @@ else if (disp == MemAttribute::Hex)     /* if hex                            */
   for (int i = 0; i < nDigits; i++)
     mask |= (0x0f << (i * 4));
   value &= mask;
+#if 0
   s = sformat("$%0*X", nDigits, value); /* prepare a hex value               */
+#else
+  // prepare a hex value with as many places as necessary
+  s = sformat("%0*X", nDigits, value);
+  while (s.size() > 2 && s.substr(0, 2) == "00")
+    s = s.substr(2);
+  s = "$" + s;
+#endif
   }
 else if (disp == MemAttribute::Octal)   /* if octal display                  */
   s = sformat("@%0*o", (nDigits * 4) + 2 / 3, value);
@@ -585,19 +669,20 @@ addr_t Dasm68000::ParseData
     int bus
     )
 {
-SetLabelUsed(addr, Const, bus);         /* mark DefLabels as used            */
+                                        /* mark DefLabels as used            */
+SetLabelUsed(addr, Const, NO_ADDRESS, bus);
 
 // TODO: complete this!
 int csz = GetCellSize(addr);
 if (csz == 2)                           /* if WORD data                      */
   {
   if (!IsConst(addr))
-    SetLabelUsed(GetUWord(addr));
+    SetLabelUsed(GetUWord(addr), Code, addr);
   }
 else if (csz == 4)                      /* if DWORD data                     */
   {
   if (!IsConst(addr))
-    SetLabelUsed(GetUDWord(addr));
+    SetLabelUsed(GetUDWord(addr), Code, addr);
   }
 return csz;
 }
@@ -609,10 +694,6 @@ return csz;
 #define BYTE_SIZE	256
 #define WORD_SIZE	257
 #define LONG_SIZE	258
-
-static const char *adr_regs[]  = { "A0","A1","A2","A3","A4","A5","A6","A7" };
-static const char *data_regs[] = { "D0","D1","D2","D3","D4","D5","D6","D7" };
-static const char *sizes[]     = { ".B",".W",".L",".?3?",".?4?",".?5?",".?6?",".?7?" };
 
 static int xlate_size(int *size,int type)
 {
@@ -776,7 +857,6 @@ int index_reg_ind;
 int index_size;
 int32_t a1;
 MemoryType mt = mnemo[OpTable[index].mnemo].memType;
-Label *lbl;
 
 int mode = (ea & 0x38) >> 3;
 int reg = ea & 0x7;
@@ -785,16 +865,16 @@ switch(mode)
   case 0:                               /* one of the data registers         */
   case 1:                               /* one of the address registers      */
   case 2:                               /* indirect address                  */
-    // sprintf(s,"(%s)",adr_regs[reg]);
+    // sprintf(s,"(%s)", GetAddrReg(reg));
   case 3:                               /* indirect address with increment   */
-    // sprintf(s,"(%s)+",adr_regs[reg]);
+    // sprintf(s,"(%s)+", GetAddrReg(reg));
   case 4:                               /* indirect address with decrement   */
-    // sprintf(s,"-(%s)",adr_regs[reg]);
+    // sprintf(s,"-(%s)", GetAddrReg(reg));
     break;
   case 5:                               /* address with displacement         */
     displacement = GetSWord(addr);
     addr += 2;
-    // sprintf(s,"$%x(%s)",displacement,adr_regs[reg]);
+    // sprintf(s,"$%x(%s)", displacement, GetAddrReg(reg));
     break;
   case 6:                               /* indexed address with displacement */
     displacement = GetUWord(addr);
@@ -806,21 +886,21 @@ switch(mode)
 #if 0
     if (index_size)
       {
-      s1 = ".L";
+      s1 = sExtLong;
       }
     else
       {
-      s1 = ".W";
+      s1 = sExtWord;
       }
     if(index_reg_ind)
       {
       /*	address reg is index reg	*/
-      sprintf(s,"$%x(%s,%s%s)",displacement,adr_regs[reg],adr_regs[index_reg],s1);
+      sprintf(s,"$%x(%s,%s%s)",displacement, GetAddrReg(reg), GetAddrReg(index_reg]),s1);
       }
     else
       {
       /*	data reg is index reg	*/
-      sprintf(s,"$%x(%s,%s%s)",displacement,adr_regs[reg],data_regs[index_reg],s1);
+      sprintf(s,"$%x(%s,%s%s)",displacement, GetAddrReg(reg), GetDataReg(index_reg),s1);
       }
 #endif
     break;
@@ -830,21 +910,22 @@ switch(mode)
       case 0:		/*	absolute short	*/
         short_adr = GetSWord(addr);
         SetCellSize(addr, 2);
+        // sprintf(s,"$%lx%s",(long)short_adr, sExtShort.c_str());
+        if (!IsConst(addr))
+          {
+          SetLabelUsed((uint16_t)short_adr, mt, instaddr);
+          a1 = PhaseInner((uint16_t)short_adr, instaddr);
+          AddLabel(a1, mt, "", true);
+          }
         addr += 2;
-        // sprintf(s,"$%lx.S",(long)short_adr);
-        lbl = FindLabel((uint16_t)short_adr, mt);
-        if (lbl)
-          lbl->SetUsed();
-        a1 = PhaseInner((uint16_t)short_adr, instaddr);
-        AddLabel(a1, mt, "", true);
         break;
       case 1:		/*	absolute long	*/
         a1 = GetSDWord(addr);
         SetCellSize(addr, 4);
+        if (!IsConst(addr))
+          SetLabelUsed(a1, mt, instaddr);
         addr += 4;
-        lbl = FindLabel(a1, mt);
-        if (lbl)
-          lbl->SetUsed();
+      AddInner:
         a1 = PhaseInner(a1, instaddr);
         if ((addr_t)a1 <= GetHighestCodeAddr())
           AddLabel(a1, mt, "", true);
@@ -853,14 +934,11 @@ switch(mode)
         displacement = GetSWord(addr);
         SetCellSize(addr, 2);
         a1 = (int32_t)addr + displacement;
-        addr += 2;
         // sprintf(s,"$%lx(PC)",a1);
-        lbl = FindLabel(a1, mt);
-        if (lbl)
-          lbl->SetUsed();
-        a1 = PhaseInner(a1, instaddr);
-        AddLabel(a1, mt, "", true);
-        break;
+        if (!IsConst(addr))
+          SetLabelUsed(a1, mt, instaddr);
+        addr += 2;
+        goto AddInner;
       case 3:
         displacement = GetUWord(addr);
         a1 = (int32_t)addr + (char)(displacement & 0xff);
@@ -869,10 +947,10 @@ switch(mode)
 #if 0
         if (displacement & 0x8000)
           /*	address reg is index reg	*/
-          sprintf(s,"$%lx(PC,%s%s)",a1,adr_regs[index_reg],".L");
+          sprintf(s,"$%lx(PC,%s%s)",a1,GetAddrReg(index_reg), sExtLong);
         else
           /*	data reg is index reg	*/
-          sprintf(s,"$%lx(PC,%s%s)",a1,data_regs[index_reg],".W");
+          sprintf(s,"$%lx(PC,%s%s)",a1,GetDataReg(index_reg), sExtWord);
 #endif
         break;
       case 4:  // Immediate Data
@@ -880,10 +958,9 @@ switch(mode)
         if (op_mode == LONG_SIZE)
           {
           a1 = GetSDWord(addr);
+          if (!IsConst(addr))
+            SetLabelUsed(a1, mt, instaddr);
           addr += 4;
-          lbl = FindLabel(a1, mt);
-          if (lbl)
-            lbl->SetUsed();
 #if 0
           // this MIGHT be a label, but more likely it's constant data,
           // so don't automatically assign a label
@@ -897,11 +974,11 @@ switch(mode)
           addr += 2;
 #if 0
           if (op_mode == WORD_SIZE)
-            sprintf(s,"#$%x.W",displacement);
+            sprintf(s,"#$%x%s",displacement, sExtWord.c_str());
           else if (op_mode == BYTE_SIZE)
             {
             displacement = (char)(displacement & 0xff);
-            sprintf(s,"#$%x.B",displacement);
+            sprintf(s,"#$%x%s",displacement, sExtByte.c_str());
             }
 #endif
           }
@@ -943,13 +1020,11 @@ addr_t Dasm68000::ParseOptype03(addr_t instaddr, addr_t addr, uint16_t code, int
 uint16_t dest_reg = (code >> 9) & 0x07;
 uint16_t source = code & 0x3f;          /* this is an effective address      */
 int16_t op_mode = (code >> 6) & 0x07;   /* get op mode                       */
-const char **regs;
 int16_t dir;
 int size;
 if (op_mode == 3 || op_mode == 7)       /* adda type instructions            */
   {
   dir = 0;
-  regs = adr_regs;
   if (op_mode == 3)
     size = 1;
   else
@@ -957,7 +1032,6 @@ if (op_mode == 3 || op_mode == 7)       /* adda type instructions            */
   }
 else
   {
-  regs = data_regs;
   size = op_mode & 0x03;
   dir = (op_mode >> 2) & 0x01;
   }
@@ -1020,11 +1094,13 @@ addr_t startaddr = addr - 2;
 // Branches
 uint16_t displacement = code & 0xff;
 addr_t dest;
+bool bSetLabelUsed = !IsConst(startaddr);
 if (displacement == 0)
   {
   SetCellSize(addr, 2);
   displacement = GetUWord(addr);
   dest = addr + (int16_t)displacement;
+  bSetLabelUsed = !IsConst(addr);
   addr += 2;
   }
 else
@@ -1033,9 +1109,9 @@ else
   dest = addr + (int16_t)displacement;
   }
 
-Label *lbl = FindLabel(dest, Code);
-if (lbl)
-  lbl->SetUsed();
+if (bSetLabelUsed)
+  SetLabelUsed(dest, Code, instaddr);
+
 dest = PhaseInner(dest, startaddr);
 AddLabel(dest, mnemo[OpTable[optable_index].mnemo].memType, "", true);
 return addr;
@@ -1065,14 +1141,14 @@ if (size < 3)  /* register shifts */
   int16_t dest = (code & 0x07);
   int16_t count = (code >> 9) & 0x07;
 #if 0
-  smnemo += sizes[size];
+  smnemo += GetSizeSuffix(size);
   if (type)
-    sparm = sformat("%s,%s", data_regs[count], data_regs[dest]);
+    sparm = sformat("%s,%s", GetDataReg(count), GetDataReg(dest));
   else
     {
     if (count == 0)
       count = 8;
-    sparm = sformat("#$%x,%s", count, data_regs[dest]);
+    sparm = sformat("#$%x,%s", count, GetDataReg(dest));
     }
 #endif
   }
@@ -1092,8 +1168,8 @@ addr_t Dasm68000::ParseOptype12(addr_t instaddr, addr_t addr, uint16_t code, int
 
 int16_t op_mode = ((code >> 6) & 0x07) - 1;
 int16_t reg = code & 0x07;
-// smnemo += sizes[op_mode];
-// sparm = data_regs[reg];
+// smnemo += GetSizeSuffix(op_mode);
+// sparm = GetDataReg(reg);
 return addr;
 }
 
@@ -1116,7 +1192,7 @@ else
   }
 addr = ParseEffectiveAddress(instaddr, addr, dest, optable_index, 0);
 
-// smnemo += sizes[size];
+// smnemo += GetSizeSuffix(size);
 // sparm = sformat("#$%x,%s", il_data, e_a);
 return addr;
 }
@@ -1130,10 +1206,10 @@ int16_t source = code & 0x07;
 int16_t dest_type = (code >> 3) & 0x01;
 int size = (code >> 6) & 0x03;
 /*
-smnemo += sizes[size];
+smnemo += GetSizeSuffix(size);
 sparm = (dest_type) ?
-    sformat("-(%s),-(%s)", adr_regs[source],adr_regs[dest]) :
-    sformat("%s,%s", data_regs[source], data_regs[dest]);
+    sformat("-(%s),-(%s)", GetAddrReg(source), GetAddrReg(dest)) :
+    sformat("%s,%s", GetDataReg(source), GetDataReg(dest));
 */
 return addr;
 }
@@ -1145,7 +1221,7 @@ addr_t Dasm68000::ParseOptype15(addr_t instaddr, addr_t addr, uint16_t code, int
 int16_t dest = code & 0x3f;
 int size = (code >> 6) & 0x03;
 addr = ParseEffectiveAddress(instaddr, addr, dest, optable_index, 0);
-// smnemo += sizes[size];
+// smnemo += GetSizeSuffix(size);
 // sparm = e_a;
 return addr;
 }
@@ -1157,7 +1233,7 @@ addr_t Dasm68000::ParseOptype16(addr_t instaddr, addr_t addr, uint16_t code, int
 int16_t dest = code & 0x3f;
 int16_t reg = (code >> 9) & 0x07;
 addr = ParseEffectiveAddress(instaddr, addr, dest, optable_index, WORD_SIZE);
-// sparm = sformat("%s,%s", e_a, data_regs[reg]);
+// sparm = sformat("%s,%s", e_a, GetDataReg(reg));
 return addr;
 }
 
@@ -1168,15 +1244,13 @@ addr_t Dasm68000::ParseOptype17(addr_t instaddr, addr_t addr, uint16_t code, int
 int16_t reg = code & 0x07;
 int16_t displacement = GetSWord(addr);
 int32_t dest = (int32_t)addr + displacement;
+if (!IsConst(addr))
+  SetLabelUsed(dest, Code, instaddr);
 addr += 2;
-
-Label *lbl = FindLabel(dest, Code);
-if (lbl)
-  lbl->SetUsed();
 dest = PhaseInner(dest, addr - 4);
 AddLabel(dest, mnemo[OpTable[optable_index].mnemo].memType, "", true);
 
-// sparm = sformat("%s,$%lx", data_regs[reg], dest);
+// sparm = sformat("%s,$%lx", GetDataReg(reg), dest);
 return addr;
 }
 
@@ -1199,8 +1273,8 @@ addr_t Dasm68000::ParseOptype19(addr_t instaddr, addr_t addr, uint16_t code, int
 int16_t source = code & 0x07;
 int16_t dest = (code >> 9) & 0x07;
 int size = (code >> 6) & 0x03;
-// smnemo += sizes[size];
-// sparm = sformat("(%s)+,(%s)+", adr_regs[source], adr_regs[dest]);
+// smnemo += GetSizeSuffix(size);
+// sparm = sformat("(%s)+,(%s)+", GetAddrReg(source), GetAddrReg(dest));
 return addr;
 }
 
@@ -1221,7 +1295,7 @@ addr_t Dasm68000::ParseOptype21(addr_t instaddr, addr_t addr, uint16_t code, int
 int16_t dest_reg = (code >> 9) & 0x07;
 int16_t source = code & 0x3f;           /* this is an effective address      */
 addr = ParseEffectiveAddress(instaddr, addr, source, optable_index, 0);
-// sparm = sformat("%s,%s", data_regs[dest_reg], e_a);
+// sparm = sformat("%s,%s", GetDataReg(dest_reg), e_a);
 return addr;
 }
 
@@ -1231,7 +1305,7 @@ addr_t Dasm68000::ParseOptype22(addr_t instaddr, addr_t addr, uint16_t code, int
 
 int16_t data = (int16_t)((char)(code & 0xff));
 uint16_t dest_reg = (code >> 9) & 0x07;
-// sparm = sformat("#$%x,%s", data, data_regs[dest_reg]);
+// sparm = sformat("#$%x,%s", data, GetDataReg(dest_reg));
 return addr;
 }
 
@@ -1261,13 +1335,13 @@ for (i = 0; i < 8; i++)
     {
     if (first)
       {
-      //strcpy(regs, adr_regs[i]);
+      //strcpy(regs, GetAddrReg(i));
       first = false;
       flag++;
       }
     else if (flag == 0)
       {
-      //sprintf(regs + strlen(regs), "/%s", adr_regs[i]);
+      //sprintf(regs + strlen(regs), "/%s", GetAddrReg(i));
       ++flag;
       }
     else if (flag)
@@ -1278,9 +1352,9 @@ for (i = 0; i < 8; i++)
   else if (flag)
     {
     //if (flag > 2)
-    //  sprintf(regs + strlen(regs), "-%s", adr_regs[i - 1]);
+    //  sprintf(regs + strlen(regs), "-%s", GetAddrReg(i - 1));
     //else if (flag == 2)
-    //  sprintf(regs + strlen(regs), "/%s", adr_regs[i - 1]);
+    //  sprintf(regs + strlen(regs), "/%s", GetAddrReg(i - 1));
     flag = 0;
     }
   if (mode == 4)
@@ -1290,7 +1364,7 @@ for (i = 0; i < 8; i++)
   }
 
 //if (flag > 1)
-//  sprintf(regs + strlen(regs), "-%s", adr_regs[i - 1]);
+//  sprintf(regs + strlen(regs), "-%s", GetAddrReg(i - 1));
 flag = 0;
 if (mode == 4)  /* predecrement */
   mask = 0x8000;
@@ -1302,13 +1376,13 @@ for (i = 0; i < 8; ++i)
     {
     if (first)
       {
-      // strcpy(regs, data_regs[i]);
+      // strcpy(regs, GetDataReg(i));
       first = false;
       flag++;
       }
     else if (flag == 0)
       {
-      // sprintf(regs + strlen(regs), "/%s", data_regs[i]);
+      // sprintf(regs + strlen(regs), "/%s", GetDataReg(i));
       ++flag;
       }
     else if (flag)
@@ -1319,9 +1393,9 @@ for (i = 0; i < 8; ++i)
   else if (flag)
     {
     //if (flag > 2)
-    //  sprintf(regs + strlen(regs), "-%s", data_regs[i - 1]);
+    //  sprintf(regs + strlen(regs), "-%s", GetDataReg(i - 1));
     //else if (flag == 2)
-    //  sprintf(regs + strlen(regs), "/%s", data_regs[i - 1]);
+    //  sprintf(regs + strlen(regs), "/%s", GetDataReg(i - 1));
     flag = 0;
     }
   if (mode == 4)
@@ -1331,7 +1405,7 @@ for (i = 0; i < 8; ++i)
   }
 #if 0
 if (flag > 1)
-  sprintf(regs + strlen(regs), "-%s", data_regs[i - 1]);
+  sprintf(regs + strlen(regs), "-%s", GetDataReg(i - 1));
 const char *f, *d;
 if (!direction)
   {
@@ -1343,7 +1417,7 @@ else
   f = e_a;
   d = regs;
   }
-smnemo += sizes[size ? 2 : 1];
+smnemo += GetSizeSuffix(size ? 2 : 1);
 sparm = sformat("%s,%s", f, d);
 #endif
 
@@ -1395,7 +1469,7 @@ return addr;
 addr_t Dasm68000::ParseOptype28(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
 {
 // MOVE USP
-// sparm = sformat((code & 0x08) ? "USP,%s" : "%s,USP", adr_regs[code & 0x7]);
+// sparm = sformat((code & 0x08) ? "USP,%s" : "%s,USP", GetAddrReg(code & 0x7));
 return addr;
 }
 
@@ -1408,9 +1482,9 @@ unsigned direction = code & 0x080;
 int16_t displacement = GetSWord(addr);
 addr += 2;
 //if (direction)
-//  sparm = sformat("%s,%x(%s)", data_regs[data_reg],displacement,adr_regs[adr_reg]);
+//  sparm = sformat("%s,%x(%s)", GetDataReg(data_reg),displacement, GetAddrReg(adr_reg));
 //else
-//  sparm = sformat("%x(%s),%s", displacement, adr_regs[adr_reg], data_regs[data_reg]);
+//  sparm = sformat("%x(%s),%s", displacement, GetAddrReg(adr_reg), GetDataReg(data_reg));
 return addr;
 }
 
@@ -1483,12 +1557,12 @@ if (FindLabel(addr, Const, bus))
 if (flags & SHMF_RMB)                   /* if reserved memory block          */
   {
   done = end;                           /* remember it's done completely     */
-  smnemo = "RMB";
+  smnemo = opcodes[_rmb].mne;
   sparm = Number2String(end - addr, 4, addr);
   }
 else if (useFCC && (flags & SHMF_TXT))  /* if FCC (text) allowed             */
   {
-  smnemo = "DC.B";
+  smnemo = opcodes[_dc].mne + sExtByte;
   sparm = '"';                          /* start the game                    */
   for (done = addr; done < end; done++) /* assemble as many as possible      */
     {                                   /* if this would become too long     */
@@ -1504,10 +1578,11 @@ else if (flags & 0xff)                  /* if not byte-sized                 */
   int dsz = (int)(flags & 0xff) + 1;
 
   // 68000 can do byte, word, long, and quadword
-  smnemo = (dsz == 2) ? "DC.W" :
-           (dsz == 4) ? "DC.L" :
-           (dsz == 8) ? "DC.Q" :
-           sformat("DC.?%d?", dsz);
+  smnemo = opcodes[_dc].mne +
+                  ((dsz == 2) ? sExtWord :
+                   (dsz == 4) ? sExtLong :
+                   (dsz == 8) ? sExtQuad :
+                   sformat(".?%d?", dsz));
                                         /* assemble as many as possible      */
   for (done = addr; done < end; done += dsz)
     {
@@ -1543,7 +1618,7 @@ else if (flags & 0xff)                  /* if not byte-sized                 */
   }
 else                                    /* if FCB (hex or binary)            */
   {
-  smnemo = "DC.B";
+  smnemo = opcodes[_dc].mne + sExtByte;
                                         /* assemble as many as possible      */
   for (done = addr; done < end; done++)
     {
@@ -1689,6 +1764,38 @@ return len;
 }
 
 /*****************************************************************************/
+/* GetAddrReg : returns the name of an address register                      */
+/*****************************************************************************/
+
+const char *Dasm68000::GetAddrReg(int i)
+{
+static const char *regs[] = { "A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7" };
+return regs[i & 7];
+}
+
+/*****************************************************************************/
+/* GetDataReg : returns the name of a data register                          */
+/*****************************************************************************/
+
+const char *Dasm68000::GetDataReg(int i)
+{
+static const char *regs[] = { "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7" };
+return regs[i & 7];
+}
+
+/*****************************************************************************/
+/* GetSizeSuffix : returns the matching size suffix for a size code          */
+/*****************************************************************************/
+
+const char *Dasm68000::GetSizeSuffix(int sizeCode)
+{
+#pragma message("This needs refinement for the configurable exts!")
+static const string sizes[] = { ".B", ".W", ".L",
+                               ".?3?", ".?4?", ".?5?", ".?6?", ".?7?" };
+return sizes[sizeCode & 7].c_str();
+}
+
+/*****************************************************************************/
 /* DisassembleEffectiveAddress : disassemble the EA part of an instruction   */
 /*****************************************************************************/
 
@@ -1709,7 +1816,7 @@ int16_t short_adr;
 int index_reg;
 int index_reg_ind;
 int index_size;
-char *s1;
+const char *s1;
 int32_t a1;
 bool bGetLabel;
 Label *pLbl;
@@ -1719,24 +1826,24 @@ reg = ea & 0x7;
 switch(mode)
   {
   case 0:
-    s = sformat("%s", data_regs[reg]);
+    s = sformat("%s", GetDataReg(reg));
     break;
   case 1:
-    s = sformat("%s",adr_regs[reg]);
+    s = sformat("%s", GetAddrReg(reg));
     break;
   case 2:	/*	address indirect	*/
-    s = sformat("(%s)", adr_regs[reg]);
+    s = sformat("(%s)", GetAddrReg(reg));
     break;
   case 3:
-    s = sformat("(%s)+", adr_regs[reg]);
+    s = sformat("(%s)+", GetAddrReg(reg));
     break;
   case 4:
-    s = sformat("-(%s)", adr_regs[reg]);
+    s = sformat("-(%s)", GetAddrReg(reg));
     break;
   case 5:	/*	address with displacement	*/
     s = sformat("%s(%s)",
                 Number2String(GetUWord(addr), 4, addr).c_str(),
-                adr_regs[reg]);
+                GetAddrReg(reg));
     addr += 2;
     break;
   case 6:	/*	indexed address with displacement	*/
@@ -1747,25 +1854,25 @@ switch(mode)
     displacement = (signed char)(displacement & 0xff);
     if (index_size)
       {
-      s1 = ".L";
+      s1 = sExtLong.c_str();
       }
     else
       {
-      s1 = ".W";
+      s1 = sExtWord.c_str();
       }
     if (index_reg_ind)
       {
       /*	address reg is index reg	*/
       s = sformat("%s(%s,%s%s)",
                   Number2String(displacement, 2, addr + 1).c_str(),
-                  adr_regs[reg], adr_regs[index_reg], s1);
+                  GetAddrReg(reg), GetAddrReg(index_reg), s1);
       }
     else
       {
       /*	data reg is index reg	*/
       s = sformat("%s(%s,%s%s)",
                   Number2String(displacement, 2, addr + 1).c_str(),
-                  adr_regs[reg], data_regs[index_reg], s1);
+                  GetAddrReg(reg), GetDataReg(index_reg), s1);
       }
     addr += 2;
     break;
@@ -1777,16 +1884,16 @@ switch(mode)
         bGetLabel = !IsConst(addr);
         pLbl = FindLabel((uint16_t)short_adr);
         if (pLbl)
-          s = Label2String((uint16_t)short_adr, 4, bGetLabel, addr) + ".S";
+          s = Label2String((uint16_t)short_adr, 4, bGetLabel, addr) + sExtShort;
         else
-          s = Number2String(short_adr, 4, addr) + ".S";
+          s = Number2String(short_adr, 4, addr) +  sExtShort;
         addr += 2;
         break;
       case 1:		/*	absolute long	*/
         a1 = GetSDWord(addr);
         bGetLabel = !IsConst(addr);
         // bIsHex = IsHex(addr);
-        s = Label2String(a1, GetBusWidth() / 4, bGetLabel, addr) + ".L";
+        s = Label2String(a1, GetBusWidth() / 4, bGetLabel, addr) + sExtLong;
         addr += 4;
         break;
       case 2:	/*	program counter with displacement	*/
@@ -1805,11 +1912,13 @@ switch(mode)
         if (displacement & 0x8000)
           s = sformat("%s(PC,%s%s)",    /* address reg is index reg          */
                   Label2String(a1, GetBusWidth() / 4, bGetLabel, addr).c_str(),
-                  adr_regs[index_reg],".L");
+                  GetAddrReg(index_reg),
+                  sExtLong.c_str());
         else
           s = sformat("%s(PC,%s%s)",    /* data reg is index reg             */
                   Label2String(a1, GetBusWidth() / 4, bGetLabel, addr).c_str(),
-                  data_regs[index_reg],".W");
+                  GetDataReg(index_reg),
+                  sExtWord.c_str());
         addr += 2;
         break;
       case 4:	//Immediate Data
@@ -1820,19 +1929,24 @@ switch(mode)
           {
           bGetLabel = !IsConst(addr);
           a1 = GetSDWord(addr);
-          s = sformat("#%s.L", Label2String(a1, 8, bGetLabel, addr).c_str());
+          s = sformat("#%s%s",
+                      Label2String(a1, 8, bGetLabel, addr).c_str(),
+                      sExtLong.c_str());
           addr += 4;
           }
         else if (op_mode == WORD_SIZE || op_mode == BYTE_SIZE)
           {
           displacement = GetSWord(addr);
           if (op_mode == WORD_SIZE)
-            s = sformat("#%s.W",
-                        Number2String(displacement, 4, addr).c_str());
+            s = sformat("#%s%s",
+                        Number2String(displacement, 4, addr).c_str(),
+                        sExtWord.c_str());
           else if (op_mode == BYTE_SIZE)
             {
             displacement = (char)(displacement & 0xff);
-            s = sformat("#%s.B",Number2String(displacement, 2, addr).c_str());
+            s = sformat("#%s%s",
+                        Number2String(displacement, 2, addr).c_str(),
+                        sExtByte.c_str());
             }
           addr += 2;
           }
@@ -1854,7 +1968,7 @@ addr_t Dasm68000::DisassembleOptype01(addr_t instaddr, addr_t addr, uint16_t cod
 {
 int reg = code & 0x07;                  /* get register number               */
 int16_t displacement = GetSWord(addr);  /* get word displacement             */
-sparm = sformat("%s,#%s", adr_regs[reg],
+sparm = sformat("%s,#%s", GetAddrReg(reg),
                 Number2String(displacement, 4, addr).c_str());
 addr += 2;
 return addr;
@@ -1869,10 +1983,10 @@ uint16_t source = code & 0x3f;          /* this is an effective address      */
                                         /* calculate effective address       */
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a, source, optable_index, 0);
 // this may be a bit inefficient, but it works ...
-if (e_a.size() > 2 && e_a.substr(e_a.size() - 2) == ".L")
+if (e_a.size() > 2 && e_a.substr(e_a.size() - 2) == sExtLong)
   e_a = e_a.substr(0, e_a.size() - 2);
 
-sparm = sformat("%s,%s", e_a.c_str(), adr_regs[dest_reg]);
+sparm = sformat("%s,%s", e_a.c_str(), GetAddrReg(dest_reg));
 
 return addr;
 }
@@ -1882,13 +1996,13 @@ addr_t Dasm68000::DisassembleOptype03(addr_t instaddr, addr_t addr, uint16_t cod
 uint16_t dest_reg = (code >> 9) & 0x07;
 uint16_t source = code & 0x3f;          /* this is an effective address      */
 int16_t op_mode = (code >> 6) & 0x07;   /* get op mode                       */
-const char **regs;
+const char *reg;
 int16_t dir;
 int size;
 if (op_mode == 3 || op_mode == 7)       /* adda type instructions            */
   {
   dir = 0;
-  regs = adr_regs;
+  reg = GetAddrReg(dest_reg);
   if (op_mode == 3)
     size = 1;
   else
@@ -1896,7 +2010,7 @@ if (op_mode == 3 || op_mode == 7)       /* adda type instructions            */
   }
 else
   {
-  regs = data_regs;
+  reg = GetDataReg(dest_reg);
   size = op_mode & 0x03;
   dir = (op_mode >> 2) & 0x01;
   }
@@ -1904,14 +2018,14 @@ op_mode = xlate_size(&size, 0);
 string e_a;
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a, source, optable_index, op_mode);
 
-smnemo += sizes[size];
+smnemo += GetSizeSuffix(size);
 // this may be a bit inefficient, but it works ...
-if (e_a.size() > 2 && e_a.substr(e_a.size() - 2) == sizes[size])
+if (e_a.size() > 2 && e_a.substr(e_a.size() - 2) == GetSizeSuffix(size))
   e_a = e_a.substr(0, e_a.size() - 2);
 
 sparm = (!dir) ?
-    sformat("%s,%s", e_a.c_str(), regs[dest_reg]) :
-    sformat("%s,%s", regs[dest_reg], e_a.c_str());
+    sformat("%s,%s", e_a.c_str(), reg) :
+    sformat("%s,%s", reg, e_a.c_str());
 
 return addr;
 }
@@ -1927,6 +2041,7 @@ int16_t dest = (code >> 6) & 0x3f;
 dest = ((dest & 0x07) << 3) | (dest >> 3);
 
 // this may be a bit inefficient, but it works ...
+#pragma message("Mnemo size extension extraction is insufficient!")
 string smnemotype;
 if (smnemo.size() > 2 && smnemo[smnemo.size() - 2] == '.')
   smnemotype = smnemo.substr(smnemo.size() - 2);
@@ -1961,7 +2076,7 @@ if (data == 0)
 string s_data = Number2String(data, 1, addr - 2);
 string e_a;
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a, dest, optable_index, 0);
-smnemo += sizes[size];
+smnemo += GetSizeSuffix(size);
 sparm = sformat("#%s,%s", s_data.c_str(), e_a.c_str());
 
 return addr;
@@ -1975,7 +2090,7 @@ int16_t dest = code & 0x3f;
 int size = (code >> 6) & 0x03;
 int16_t op_mode = xlate_size(&size, 0);
 addr = DisassembleEffectiveAddress(instaddr, addr, sparm, dest, optable_index, 0);
-smnemo += sizes[size];
+smnemo += GetSizeSuffix(size);
 
 return addr;
 }
@@ -1985,22 +2100,28 @@ addr_t Dasm68000::DisassembleOptype08(addr_t instaddr, addr_t addr, uint16_t cod
 // branches
 
 addr_t startaddr = addr - 1;
-int16_t displacement = code & 0xff;
+int32_t displacement = code & 0xff;
 addr_t dest;
 bool bGetLabel = !IsConst(startaddr);
 if (displacement == 0)
   {
-  smnemo += ".L";  // this might be superfluous ...
   bGetLabel &= !IsConst(addr);
   displacement = GetSWord(addr);
+  // append ".L" if the displacement would allow a short instruction
+  if (displacement >= -128 && displacement <= 127)
+    smnemo += sExtLong;
   dest = addr + displacement;
   startaddr = addr;
   addr += 2;
   }
 else
   {
-  smnemo += ".S";
-  displacement = (int16_t)((char)displacement);
+#if 0
+  // not necessary; any decent assembler should do it this way
+  if (asmtype != "bird")
+    smnemo +=  sExtShort;
+#endif
+  displacement = (int32_t)((char)displacement);
   dest = addr + displacement;
   startaddr = addr - 1;
   }
@@ -2013,7 +2134,7 @@ addr_t Dasm68000::DisassembleOptype09(addr_t instaddr, addr_t addr, uint16_t cod
 // UNLINK type instructions
 
 int16_t reg = code & 0x07;
-sparm = adr_regs[reg];
+sparm = GetAddrReg(reg);
 
 return addr;
 }
@@ -2034,16 +2155,16 @@ if (size < 3)  /* register shifts */
   int16_t type = (code >> 5) & 0x01;
   int16_t dest = (code & 0x07);
   int16_t count = (code >> 9) & 0x07;
-  smnemo += sizes[size];
+  smnemo += GetSizeSuffix(size);
   if (type)
-    sparm = sformat("%s,%s", data_regs[count], data_regs[dest]);
+    sparm = sformat("%s,%s", GetDataReg(count), GetDataReg(dest));
   else
     {
     if (count == 0)
       count = 8;
     sparm = sformat("#%s,%s",
                     Number2String(count, 1, addr - 2).c_str(),
-                    data_regs[dest]);
+                    GetDataReg(dest));
     }
   }
 else  /* memory shifts */
@@ -2061,8 +2182,8 @@ addr_t Dasm68000::DisassembleOptype12(addr_t instaddr, addr_t addr, uint16_t cod
 
 int16_t op_mode = ((code >> 6) & 0x07) - 1;
 int16_t reg = code & 0x07;
-smnemo += sizes[op_mode];
-sparm = data_regs[reg];
+smnemo += GetSizeSuffix(op_mode);
+sparm = GetDataReg(reg);
 
 return addr;
 }
@@ -2088,7 +2209,7 @@ else
 string e_a;
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a, dest, optable_index, 0);
 
-smnemo += sizes[size];
+smnemo += GetSizeSuffix(size);
 sparm = sformat("#%s,%s", s_data.c_str(), e_a.c_str());
 
 return addr;
@@ -2102,10 +2223,10 @@ int16_t dest = (code >> 9) & 0x07;
 int16_t source = code & 0x07;
 int16_t dest_type = (code >> 3) & 0x01;
 int size = (code >> 6) & 0x03;
-smnemo += sizes[size];
+smnemo += GetSizeSuffix(size);
 sparm = (dest_type) ?
-    sformat("-(%s),-(%s)", adr_regs[source],adr_regs[dest]) :
-    sformat("%s,%s", data_regs[source], data_regs[dest]);
+    sformat("-(%s),-(%s)", GetAddrReg(source), GetAddrReg(dest)) :
+    sformat("%s,%s", GetDataReg(source), GetDataReg(dest));
 return addr;
 }
 
@@ -2116,7 +2237,7 @@ addr_t Dasm68000::DisassembleOptype15(addr_t instaddr, addr_t addr, uint16_t cod
 int16_t dest = code & 0x3f;
 int size = (code >> 6) & 0x03;
 addr = DisassembleEffectiveAddress(instaddr, addr, sparm, dest, optable_index, 0);
-smnemo += sizes[size];
+smnemo += GetSizeSuffix(size);
 return addr;
 }
 
@@ -2128,7 +2249,7 @@ int16_t dest = code & 0x3f;
 int16_t reg = (code >> 9) & 0x07;
 string e_a;
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a, dest, optable_index, WORD_SIZE);
-sparm = sformat("%s,%s", e_a.c_str(), data_regs[reg]);
+sparm = sformat("%s,%s", e_a.c_str(), GetDataReg(reg));
 return addr;
 }
 
@@ -2140,9 +2261,9 @@ int16_t reg = code & 0x07;
 int16_t displacement = GetSWord(addr);
 int32_t dest = (int32_t)addr + displacement;
 bool bGetLabel = !IsConst(addr);
-// sparm = sformat("%s,$%lx", data_regs[reg], dest);
+// sparm = sformat("%s,$%lx", GetDataReg(reg), dest);
 sparm = sformat("%s,%s",
-                data_regs[reg],
+                GetDataReg(reg),
                 Label2String(dest, GetBusWidth() / 4, bGetLabel, addr).c_str());
 addr += 2;
 return addr;
@@ -2158,18 +2279,18 @@ int16_t op_mode = (code >> 3) & 0x1f;
 const char *rx = "???", *ry = "???";
 if (op_mode == 0x08)
   {
-  rx = data_regs[source];
-  ry = data_regs[dest];
+  rx = GetDataReg(source);
+  ry = GetDataReg(dest);
   }
 else if (op_mode == 0x09)
   {
-  rx = adr_regs[source];
-  ry = adr_regs[dest];
+  rx = GetAddrReg(source);
+  ry = GetAddrReg(dest);
   }
 else if (op_mode == 0x11)
   {
-  rx = data_regs[source];
-  ry = adr_regs[dest];
+  rx = GetDataReg(source);
+  ry = GetAddrReg(dest);
   }
 sparm = sformat("%s,%s", rx, ry);
 return addr;
@@ -2182,8 +2303,8 @@ addr_t Dasm68000::DisassembleOptype19(addr_t instaddr, addr_t addr, uint16_t cod
 int16_t source = code & 0x07;
 int16_t dest = (code >> 9) & 0x07;
 int size = (code >> 6) & 0x03;
-smnemo += sizes[size];
-sparm = sformat("(%s)+,(%s)+", adr_regs[source], adr_regs[dest]);
+smnemo += GetSizeSuffix(size);
+sparm = sformat("(%s)+,(%s)+", GetAddrReg(source), GetAddrReg(dest));
 return addr;
 }
 
@@ -2206,7 +2327,7 @@ int16_t dest_reg = (code >> 9) & 0x07;
 int16_t source = code & 0x3f;           /* this is an effective address      */
 string e_a;
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a, source, optable_index, 0);
-sparm = sformat("%s,%s", data_regs[dest_reg], e_a.c_str());
+sparm = sformat("%s,%s", GetDataReg(dest_reg), e_a.c_str());
 return addr;
 }
 
@@ -2216,7 +2337,7 @@ addr_t Dasm68000::DisassembleOptype22(addr_t instaddr, addr_t addr, uint16_t cod
 
 int16_t data = (int16_t)((char)(code & 0xff));
 uint16_t dest_reg = (code >> 9) & 0x07;
-sparm = sformat("#$%x,%s", data, data_regs[dest_reg]);
+sparm = sformat("#$%x,%s", data, GetDataReg(dest_reg));
 return addr;
 }
 
@@ -2249,13 +2370,13 @@ for (i = 0; i < 8; i++)
     {
     if (first)
       {
-      strcpy(regs, adr_regs[i]);
+      strcpy(regs, GetAddrReg(i));
       first = false;
       flag++;
       }
     else if (flag == 0)
       {
-      sprintf(regs + strlen(regs), "/%s", adr_regs[i]);
+      sprintf(regs + strlen(regs), "/%s", GetAddrReg(i));
       ++flag;
       }
     else if (flag)
@@ -2266,9 +2387,9 @@ for (i = 0; i < 8; i++)
   else if (flag)
     {
     if (flag > 2)
-      sprintf(regs + strlen(regs), "-%s", adr_regs[i - 1]);
+      sprintf(regs + strlen(regs), "-%s", GetAddrReg(i - 1));
     else if (flag == 2)
-      sprintf(regs + strlen(regs), "/%s", adr_regs[i - 1]);
+      sprintf(regs + strlen(regs), "/%s", GetAddrReg(i - 1));
     flag = 0;
     }
   if (mode == 4)
@@ -2278,7 +2399,7 @@ for (i = 0; i < 8; i++)
   }
 
 if (flag > 1)
-  sprintf(regs + strlen(regs), "-%s", adr_regs[i - 1]);
+  sprintf(regs + strlen(regs), "-%s", GetAddrReg(i - 1));
 flag = 0;
 if (mode == 4)  /* predecrement */
   mask = 0x8000;
@@ -2290,13 +2411,13 @@ for (i = 0; i < 8; ++i)
     {
     if (first)
       {
-      strcpy(regs, data_regs[i]);
+      strcpy(regs, GetDataReg(i));
       first = false;
       flag++;
       }
     else if (flag == 0)
       {
-      sprintf(regs + strlen(regs), "/%s", data_regs[i]);
+      sprintf(regs + strlen(regs), "/%s", GetDataReg(i));
       ++flag;
       }
     else if (flag)
@@ -2307,9 +2428,9 @@ for (i = 0; i < 8; ++i)
   else if (flag)
     {
     if (flag > 2)
-      sprintf(regs + strlen(regs), "-%s", data_regs[i - 1]);
+      sprintf(regs + strlen(regs), "-%s", GetDataReg(i - 1));
     else if (flag == 2)
-      sprintf(regs + strlen(regs), "/%s", data_regs[i - 1]);
+      sprintf(regs + strlen(regs), "/%s", GetDataReg(i - 1));
     flag = 0;
     }
   if (mode == 4)
@@ -2318,7 +2439,7 @@ for (i = 0; i < 8; ++i)
     mask <<= 1;
   }
 if (flag > 1)
-  sprintf(regs + strlen(regs), "-%s", data_regs[i - 1]);
+  sprintf(regs + strlen(regs), "-%s", GetDataReg(i - 1));
 const char *f, *d;
 if (!direction)
   {
@@ -2330,7 +2451,7 @@ else
   f = e_a.c_str();
   d = regs;
   }
-smnemo += sizes[size ? 2 : 1];
+smnemo += GetSizeSuffix(size ? 2 : 1);
 sparm = sformat("%s,%s", f, d);
 
 return addr;
@@ -2384,7 +2505,7 @@ return addr;
 addr_t Dasm68000::DisassembleOptype28(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
 // MOVE USP
-sparm = sformat((code & 0x08) ? "USP,%s" : "%s,USP", adr_regs[code & 0x7]);
+sparm = sformat((code & 0x08) ? "USP,%s" : "%s,USP", GetAddrReg(code & 0x07));
 return addr;
 }
 
@@ -2397,14 +2518,14 @@ unsigned direction = code & 0x080;
 int16_t displacement = GetSWord(addr);
 if (direction)
   sparm = sformat("%s,%s(%s)",
-                  data_regs[data_reg],
+                  GetDataReg(data_reg),
                   Number2String(displacement, 4, addr).c_str(),
-                  adr_regs[adr_reg]);
+                  GetAddrReg(adr_reg));
 else
   sparm = sformat("%s(%s),%s",
                   Number2String(displacement, 4, addr).c_str(),
-                  adr_regs[adr_reg],
-                  data_regs[data_reg]);
+                  GetAddrReg(adr_reg),
+                  GetDataReg(data_reg));
 addr += 2;
 return addr;
 }

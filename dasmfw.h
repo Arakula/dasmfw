@@ -46,6 +46,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <algorithm>
 using namespace std;
 
 #ifndef _countof
@@ -80,6 +81,44 @@ enum
   };
 
 /*****************************************************************************/
+/* Address / Bus tuple                                                       */
+/*****************************************************************************/
+
+class AddrBus
+  {
+  public:
+    addr_t addr;
+    int bus;
+
+  public:
+    AddrBus(addr_t addr = NO_ADDRESS, int bus = BusCode)
+      : addr(addr), bus(bus) {}
+    AddrBus(AddrBus const &org)
+      : addr(org.addr), bus(org.bus) {}
+    AddrBus &operator=(AddrBus const &org)
+      {
+      addr = org.addr;
+      bus = org.bus;
+      return *this;
+      }
+    bool operator==(AddrBus const &other)
+      { return addr == other.addr && bus == other.bus; }
+    bool operator!=(AddrBus const &other)
+      { return addr != other.addr || bus != other.bus; }
+    bool operator<(AddrBus const &other)
+      { return bus < other.bus ||
+               (bus == other.bus && addr < other.addr); }
+  };
+
+// Comparison class for sorting an AddrBus array
+class AddrBusComp
+  {
+  public:
+    bool operator() (AddrBus &i, AddrBus &j)
+      { return i < j; }
+  };
+
+/*****************************************************************************/
 /* Global functions                                                          */
 /*****************************************************************************/
 
@@ -95,6 +134,7 @@ string triminfo
     bool bUnescape = true,
     bool bDotStart = false
     );
+bool ParseBool(string value, bool &bResult);
 
 
 /*****************************************************************************/
@@ -179,6 +219,7 @@ protected:
   bool LoadInfoFiles();
   bool Parse(int nPass, int bus = BusCode);
   bool DisassembleComments(addr_t addr, bool bAfterLine, string sComDel, int bus = BusCode);
+  bool DisassembleCref(Label *pLabel, string sComDel, int bus = BusCode);
   bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, int bus = BusCode);
   bool DisassembleLabels(string sComDel, string sComHdr, int bus = BusCode);
   bool DisassembleDefLabels(string sComDel, string sComHdr, int bus = BusCode);
@@ -255,6 +296,7 @@ protected:
   bool showAsc;                         /* flag for ASCII content display    */
   bool showUnused;                      /* flag for showing unused labels    */
   bool showComments;                    /* flag for showing comments         */
+  bool showCref;                        /* flag for showing cross-references */
   bool f9dasmComp;                      /* flag for f9dasm compatibility     */
   int labelLen;                         /* minimum label display length      */
   int lLabelLen;                        /* minimum label len for EQUs        */

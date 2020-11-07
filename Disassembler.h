@@ -581,17 +581,28 @@ class Disassembler
         }
       return false;
       }
-    void SetLabelUsed(addr_t addr, MemoryType memType = Code, int bus = BusCode)
+    bool SetLabelUsed(addr_t addr, MemoryType memType = Code, addr_t ref = NO_ADDRESS, int bus = BusCode)
       {
+      bool bDone = false;
       LabelArray::iterator it;
       Label *pLabel = GetFirstLabel(addr, it, memType, bus);
       while (pLabel)
         {
         // "Const" is a DefLabel, so only match it if Const is requested
         if (memType == Const || !pLabel->IsConst())
-          pLabel->SetUsed();            /* mark it as used                   */
+          {
+          pLabel->SetUsed(true, ref);   /* mark it as used                   */
+          bDone = true;
+          }
         pLabel = GetNextLabel(addr, it, memType, bus);
         }
+      return bDone;
+      }
+    Label *SetDefLabelUsed(addr_t addr, int bus = BusCode)
+      {
+      if (SetLabelUsed(addr, Const, NO_ADDRESS, bus))
+        return FindLabel(addr, Const, bus);
+      return NULL;
       }
 
   // Definition Label handling

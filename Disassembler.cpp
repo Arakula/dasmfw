@@ -343,7 +343,8 @@ string lvalue(lowercase(value));
 addr_t ivalue = (addr_t)strtoul(value.c_str(), NULL, 10);
 addr_t avalue;
 String2Number(value, avalue);
-int bnvalue = (lvalue == "off") ? 0 : (lvalue == "on") ? 1 : atoi(value.c_str());
+bool bnValue = true;                    /* default to "on"                   */
+bool bIsBool = ParseBool(value, bnValue);
 
 if (lname == "pbase" &&
          ivalue >= 2 && ivalue <= 16)
@@ -381,17 +382,27 @@ else if (lname == "cchar")
 else if (lname == "ldchar")
   labelDelim = value;
 else if (lname == "loadlabel")
-  bLoadLabel = !!bnvalue;
+  {
+  bLoadLabel = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else if (lname == "multilabel")
   {
-  bMultiLabel = !!bnvalue;
+  bMultiLabel = bnValue;
   for (int i = 0; i < GetBusCount(); i++)
     Labels[i].SetMultipleDefs(bMultiLabel);
+  return bIsBool ? 1 : 0;
   }
 else if (lname == "autolabel")
-  bAutoLabel = !!bnvalue;
+  {
+  bAutoLabel = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else if (lname == "sysvec")
-  bSetSysVec = !!bnvalue;
+  {
+  bSetSysVec = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else
   return 0;                             /* only option consumed              */
 
@@ -451,9 +462,8 @@ string Disassembler::Label2String
 string sOut;
 addr_t relative = GetRelative(addr, bus);
 addr_t Wrel = (value + relative);
-addr_t hiaddr = GetHighestBusAddr(bus);
-if (++hiaddr)
-  Wrel %= hiaddr;
+addr_t hiaddr = GetHighestBusAddr(bus) + 1;
+addr_t WrelMod = (hiaddr) ? Wrel % hiaddr : Wrel;
 // % might not be the best choice under all circumstances, but works for me...
 
 // NB: this always uses the LAST found label for this address.
@@ -463,13 +473,13 @@ string sLabel;
 // DefLabel is independent of bUseLabel and is used if no normal label is there
 #if 1
 if (!pLbl)
-  pLbl = FindLabel(Wrel, Const, bus);
+  pLbl = FindLabel(WrelMod, Const, bus);
 #endif
 if (pLbl)                               /* get label name                    */
   sLabel = pLbl->GetText();
 MemoryType memType = pLbl ? pLbl->GetType() : Untyped;
 if (pLbl && memType == Untyped)
-  memType = GetMemType(Wrel, bus);
+  memType = GetMemType(WrelMod, bus);
 if (memType == Const || memType == Bss)
   memType = Data;
                                         /* if there and absolute             */
@@ -479,11 +489,11 @@ if (Wrel == value && sLabel.size())
 if (sLabel.size())
   sOut = sLabel;
 else if (bUseLabel && memType == Code)
-  sOut = UnnamedLabel(Wrel, true, bus);
+  sOut = UnnamedLabel(WrelMod, true, bus);
 else if (bUseLabel && memType == Data)
-  sOut = UnnamedLabel(Wrel, false, bus);
-else
-  sOut = Number2String(Wrel, nDigits, addr, bus).c_str();
+  sOut = UnnamedLabel(WrelMod, false, bus);
+else  // no label - use ORIGINAL value
+  sOut = Number2String(value, nDigits, addr, bus).c_str();
 
 if (relative)                           /* if it's relative addressing       */
   {

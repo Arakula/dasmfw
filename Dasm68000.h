@@ -268,6 +268,9 @@ class Dasm68000 :
       _trapv,
       _tst,
       _unlk,
+      // Pseudo-Ops:
+      _dc,
+      _rmb,
 
       mnemo68000_count
       };
@@ -285,13 +288,19 @@ class Dasm68000 :
     static OpDef OpTable[optblSize];
     static OpCode opcodes[mnemo68000_count];
     uint8_t *otIndex;
+#if 1
+    string asmtype;                     /* assembler type                    */
+#else
     bool gas;                           /* flag whether GNU assembler output */
+#endif
     bool useFCC;
     bool closeCC;
-    // TEST TETS TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST
+    // TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST
     bool showInstTypes;
+    string sExtByte, sExtShort, sExtWord, sExtLong, sExtQuad;
 
   protected:
+    virtual void SetAsmType(string &newType);
     virtual addr_t ParseEffectiveAddress(addr_t instaddr, addr_t addr, uint16_t ea, int16_t index, int op_mode);
     virtual addr_t ParseOptype01(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
     virtual addr_t ParseOptype02(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
@@ -322,6 +331,9 @@ class Dasm68000 :
     virtual addr_t ParseOptype27(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
     virtual addr_t ParseOptype28(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
     virtual addr_t ParseOptype29(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
+    virtual const char *GetAddrReg(int i);
+    virtual const char *GetDataReg(int i);
+    virtual const char *GetSizeSuffix(int sizeCode);
     virtual addr_t DisassembleEffectiveAddress(addr_t instaddr, addr_t addr, string &s, uint16_t ea, int16_t index, int op_mode);
     virtual addr_t DisassembleOptype01(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
     virtual addr_t DisassembleOptype02(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);

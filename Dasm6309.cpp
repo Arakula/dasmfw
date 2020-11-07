@@ -431,7 +431,6 @@ uint16_t W;
 char R;
 addr_t PC = pc;
 bool bSetLabel = true;
-Label *lbl;
 
 T = GetUByte(PC++);
 R = reg[(T >> 5) & 0x03];
@@ -453,13 +452,15 @@ if (T & 0x80)
         case 0xAF:
         case 0xB0:
           bSetLabel = !IsConst(PC);
-          lbl = bSetLabel ? NULL : FindLabel(PC, Const);
-          if (lbl)
-            lbl->SetUsed();
+          if (!bSetLabel)
+            SetDefLabelUsed(PC);
           SetCellSize(PC, 2);
           W = GetUWord(PC); PC += 2;
           if (bSetLabel)
+            {
             AddLabel(W, mnemo[MI].memType, "", true);
+            SetLabelUsed(W, mnemo[MI].memType, pc);
+            }
           return PC;
         }
       break;
@@ -577,7 +578,6 @@ const char *I;
 addr_t PC = addr;
 bool bSetLabel;
 addr_t dp = GetDirectPage(addr);
-Label *lbl;
 
 PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
 #if 1
@@ -589,14 +589,11 @@ if ((T == _swi2) && os9Patch)
 switch (M)                              /* which mode is this ?              */
   {
   case _bd:                             /* Bit Manipulation direct           */
-    lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
-    if (lbl)
-      lbl->SetUsed();
+    SetDefLabelUsed(PC, bus);           /* the bit part                      */
     PC++;
     bSetLabel = !IsConst(PC);
-    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);
     T = GetUByte(PC);
     if (dp >= 0)
       {
@@ -612,22 +609,17 @@ switch (M)                              /* which mode is this ?              */
 
   case _bi:                             /* Bit Manipulation index            */
     T = GetUByte(PC);
-    lbl = FindLabel(PC, Const);
-    if (lbl)
-      lbl->SetUsed();
+    SetDefLabelUsed(PC);
     PC++;
     PC = IndexParse(MI, PC);
     break;
 
   case _be:                             /* Bit Manipulation extended         */
-    lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
-    if (lbl)
-      lbl->SetUsed();
+    SetDefLabelUsed(PC, bus);           /* the bit part                      */
     PC++;
     bSetLabel = !IsConst(PC);
-    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);
     SetCellSize(PC, 2);
     if (bSetLabel)
       {
@@ -638,13 +630,9 @@ switch (M)                              /* which mode is this ?              */
     break;
     
   case _bt:                             /* Bit Transfers direct              */
-    lbl = FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
+    SetDefLabelUsed(PC, bus);
     PC++;
-    lbl = FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
+    SetDefLabelUsed(PC, bus);
     PC++;
     break;
 
@@ -656,9 +644,7 @@ switch (M)                              /* which mode is this ?              */
     break;
     
   case _iml:                            /* immediate 32-bit                  */
-    lbl = FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
+    SetDefLabelUsed(PC, bus);
     SetCellSize(PC, 4);                 /* make sure to get full data        */
     PC += 4;
     break;
