@@ -379,6 +379,7 @@ class AddrTextArray : public TAddrTypeArray<AddrText>
 class Label : public AddrText
   {
   public:
+
     Label(addr_t addr = 0, MemoryType memType = Code, string sLabel = "", bool bUsed = false)
       : AddrText(addr, memType, sLabel), bUsed(bUsed)
       { }
@@ -388,7 +389,36 @@ class Label : public AddrText
   public:
     // Flag whether it is used
     bool IsUsed() { return bUsed; }
-    bool SetUsed(bool bSet = true) { bUsed = bSet; return bSet; }
+    bool SetUsed(bool bSet = true, addr_t ref = NO_ADDRESS, int bus = BusCode)
+      {
+      bUsed = bSet;
+      if (ref != NO_ADDRESS)
+        AddRef(ref, bus);
+      return bSet;
+      }
+
+    bool AddRef(addr_t addr, int bus = BusCode)
+      {
+      try
+        {
+        refs.push_back(AddrBus(addr, bus));
+        }
+      catch(...)
+        {
+        return false;
+        }
+      return true;
+      }
+    size_t RefCount() { return refs.size(); }
+    AddrBus &GetRef(size_t index) { return refs[index]; }
+    addr_t GetRefAddr(size_t index) { return refs[index].addr; }
+    int GetRefBus(size_t index) { return refs[index].bus; }
+    void SortRefs()
+      {
+      AddrBusComp sortfunc;
+      if (refs.size() > 1)
+        sort(refs.begin(), refs.end(), sortfunc);
+      }
   
     void CopyUnset(const Label &other)
       {
@@ -398,6 +428,7 @@ class Label : public AddrText
 
   protected:
     bool bUsed;
+    vector<AddrBus> refs;
 
   };
 
