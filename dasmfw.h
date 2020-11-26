@@ -57,7 +57,7 @@ using namespace std;
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.11"
+#define DASMFW_VERSION  "0.13"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t caddr_t;               /* container for maximal code address*/
