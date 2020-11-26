@@ -196,6 +196,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Dasm68HC11.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\DasmAvr8.cpp"
 				>
 			</File>
@@ -239,6 +243,10 @@
 			</File>
 			<File
 				RelativePath=".\Dasm6809.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Dasm68HC11.h"
 				>
 			</File>
 			<File
