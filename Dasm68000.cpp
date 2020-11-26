@@ -1616,7 +1616,7 @@ else if (flags & 0xff)                  /* if not byte-sized                 */
     sparm += s;                         /* append the byte's representation  */
     }
   }
-else                                    /* if FCB (hex or binary)            */
+else                                    /* if DC (hex or binary)             */
   {
   smnemo = opcodes[_dc].mne + sExtByte;
                                         /* assemble as many as possible      */

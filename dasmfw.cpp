@@ -2315,7 +2315,7 @@ printf("RMB addr[-addr]\n"
        "UNSIGNED addr[-addr] (data is unsigned integer)\n"
        "FLOAT addr[-addr] (data is 32bit floating point)\n"
        "DOUBLE addr[-addr] (data is 64bit floating point)\n"
-       "TENBYTES addr[-addr] (data is 80bir floating point)\n"
+       "TENBYTES addr[-addr] (data is 80bit floating point)\n"
 
        "BREAK from[-to]\n"
        "UNBREAK from[-to]\n"
