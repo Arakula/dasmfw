@@ -108,6 +108,7 @@ class Dasm6800 :
     virtual string Address2String(addr_t addr, int bus = BusCode)
       { return sformat("$%04X", addr); }
     virtual addr_t FetchInstructionDetails(addr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, string *smnemo = NULL);
+    virtual string GetIx8IndexReg(uint8_t O) { return ",X"; }
 
   protected:
     // 6800 addressing modes

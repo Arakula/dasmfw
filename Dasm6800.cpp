@@ -959,7 +959,7 @@ switch (M)                              /* which mode is this?               */
     smnemo = "FCB";
     lbl = FindLabel(PC, Const, bus);
     sparm = lbl ? lbl->GetText() : Number2String(O, 2, PC);
-    PC++;
+    PC = addr + 1;
     break;
 
   case _imp:                            /* inherent/implied                  */
@@ -1028,14 +1028,14 @@ switch (M)                              /* which mode is this?               */
       {
       W = (int)((unsigned char)T) + (uint16_t)Wrel;
       sparm = Label2String((addr_t)((int)((unsigned char)T)), 4,
-                           bGetLabel, PC) + ",X";
+                           bGetLabel, PC) + GetIx8IndexReg(O);
       }
     else if (lbl)
-      sparm = lbl->GetText() + ",X";
+      sparm = lbl->GetText() + GetIx8IndexReg(O);
     else if (!T && !showIndexedModeZeroOperand)
-      sparm = ",X";   /* omit '$00', unless the user has set the 'showzero' option */
+      sparm = GetIx8IndexReg(O); /* omit '$00', unless the user has set the 'showzero' option */
     else
-      sparm = Number2String(T, 2, PC) + ",X";
+      sparm = Number2String(T, 2, PC) + GetIx8IndexReg(O);
     PC++;
     break;
 
