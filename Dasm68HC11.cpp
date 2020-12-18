@@ -700,10 +700,14 @@ switch (M)                              /* which mode is this?               */
     else
       {
       int nDiff = (int)(int8_t)T;
+      nDiff += (PC - addr);
       stgt = "*";
-      if (nDiff >= 0 || lbl)
-        stgt += "+";
-      stgt += lbl ? lbl->GetText() : SignedNumber2String(nDiff + 2, 2, PC - 1);
+      if (nDiff)
+        {
+        if (nDiff >= 0 || lbl)
+          stgt += "+";
+        stgt += lbl ? lbl->GetText() : SignedNumber2String(nDiff, 2, PC - 1);
+        }
       }
     sparm = sformat("%s %s %s",
                     slbl.c_str(),
@@ -748,10 +752,14 @@ switch (M)                              /* which mode is this?               */
     else
       {
       int nDiff = (int)(int8_t)T;
+      nDiff += (PC - addr);
       stgt = "*";
-      if (nDiff >= 0 || lbl)
-        stgt += "+";
-      stgt += lbl ? lbl->GetText() : SignedNumber2String(nDiff + 2, 2, PC - 1);
+      if (nDiff)
+        {
+        if (nDiff >= 0 || lbl)
+          stgt += "+";
+        stgt += lbl ? lbl->GetText() : SignedNumber2String(nDiff, 2, PC - 1);
+        }
       }
     sparm = sformat("%s %s %s",
                     slbl.c_str(),
