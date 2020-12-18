@@ -129,10 +129,10 @@ template<class T, class TType = uint8_t>
                   newEnd = nextEnd;
                   newSize = newEnd - newStart + 1;
                   i->resize(newSize);
-                  for (addr_t j = nextStart; j <= nextEnd; j++)
-                    i->at(j) = (i + 1)->at(j);
-                  erase(i + 1);
                   }
+                for (addr_t j = nextStart; j <= nextEnd; j++)
+                  i->at(j) = (i + 1)->at(j);
+                erase(i + 1);
                 }
               // if inserted before current start, some shuffling is needed
               if (newStart != curStart)
