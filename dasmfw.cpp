@@ -928,7 +928,7 @@ return nLen > 0;
 /* ParseInfoRange : parses a range definition from an info file              */
 /*****************************************************************************/
 
-int Application::ParseInfoRange(string value, addr_t &from, addr_t &to)
+int Application::ParseInfoRange(string value, addr_t &from, addr_t &to, bool remapped)
 {
 int n = pDasm ? pDasm->String2Range(value, from, to) : 0;
 if (n < 1)
@@ -936,7 +936,7 @@ if (n < 1)
 if (from != NO_ADDRESS)
   {
   addr_t *pmap = remaps[infoBus].getat(from);
-  if (pmap) from += *pmap;
+  if (pmap && remapped) from += *pmap;
   if (from < pDasm->GetLowestBusAddr(infoBus) ||
       from > pDasm->GetHighestBusAddr(infoBus))
     {
@@ -949,7 +949,7 @@ if (n < 2)
 else if (to != NO_ADDRESS)
   {
   addr_t *pmap = remaps[infoBus].getat(to);
-  if (pmap) to += *pmap;
+  if (pmap && remapped) to += *pmap;
   if (to < from ||
       to < pDasm->GetLowestBusAddr(infoBus) ||
       to > pDasm->GetHighestBusAddr(infoBus))
@@ -1054,6 +1054,7 @@ enum InfoCmd
   infoDVector,                          /* DVEC[TOR] addr[-addr]             */
   infoRMB,                              /* RMB addr[-addr]                   */
   infoUnused,                           /* UNUSED addr[-addr]                */
+  infoUsed,                             /* FORCE[USED] addr[-addr]           */
   // cell sizes
   infoByte,                             /* BYTE addr[-addr]                  */
   infoWord,                             /* WORD addr[-addr]                  */
@@ -1089,6 +1090,7 @@ enum InfoCmd
   infoOption,                           /* OPTION name data                  */
   infoFile,                             /* FILE filename [offset]            */
   infoRemap,                            /* REMAP addr[-addr] offs            */
+  infoUnRemap,                          /* UNREMAP addr[-addr] offs          */
   // comment handling
   infoComment,                          /* COMMENT addr[-addr] comment       */
   infoPrepComm,                         /* PREPCOMM [addr[-addr]] comment    */
@@ -1127,6 +1129,8 @@ static struct                           /* structure to convert key to type  */
   { "RMB",          infoRMB },
   { "BSS",          infoRMB },
   { "UNUSED",       infoUnused },
+  { "FORCE",        infoUsed },
+  { "FORCEUSED",    infoUsed },
   // cell sizes
   { "BYTE",         infoByte },
   { "WORD",         infoWord },
@@ -1171,6 +1175,7 @@ static struct                           /* structure to convert key to type  */
   { "OPTION",       infoOption },
   { "FILE",         infoFile },
   { "REMAP",        infoRemap },
+  { "UNREMAP",      infoUnRemap },
   // comment handling
   { "COMMENT",      infoComment },
   { "COMM",         infoComment },
@@ -1344,6 +1349,7 @@ do
         }
         break;
       case infoRemap :                  /* REMAP addr[-addr] offset          */
+      case infoUnRemap :                /* UNREMAP addr[-addr]               */
         {
         string range;
         idx = value.find_first_of(" \t");
@@ -1351,15 +1357,20 @@ do
         range = value.substr(0, idx);
         value = trim(value.substr(idx));
         addr_t from, to, off;
-        // allow remapped remaps :-)
-        if (ParseInfoRange(range, from, to) >= 1 &&
-            pDasm->String2Number(value, off))
+        // allow remapped remaps - but don't remap the remap range :-)
+        if (ParseInfoRange(range, from, to, false) >= 1 &&
+            (cmdType == infoUnRemap || pDasm->String2Number(value, off)))
           {
           remaps[infoBus].AddMemory(from, to + 1 - from);
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned++)
-            *remaps[infoBus].getat(scanned) += off;
+            {
+            if (cmdType == infoRemap)
+              *remaps[infoBus].getat(scanned) += off;
+            else
+              *remaps[infoBus].getat(scanned) = 0;
+            }
           }
         }
         break;
@@ -1371,6 +1382,7 @@ do
       case infoDVector :                /* DVEC[TOR] addr[-addr]             */
       case infoRMB :                    /* RMB addr[-addr]                   */
       case infoUnused :                 /* UNUSED addr[-addr]                */
+      case infoUsed :                   /* FORCE[USED] addr[-addr]           */
       // cell sizes
       case infoByte :                   /* BYTE addr[-addr]                  */
       case infoWord :                   /* WORD addr[-addr]                  */
@@ -1395,13 +1407,16 @@ do
         addr_t from, to, tgtaddr;
         if (ParseInfoRange(value, from, to) >= 1)
           {
+          // if forcing an area into use, allocate untyped memory for it
+          if (cmdType == infoUsed)
+            pDasm->AddMemory(from, to - from + 1, Untyped, NULL, infoBus);
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned++)
             {
             MemoryType ty = pDasm->GetMemType(scanned, infoBus);
             int sz;
-            if (ty != Untyped)
+            if (ty != Untyped || cmdType == infoUsed)
               {
               switch (cmdType)
                 {
@@ -1440,6 +1455,9 @@ do
                     }
 #endif
                   pDasm->SetMemType(scanned, Bss, infoBus);
+                  break;
+                case infoUsed :
+                  pDasm->SetCellUsed(scanned, true, infoBus);
                   break;
                 case infoUnused :
                   {
@@ -2335,6 +2353,7 @@ printf("RMB addr[-addr]\n"
        "OPTION option value (like command line option, without leading -)\n"
        "FILE filename [baseaddr]\n"
        "REMAP addr[-addr] offset\n"
+       "UNREMAP addr[-addr]\n"
 
        "COMMENT [AFTER] addr[-addr] embedded comment line\n"
        "PREPCOMM [AFTER] [addr[-addr]] comment text to be prepended to the output\n"
