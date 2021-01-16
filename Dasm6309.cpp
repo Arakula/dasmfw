@@ -575,11 +575,10 @@ uint8_t O, T, M;
 uint16_t W;
 int MI;
 const char *I;
-addr_t PC = addr;
 bool bSetLabel;
 addr_t dp = GetDirectPage(addr);
+addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
 
-PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
 #if 1
 // speed up things a bit by checking here (would be done in 6809 anyway)
 if ((T == _swi2) && os9Patch)
@@ -601,7 +600,7 @@ switch (M)                              /* which mode is this ?              */
       if (bSetLabel)
         {
         W = (uint16_t)PhaseInner(W, PC);
-        AddLabel(W, mnemo[MI].memType, "", true);
+        AddRelativeLabel(W, PC, mnemo[MI].memType, true);
         }
       }
     PC++;
@@ -624,8 +623,10 @@ switch (M)                              /* which mode is this ?              */
     if (bSetLabel)
       {
       W = (uint16_t)PhaseInner(GetUWord(PC), PC);
-      AddLabel(W, mnemo[MI].memType, "", true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true);
       }
+    else
+      SetDefLabelUsed(PC, bus);
     PC += 2;
     break;
     
@@ -711,12 +712,11 @@ uint8_t O, T, M;
 uint16_t W;
 int MI;
 const char *I;
-addr_t PC = addr;
 bool bGetLabel;
 addr_t dp = GetDirectPage(addr);
 Label *lbl;
+addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
 
-PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
 #if 1
 // speed up things a bit by checking here (would be done in 6809 anyway)
 if ((T == _swi2) && os9Patch)
@@ -749,7 +749,8 @@ switch (M)                              /* which mode is this?               */
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC - 1);
-      string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+      string slbl = GetForcedAddr(PC) ? "<" : "";
+      slbl += lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
       sparm = sformat("#%s,%s",
                       snum.c_str(),
                       slbl.c_str());
@@ -790,7 +791,7 @@ switch (M)                              /* which mode is this?               */
     string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
     if ((dp != NO_ADDRESS) &&
         ((W & (uint16_t)0xff00) == (uint16_t)dp) &&
-        (forceExtendedAddr))
+        (forceExtendedAddr || GetForcedAddr(PC)))
       sparm = sformat("#%s,>%s",
                       snum.c_str(),
                       slbl.c_str());
@@ -815,7 +816,7 @@ switch (M)                              /* which mode is this?               */
                     bit_r[M >> 6],
                     (M >> 3) & 7,
                     snum.c_str(),
-                    forceDirectAddr ? "<" : "",
+                    (forceDirectAddr || GetForcedAddr(PC)) ? "<" : "",
                     slbl.c_str());
     PC++;
     }

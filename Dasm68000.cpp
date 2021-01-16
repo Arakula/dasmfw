@@ -674,14 +674,11 @@ SetLabelUsed(addr, Const, NO_ADDRESS, bus);
 
 // TODO: complete this!
 int csz = GetCellSize(addr);
-if (csz == 2)                           /* if WORD data                      */
+if (!IsConst(addr))
   {
-  if (!IsConst(addr))
+  if (csz == 2)                         /* if WORD data                      */
     SetLabelUsed(GetUWord(addr), Code, addr);
-  }
-else if (csz == 4)                      /* if DWORD data                     */
-  {
-  if (!IsConst(addr))
+  else if (csz == 4)                    /* if DWORD data                     */
     SetLabelUsed(GetUDWord(addr), Code, addr);
   }
 return csz;
@@ -915,7 +912,7 @@ switch(mode)
           {
           SetLabelUsed((uint16_t)short_adr, mt, instaddr);
           a1 = PhaseInner((uint16_t)short_adr, instaddr);
-          AddLabel(a1, mt, "", true);
+          AddRelativeLabel(a1, addr, mt, true);
           }
         addr += 2;
         break;
@@ -924,11 +921,10 @@ switch(mode)
         SetCellSize(addr, 4);
         if (!IsConst(addr))
           SetLabelUsed(a1, mt, instaddr);
-        addr += 4;
-      AddInner:
         a1 = PhaseInner(a1, instaddr);
         if ((addr_t)a1 <= GetHighestCodeAddr())
-          AddLabel(a1, mt, "", true);
+          AddRelativeLabel(a1, addr, mt, true);
+        addr += 4;
         break;
       case 2:	/*	program counter with displacement	*/
         displacement = GetSWord(addr);
@@ -937,8 +933,11 @@ switch(mode)
         // sprintf(s,"$%lx(PC)",a1);
         if (!IsConst(addr))
           SetLabelUsed(a1, mt, instaddr);
+        a1 = PhaseInner(a1, instaddr);
+        if ((addr_t)a1 <= GetHighestCodeAddr())
+          AddRelativeLabel(a1, addr, mt, true);
         addr += 2;
-        goto AddInner;
+        break;
       case 3:
         displacement = GetUWord(addr);
         a1 = (int32_t)addr + (char)(displacement & 0xff);
@@ -1246,9 +1245,9 @@ int16_t displacement = GetSWord(addr);
 int32_t dest = (int32_t)addr + displacement;
 if (!IsConst(addr))
   SetLabelUsed(dest, Code, instaddr);
+dest = PhaseInner(dest, addr - 2);
+AddRelativeLabel(dest, addr, mnemo[OpTable[optable_index].mnemo].memType, true);
 addr += 2;
-dest = PhaseInner(dest, addr - 4);
-AddLabel(dest, mnemo[OpTable[optable_index].mnemo].memType, "", true);
 
 // sparm = sformat("%s,$%lx", GetDataReg(reg), dest);
 return addr;

@@ -529,10 +529,8 @@ uint8_t O, T, M;
 uint16_t W;
 int MI;
 const char *I;
-addr_t PC = addr;
 bool bSetLabel;
-
-PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
+addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
 
 switch (M)                              /* which mode is this ?              */
   {
@@ -544,11 +542,13 @@ switch (M)                              /* which mode is this ?              */
       {
       W = GetUByte(PC);
       W = (uint16_t)PhaseInner(W, PC);
-      AddLabel(W, mnemo[MI].memType, "", true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true);
       }
     PC++;
+    bSetLabel = !IsConst(PC);
     T = GetUByte(PC);
-    SetDefLabelUsed(PC, bus);           /* the bit part                      */
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);         /* the bit part                      */
     PC++;
     break;
   case _bi :                            /* Bit Manipulation indexed          */
@@ -556,7 +556,9 @@ switch (M)                              /* which mode is this ?              */
     if (!bSetLabel)
       SetDefLabelUsed(PC, bus);
     PC++;
-    SetDefLabelUsed(PC, bus);           /* the bit part                      */
+    bSetLabel = !IsConst(PC);
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);         /* the bit part                      */
     PC++;
     break;
   case _bbd :                           /* branch bitmask direct             */
@@ -567,34 +569,46 @@ switch (M)                              /* which mode is this ?              */
       {
       W = GetUByte(PC);
       W = (uint16_t)PhaseInner(W, PC);
-      AddLabel(W, Data, "", true);
+      AddRelativeLabel(W, PC, Data, true);
       }
     PC++;
+    bSetLabel = !IsConst(PC);
     T = GetUByte(PC);
-    SetDefLabelUsed(PC, bus);           /* the bit part                      */
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);         /* the bit part                      */
     PC++;
-    T = GetUByte(PC); PC++;
-    W = (uint16_t)(PC + (signed char)T);
+    bSetLabel = !IsConst(PC);
+    T = GetUByte(PC);
+    W = (uint16_t)(PC + 1 + (signed char)T);
     if (bSetLabel)
       {
-      W = (uint16_t)DephaseOuter(W, PC - 1);
+      W = (uint16_t)DephaseOuter(W, PC);
       AddLabel(W, mnemo[MI].memType, "", true);
       }
+    else
+      SetDefLabelUsed(PC, bus);
+    PC++;
     break;
   case _bbi :                           /* branch bitmask indexed            */
     bSetLabel = !IsConst(PC);
     if (!bSetLabel)
       SetDefLabelUsed(PC, bus);
     PC++;
-    SetDefLabelUsed(PC, bus);           /* the bit part                      */
+    bSetLabel = !IsConst(PC);
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);         /* the bit part                      */
     PC++;
-    T = GetUByte(PC); PC++;
-    W = (uint16_t)(PC + (signed char)T);
+    bSetLabel = !IsConst(PC);
+    T = GetUByte(PC);
+    W = (uint16_t)(PC + 1 + (signed char)T);
     if (bSetLabel)
       {
-      W = (uint16_t)DephaseOuter(W, PC - 1);
+      W = (uint16_t)DephaseOuter(W, PC);
       AddLabel(W, mnemo[MI].memType, "", true);
       }
+    else
+      SetDefLabelUsed(PC, bus);
+    PC++;
     break;
   default :                             /* anything else is handled by base  */
     return Dasm6801::ParseCode(addr, bus);
@@ -619,11 +633,9 @@ uint16_t W;
 addr_t Wrel;
 int MI;
 const char *I;
-addr_t PC = addr;
 bool bGetLabel;
 Label *lbl;
-
-PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
+addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
 
 switch (M)                              /* which mode is this?               */
   {

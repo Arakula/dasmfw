@@ -47,6 +47,8 @@ class MemAttributeHandler
     virtual void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay) = 0;
     virtual bool GetBreakBefore(addr_t addr) = 0;
     virtual void SetBreakBefore(addr_t addr, bool bOn = true) = 0;
+    virtual bool GetForcedAddr(addr_t addr) = 0;
+    virtual void SetForcedAddr(addr_t addr, bool bOn = true) = 0;
     virtual uint32_t GetDisassemblyFlags(addr_t addr, uint8_t mem, Label *plbl) = 0;
     // basic access
     virtual size_t size() = 0;
@@ -106,6 +108,10 @@ class BasicMemAttributeHandler : public MemAttributeHandler
       { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->GetBreakBefore() : false; }
     virtual void SetBreakBefore(addr_t addr, bool bOn = true)
       { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetBreakBefore(bOn); }
+    virtual bool GetForcedAddr(addr_t addr)
+      { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->GetForcedAddr() : false; }
+    virtual void SetForcedAddr(addr_t addr, bool bOn = true)
+      { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetForcedAddr(bOn); }
     virtual uint32_t GetDisassemblyFlags(addr_t addr, uint8_t mem, Label *plbl)
       { return GetBasicDisassemblyFlags(attr.getat(addr), mem, plbl); }
     // basic access
@@ -242,6 +248,7 @@ class Disassembler
       };
     vector<OptionHandler *> options;
     bool AddOption(string name, string help, PSetter setter, PGetter getter);
+    bool RemoveOption(string name);
     // 
     int DisassemblerSetOption(string lname, string value);
     string DisassemblerGetOption(string lname);
@@ -406,11 +413,15 @@ class Disassembler
       { return memattr[bus] ? memattr[bus]->GetBreakBefore(addr) : false; }
     void SetBreakBefore(addr_t addr, bool bOn = true, int bus = BusCode)
       { if (memattr[bus]) memattr[bus]->SetBreakBefore(addr, bOn); }
+    bool GetForcedAddr(addr_t addr, int bus = BusCode)
+      { return memattr[bus] ? memattr[bus]->GetForcedAddr(addr) : false; }
+    void SetForcedAddr(addr_t addr, bool bOn = true, int bus = BusCode)
+      { if (memattr[bus]) memattr[bus]->SetForcedAddr(addr, bOn); }
     // get/set default cell display format
     MemAttribute::Display GetDisplay() { return defaultDisplay; }
     void SetDisplay(MemAttribute::Display newDisp) { defaultDisplay = newDisp; }
     // Get Flags for disassembly of data areas
-    uint32_t GetDisassemblyFlags(addr_t addr, int bus = BusCode)
+    virtual uint32_t GetDisassemblyFlags(addr_t addr, int bus = BusCode)
       {
       uint8_t *mem = getat(addr, bus);
       if (!mem) return 0;
@@ -510,6 +521,7 @@ class Disassembler
   // Label handling
   public:
     bool AddLabel(addr_t addr, MemoryType memType = Code, string sLabel = "", bool bUsed = false, int bus = BusCode);
+    bool AddRelativeLabel(addr_t addr, addr_t at, MemoryType memType = Code, bool bUsed = false, int bus = BusCode);
     Label *GetFirstLabel(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, int bus = BusCode)
       { return Labels[bus].GetFirst(addr, it, memType); }
     Label *GetNextLabel(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, int bus = BusCode)
@@ -840,6 +852,7 @@ class Disassembler
       int bits = busbits[bus];
       return sformat("%s%0*X", cType, (bits + 3) / 4, addr);
       }
+    virtual bool IsForwardRef(addr_t value, bool bUseLabel, addr_t addr, int bus = BusCode);
 
   protected:
     static const Endian prgEndian;

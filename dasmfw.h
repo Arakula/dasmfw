@@ -57,7 +57,7 @@ using namespace std;
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.14"
+#define DASMFW_VERSION  "0.16"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t caddr_t;               /* container for maximal code address*/
@@ -291,6 +291,7 @@ protected:
 
   bool abortHelp;                       /* abort after help has been given   */
   int infoBus;                          /* current info file bus selection   */
+  bool showLogo;                        /* show logo in output file          */
   bool showHex;                         /* flag for hex data display         */
   bool showAddr;                        /* flag for address display          */
   bool showAsc;                         /* flag for ASCII content display    */

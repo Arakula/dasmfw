@@ -110,6 +110,10 @@ public:
       { MemAttributeAvr8 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetBreakBefore() : false; }
     virtual void SetBreakBefore(addr_t addr, bool bOn = true)
       { MemAttributeAvr8 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetBreakBefore(bOn); }
+    virtual bool GetForcedAddr(addr_t addr)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetForcedAddr() : false; }
+    virtual void SetForcedAddr(addr_t addr, bool bOn = true)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetForcedAddr(bOn); }
     virtual uint32_t GetDisassemblyFlags(addr_t addr, uint8_t mem, Label *plbl)
       { return GetBasicDisassemblyFlags(attr.getat(addr), mem, plbl); }
     // basic access

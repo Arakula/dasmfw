@@ -45,3 +45,5 @@ v0.11 2017-07-21 68000 disassembler added
 v0.12 2020-11-07 CREF option added
 v0.13 2020-11-24 Motorola 68HC11 disassembler added
 v0.14 2020-12-18 FORCE[USED] directive added
+v0.15 2020-12-28 dplabel directive added to 6800-based disassemblers
+v0.16 2021-01-15 FORCEADDR and NOFORCEADDR directive added

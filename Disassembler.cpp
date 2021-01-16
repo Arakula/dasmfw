@@ -303,6 +303,20 @@ return -1;
 }
 
 /*****************************************************************************/
+/* RemoveOption : removes an option if it's there                            */
+/*****************************************************************************/
+
+bool Disassembler::RemoveOption(string name)
+{
+int i = FindOption(name);
+if (i < 0)
+  return false;
+
+options.erase(options.begin() + i);
+return true;
+}
+
+/*****************************************************************************/
 /* SetOption : sets a disassembler option                                    */
 /*****************************************************************************/
 
@@ -447,6 +461,55 @@ return oval;
 }
 
 /*****************************************************************************/
+/* IsForwardRef : returns whether label at given address is a forward ref    */
+/*****************************************************************************/
+
+bool Disassembler::IsForwardRef
+    (
+    addr_t value,
+    bool bUseLabel,
+    addr_t addr,
+    int bus
+    )
+{
+// if not using labels, it can be a deflabel at best, and these are always
+// output before the code 
+if (!bUseLabel)
+  return false;
+
+bool bForwardRef = false;
+addr_t relative = GetRelative(addr, bus);
+Label *pLbl;
+MemoryType lblType;
+if (relative)
+  {
+  pLbl = FindLabel(relative, Untyped, bus);
+  lblType = pLbl ? pLbl->GetType() : Untyped;
+  bForwardRef |= 
+    ((lblType == Code || lblType == Data || lblType == Bss) &&
+     relative >= addr);
+  }
+addr_t Wrel = (value + relative);
+addr_t hiaddr = GetHighestBusAddr(bus) + 1;
+addr_t WrelMod = (hiaddr) ? Wrel % hiaddr : Wrel;
+pLbl = FindLabel(Wrel, Untyped, bus);
+lblType = pLbl ? pLbl->GetType() : Untyped;
+bForwardRef |= 
+  ((lblType == Code || lblType == Data || lblType == Bss) &&
+   Wrel >= addr);
+if (!pLbl && Wrel != WrelMod)
+  {
+  pLbl = FindLabel(WrelMod, Untyped, bus);
+  lblType = pLbl ? pLbl->GetType() : Untyped;
+  bForwardRef |= 
+    ((lblType == Code || lblType == Data || lblType == Bss) &&
+     WrelMod >= addr);
+  }
+
+return bForwardRef;
+}
+
+/*****************************************************************************/
 /* Label2String : converts a value to a (label) string                       */
 /*****************************************************************************/
 
@@ -468,13 +531,20 @@ addr_t WrelMod = (hiaddr) ? Wrel % hiaddr : Wrel;
 
 // NB: this always uses the LAST found label for this address.
 // There's no way to find out which should be used for multiples.
-Label *pLbl = (bUseLabel) ? FindLabel(Wrel, Untyped, bus) : NULL;
-string sLabel;
+Label *pLbl = NULL;
+if (bUseLabel)
+  {
+  pLbl = FindLabel(Wrel, Untyped, bus);
+  if (!pLbl && Wrel != WrelMod)
+    pLbl = FindLabel(WrelMod, Untyped, bus);
+  }
 // DefLabel is independent of bUseLabel and is used if no normal label is there
 #if 1
 if (!pLbl)
   pLbl = FindLabel(WrelMod, Const, bus);
 #endif
+
+string sLabel;
 if (pLbl)                               /* get label name                    */
   sLabel = pLbl->GetText();
 MemoryType memType = pLbl ? pLbl->GetType() : Untyped;
@@ -612,6 +682,32 @@ Labels[bus].insert(new Label(addr, memType, sLabel, bUsed),
                    true,
                    (memType == Const));
 return true;
+}
+
+/*****************************************************************************/
+/* AddRelativeLabel : add label for addr OR the relative addresses           */
+/*****************************************************************************/
+
+bool Disassembler::AddRelativeLabel
+    (
+    addr_t addr,
+    addr_t at,
+    MemoryType memType,
+    bool bUsed,
+    int bus
+    )
+{
+addr_t relative = GetRelative(at, bus);
+addr_t addrRel = addr + relative;
+addr_t hiaddr = GetHighestBusAddr(bus) + 1;
+addr_t addrRelMod = (hiaddr) ? addrRel % hiaddr : addrRel;
+if (addrRelMod != addr)
+  {
+  AddLabel(relative, memType, "", true);
+  return AddLabel(addrRelMod, memType, "", true);
+  }
+else
+  return AddLabel(addr, memType, "", true);
 }
 
 /*****************************************************************************/

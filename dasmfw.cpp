@@ -216,8 +216,7 @@ return s.substr(from, s.find_last_not_of(" ") - from + 1);
 int main(int argc, char* argv[])
 {
 // let's go object-oriented, shall we? :-)
-Application app(argc, argv);
-return app.Run();
+return Application(argc, argv).Run();
 }
 
 
@@ -238,6 +237,7 @@ pDasm = NULL;                           /* selected disassembler             */
 iDasm = -1;                             /* index of selected disassembler    */
 abortHelp = false;                      /* abort after help has been given   */
 infoBus = BusCode;                      /* start with code bus               */
+showLogo = true;                        /* show logo in output file          */
 showHex = true;                         /* flag for hex data display         */
 showAddr = true;                        /* flag for address display          */
 showComments = true;                    /* flag for comment display          */
@@ -268,8 +268,6 @@ if (idx != sDasmName.npos)
 // if the name might be "dasm"+code, try to use this disassembler
 if (lowercase(sDasmName.substr(0, 4)) == "dasm")
   pDasm = CreateDisassembler(sDasmName.substr(4), &iDasm);
-
-printf("%s: Disassembler Framework V%s\n", sDasmName.c_str(), DASMFW_VERSION);
 }
 
 /*****************************************************************************/
@@ -287,7 +285,10 @@ Application::~Application()
 int Application::Run()
 {
 if (argc < 2)                           /* if no arguments given, give help  */
+  {
+  printf("%s: Disassembler Framework V%s\n", sDasmName.c_str(), DASMFW_VERSION);
   return Help();                        /* and exit                          */
+  }
 
 string defnfo[2];                       /* global / user default info files  */
 #ifdef _MSC_VER
@@ -312,7 +313,10 @@ for (i = 0; i < _countof(defnfo); i++)
     ParseOption("info", defnfo[i], true, false);
 ParseOptions(argc, argv, true);
 if (!pDasm)                             /* disassembler must be loaded now   */
+  {
+  printf("%s: Disassembler Framework V%s\n", sDasmName.c_str(), DASMFW_VERSION);
   return Help();                        /* if not, display help & exit       */
+  }
 
 remaps.resize(pDasm->GetBusCount());    /* set up all arrays                 */
 comments[0].resize(pDasm->GetBusCount());
@@ -324,6 +328,9 @@ for (i = 0; i < _countof(defnfo); i++)  /* for data & info files to load     */
   if (!defnfo[i].empty())
     ParseOption("info", defnfo[i], false, false);
 ParseOptions(argc, argv, false);
+
+if (showLogo)
+  printf("%s: Disassembler Framework V%s\n", sDasmName.c_str(), DASMFW_VERSION);
 
 if (abortHelp)                          /* help has been given, so end it    */
   return 1;
@@ -363,7 +370,7 @@ while (sComHdr.size() < 53)
 out = outname.size() ? fopen(outname.c_str(), "w") : stdout;
 if (out == NULL)
   out = stdout;
-if (out != stdout)                      /* if output goes to file            */
+if (out != stdout && showLogo)          /* if output goes to file            */
   {                                     /* write header details              */
   PrintLine(sComDel +
             sformat(" %s: Disassembler Framework V" DASMFW_VERSION,
@@ -496,12 +503,14 @@ for (int i = 0;                         /* load file(s) given on commandline */
     if (nInterleave != 1)
       saFNames[i] += sformat(" (interleave=%d)", nInterleave);
 #ifndef _DEBUG
-    printf("%s\n", saFNames[i].c_str());
+    if (showLogo)
+      printf("%s\n", saFNames[i].c_str());
 #endif
     bAllOK &= bOK;
     }
 #ifdef _DEBUG
-  printf("%s\n", saFNames[i].c_str());
+  if (showLogo)
+    printf("%s\n", saFNames[i].c_str());
 #endif
   }
 
@@ -526,7 +535,8 @@ for (int i = 0;
   saINames[i] = sformat("%soaded: Info file \"%s\"",
                          bOK ? "L" : "NOT l",
                          saINames[i].c_str());
-  printf("%s\n", saINames[i].c_str());
+  if (showLogo)
+    printf("%s\n", saINames[i].c_str());
   bAllOK &= bOK;
   }
 
@@ -1073,6 +1083,9 @@ enum InfoCmd
   // break before cell
   infoBreak,                            /* BREAK addr[-addr]                 */
   infoUnBreak,                          /* UNBREAK addr[-addr]               */
+  // forced addressing
+  infoForceAddr,                        /* FORCEADDR addr[-addr]             */
+  infoUnForceAddr,                      /* UNFORCEADDR addr[-addr]           */
   // relative address
   infoRelative,                         /* RELATIVE addr[-addr] rel          */
   infoUnRelative,                       /* UNRELATIVE addr[-addr]            */
@@ -1155,6 +1168,9 @@ static struct                           /* structure to convert key to type  */
   // break before cell
   { "BREAK",        infoBreak },
   { "UNBREAK",      infoUnBreak },
+  // forced addressing
+  { "FORCEADDR",    infoForceAddr },
+  { "UNFORCEADDR",  infoUnForceAddr },
   // relative address
   { "RELATIVE",     infoRelative },
   { "REL",          infoRelative },
@@ -1403,6 +1419,9 @@ do
       // break before
       case infoBreak :                  /* BREAK addr[-addr]                 */
       case infoUnBreak:                 /* UNBREAK addr[-addr]               */
+      // forced addressing
+      case infoForceAddr :              /* FORCEADDR addr[-addr]             */
+      case infoUnForceAddr :            /* UNFORCEADDR addr[-addr]           */
         {
         addr_t from, to, tgtaddr;
         if (ParseInfoRange(value, from, to) >= 1)
@@ -1520,6 +1539,12 @@ do
                   break;
                 case infoUnBreak:
                   pDasm->SetBreakBefore(scanned, false, infoBus);
+                  break;
+                case infoForceAddr :
+                  pDasm->SetForcedAddr(scanned, true, infoBus);
+                  break;
+                case infoUnForceAddr :
+                  pDasm->SetForcedAddr(scanned, false, infoBus);
                   break;
                 case infoCVector :
                   // a code vector defines a table of code pointers
@@ -1922,6 +1947,10 @@ if (bSetDasm)                           /* 1st pass: find only dasm          */
   {
   if (option == "dasm")
     {
+    // argument must be one word; ignore anything beyond that
+    string::size_type idx = lvalue.find_first_of(" \t*");
+    if (idx != string::npos)
+      lvalue = lvalue.substr(0, idx);
     if (pDasm) delete pDasm;            /* use the last one                  */
     pDasm = CreateDisassembler(lvalue, &iDasm);
     if (!pDasm)
@@ -1968,6 +1997,13 @@ else if (option == "bus")
   if (newBus >= 0)
     infoBus = newBus;
   }
+else if (option == "logo")
+  {
+  showLogo = bnValue;
+  return bIsBool ? 1 : 0;
+  }
+else if (option == "nologo")
+  showLogo = false;
 else if (option == "addr")
   {
   showAddr = bnValue;
@@ -2180,6 +2216,7 @@ else
     ListOptionLine("bus", busses, pDasm->GetBusName(BusCode));
     }
   printf("  Output formatting options:\n");
+  ListOptionLine("logo", "{off|on}\toutput logo in file", showLogo ? "on" : "off");
   ListOptionLine("addr", "{off|on}\toutput address dump", showAddr ? "on" : "off");
   ListOptionLine("hex", "{off|on}\toutput hex dump", showHex ? "on" : "off");
   ListOptionLine("asc", "{off|on}\toutput ASCII rendering of code/data", showAsc ? "on" : "off");
@@ -2247,6 +2284,7 @@ printf("Info file contents:\n"
 if (multibus)
   printf("\tBus definition:     BUS {%s}\n", busses.c_str());
 printf("\tunused area:        UNUSED from-to\n"
+       "\tforce used area:    FORCE[USED] from[-to]\n"
        "\treserved area:      RMB from-to\n"
        "\tcode area:          CODE from[-to]\n"
        "\tdata area:          DATA from[-to] (default: hex byte data)\n"
@@ -2319,6 +2357,7 @@ else
          "DVEC[TOR] addr[-addr] (forced data vectors)\n");
 printf("RMB addr[-addr]\n"
        "UNUSED addr[-addr]\n"
+       "FORCE[USED] addr[-addr]\n"
 
        "BYTE addr[-addr] (forced byte data)\n"
        "WORD addr[-addr] (forced word data)\n"
@@ -2337,6 +2376,9 @@ printf("RMB addr[-addr]\n"
 
        "BREAK from[-to]\n"
        "UNBREAK from[-to]\n"
+
+       "FORCEADDR from[-to]\n"
+       "UNFORCEADDR from[-to]\n"
 
        "REL[ATIVE] addr[-addr] baseaddr\n"
        "UNREL[ATIVE] addr[-addr]\n"

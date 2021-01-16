@@ -93,6 +93,15 @@ class Dasm6800 :
     virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode);
     // disassemble instruction at given memory address
     virtual addr_t DisassembleCode(addr_t addr, string &smnemo, string &sparm, int bus = BusCode);
+    // Get Flags for disassembly of data areas
+    virtual uint32_t GetDisassemblyFlags(addr_t addr, int bus = BusCode);
+
+    // Get/Set additional cell information
+    virtual addr_t GetDirectPage(addr_t addr, int bus = BusCode)
+      { return 0; }
+    virtual void SetDirectPage(addr_t addr, addr_t dp, int bus = BusCode)
+      { }
+
   public:
     // Initialize parsing
     virtual bool InitParse(int bus = BusCode);
@@ -250,6 +259,7 @@ class Dasm6800 :
     static char *bit_r[];
     static char *block_r[];
     static OpCode opcodes[mnemo6800_count];
+    addr_t dirpage;
 
     bool useConvenience;
     bool useFCC;
@@ -257,6 +267,7 @@ class Dasm6800 :
     bool closeCC;
     bool forceExtendedAddr;
     bool forceDirectAddr;
+    bool useDPLabels;
   };
 
 

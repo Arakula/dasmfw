@@ -83,6 +83,10 @@ class MemAttribute6809Handler : public MemAttributeHandler
       { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetBreakBefore() : false; }
     virtual void SetBreakBefore(addr_t addr, bool bOn = true)
       { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetBreakBefore(bOn); }
+    virtual bool GetForcedAddr(addr_t addr)
+      { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetForcedAddr() : false; }
+    virtual void SetForcedAddr(addr_t addr, bool bOn = true)
+      { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetForcedAddr(bOn); }
     virtual uint32_t GetDisassemblyFlags(addr_t addr, uint8_t mem, Label *plbl)
       { return GetBasicDisassemblyFlags(attr.getat(addr), mem, plbl); }
     // basic access
@@ -124,17 +128,16 @@ class Dasm6809 : public Dasm6800
     string Get6809Option(string name);
 
     // Get/Set additional cell information
-    addr_t GetDirectPage(addr_t addr, int bus = BusCode)
+    virtual addr_t GetDirectPage(addr_t addr, int bus = BusCode)
       {
       addr_t dp = memattr[bus] ? ((MemAttribute6809Handler *)memattr[bus])->GetDirectPage(addr) : DEFAULT_ADDRESS;
       if (dp == DEFAULT_ADDRESS)
         dp = dirpage;
       return dp;
       }
-    void SetDirectPage(addr_t addr, addr_t dp, int bus = BusCode)
+    virtual void SetDirectPage(addr_t addr, addr_t dp, int bus = BusCode)
       { if (memattr[bus]) ((MemAttribute6809Handler *)memattr[bus])->SetDirectPage(addr, dp); }
 
-    virtual bool InitParse(int bus = BusCode);
     virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, vector<TMemoryArray<addr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode);
 
   protected:
@@ -143,6 +146,7 @@ class Dasm6809 : public Dasm6800
     // disassemble instruction at given memory address
     virtual addr_t DisassembleCode(addr_t addr, string &smnemo, string &sparm, int bus = BusCode);
   public:
+    virtual bool InitParse(int bus = BusCode);
     // pass back disassembler-specific state changes before/after a disassembly line
     virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode);
 
@@ -234,7 +238,6 @@ class Dasm6809 : public Dasm6800
     static uint8_t m6809_codes11[512];
     static OpCode opcodes[mnemo6809_count - mnemo6800_count];
     static char *os9_codes[0x100];
-    addr_t dirpage;
 
     uint8_t *codes10;
     uint8_t *codes11;

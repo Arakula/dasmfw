@@ -430,7 +430,6 @@ codes11 = m6809_codes11;
 exg_tfr = m6809_exg_tfr;
 os9Patch = false;
 useFlex = false;
-dirpage = 0;
 mnemo.resize(mnemo6809_count);          /* set up additional mnemonics       */
 for (int i = 0; i < mnemo6809_count - mnemo6800_count; i++)
   mnemo[mnemo6800_count + i] = opcodes[i];
@@ -478,6 +477,11 @@ else if (lname == "os9")
   os9Patch = bnValue;
   return bIsBool ? 1 : 0;
   }
+else if (lname == "dplabel")
+  {
+  useDPLabels = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else
   return 0;                             /* only name consumed                */
 
@@ -491,8 +495,9 @@ return 1;                               /* name and value consumed           */
 
 string Dasm6809::Get6809Option(string lname)
 {
-if (lname == "flex")     return useFlex ? "on" : "off";
-else if (lname == "os9") return os9Patch ? "on" : "off";
+if (lname == "flex")         return useFlex ? "on" : "off";
+else if (lname == "os9")     return os9Patch ? "on" : "off";
+else if (lname == "dplabel") return useDPLabels ? "on" : "off";
 return "";
 }
 
@@ -743,20 +748,22 @@ if (T & 0x80)
         AddLabel((uint16_t)((int)((char)T) + PC), mnemo[MI].memType, "", true);
       break;
     case 0x08:
+      bSetLabel = !IsConst(PC);
       T = GetUByte(PC);
+      SetCellType(PC, MemAttribute::SignedInt);
       Wrel = (uint16_t)GetRelative(PC);
-      if (Wrel)
-        {
-        W = (uint16_t)((int)((char)T));
-        bSetLabel = !IsConst(PC);
-        if (!bSetLabel && !Wrel)
-          SetDefLabelUsed(PC);
-        if (bSetLabel)
-          AddLabel((uint16_t)(W + Wrel), mnemo[MI].memType, "", true);
-        }
-      else
+      if (!bSetLabel && !Wrel)
         SetDefLabelUsed(PC);
+      W = (uint16_t)((int)((char)T));
+      Wrel += W;
       PC++;
+      // no labels in indirect addressing!
+      // ...except when they are explicitly given in the info file, of course
+      if (bSetLabel &&
+          (W != Wrel ||                 /* if it's relative, or label's there*/
+            FindLabel(Wrel)))
+        AddLabel(Wrel,                  /* mark it as used                   */
+                 mnemo[MI].memType, "", true);
       break;
     case 0x18:
       SetDefLabelUsed(PC);
@@ -782,8 +789,9 @@ if (T & 0x80)
       PC += 2;
       // no labels in indirect addressing!
       // ...except when they are explicitly given in the info file, of course
-      if (W != Wrel ||                  /* if it's relative, or label's there*/
-          FindLabel(Wrel))
+      if (bSetLabel &&
+          (W != Wrel ||                 /* if it's relative, or label's there*/
+            FindLabel(Wrel)))
         AddLabel(Wrel,                  /* mark it as used                   */
                  mnemo[MI].memType, "", true);
       break;
@@ -886,50 +894,25 @@ if (T & 0x80)
       break;
     case 0x08:
       bGetLabel = !IsConst(PC);
-#if 1
-      // looks better...
       T = GetUByte(PC);
-      W = T + (uint16_t)GetDirectPage(PC);
+      W = (uint16_t)((int)((char)T));
       Wrel = W + (uint16_t)GetRelative(PC);
+      // look whether there's a const label directly for the offset
       lbl = (bGetLabel || Wrel != W) ? NULL : FindLabel(PC, Const);
       if (bGetLabel && (Wrel != W || FindLabel(Wrel)))
         {
         string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-        buf = sformat("<%s,%c", slbl.c_str(), R);
+        bool bFwd = IsForwardRef(W, bGetLabel, PC);
+        buf = sformat(bFwd ? "<%s,%c" : "%s,%c", slbl.c_str(), R);
         }
       else
         {
-        string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
-        buf = sformat("<%s,%c", slbl.c_str(), R);
+        string slbl = lbl ? lbl->GetText() : SignedNumber2String((int)((char)T), 2, PC);
+        // DefLabels are output before the code, so they ARE defined and need no <
+        // buf = sformat((lbl && Wrel >= PC - 1) ? "<%s,%c" : "%s,%c", slbl.c_str(), R);
+        buf = sformat((lbl && Wrel >= PC - 1) ? "%s,%c" : "%s,%c", slbl.c_str(), R);
         }
       PC++;
-#else
-      T = GetUByte(PC);
-      Wrel = (uint16_t)GetRelative(PC);
-      lbl = (bGetLabel || Wrel) ? NULL : FindLabel(PC, Const);
-      PC++;
-      /*
-      Something's definitely not right here. This needs a bit of redesign.
-      0x08 should be like 0x09, just with Direct addressing, and forward
-      references should be qualified with "<" to assure they're not treated
-      as Extended by the Assembler.
-      */
-      if (Wrel)
-        {
-        W = (int)((char)T) + Wrel;
-        string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)((int)((char)T)), 4, bGetLabel, PC - 1);
-                                        /* "<" needed for forward declaration*/
-        buf = sformat(
-                ((W > PC) || (Wrel > PC)) ? "<%s,%c" : "%s,%c",
-                slbl.c_str(),
-                R);
-        }
-      else
-        {
-        string slbl = lbl ? lbl->GetText() : SignedNumber2String((int)((char)T), 2, PC - 1);
-        buf = sformat("%s,%c", slbl.c_str(), R);
-        }
-#endif
       break;
     case 0x09:
       bGetLabel = !IsConst(PC);
@@ -1150,35 +1133,15 @@ uint8_t O, T, M;
 uint16_t W;
 int MI;
 const char *I;
-addr_t PC = addr;
 bool bSetLabel;
-addr_t dp = GetDirectPage(addr);
 Label *lbl;
+addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
 
-PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
 if ((T == _swi2) && os9Patch)
   return (PC + 1 - addr);
 
 switch (M)                              /* which mode is this ?              */
   {
-  case _dir:                            /* direct                            */
-    bSetLabel = !IsConst(PC);
-    lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
-    if (lbl)
-      lbl->SetUsed();
-    if (dp != NO_ADDRESS)
-      {
-      T = GetUByte(PC);
-      if (bSetLabel)
-        {
-        W = (uint16_t)dp | T;
-        W = (uint16_t)PhaseInner(W, PC);
-        AddLabel(W, mnemo[MI].memType, "", true);
-        }
-      }
-    PC++;
-    break;
-
   case _ind:                            /* indexed                           */
     PC = IndexParse(MI,PC);
     break;
@@ -1229,7 +1192,6 @@ int MI;
 const char *I;
 addr_t PC = addr;
 bool bGetLabel;
-addr_t dp = GetDirectPage(addr);
 Label *lbl;
 
 PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
@@ -1297,39 +1259,6 @@ switch (M)                              /* which mode is this?               */
     PC++;
     break;
 
-  case _dir:                            /* direct                            */
-    bGetLabel = !IsConst(PC);
-    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
-    T = GetUByte(PC);
-    if (dp != NO_ADDRESS)
-      {
-      W = (uint16_t)dp | T;
-      if (bGetLabel)
-        W = (uint16_t)PhaseInner(W, PC);
-      sparm = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-      }
-    else
-      sparm = "<" + (lbl ? lbl->GetText() : Number2String(T, 2, PC));
-    PC++;
-    break;
-
-  case _ext:                            /* extended                          */
-    {
-    bGetLabel = !IsConst(PC);
-    W = GetUWord(PC);
-    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
-    if (bGetLabel)
-      W = (uint16_t)PhaseInner(W, PC);
-    string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-    if (dp != NO_ADDRESS &&
-        forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp)
-      sparm = ">" + slbl;
-    else
-      sparm = slbl;
-    PC += 2;
-    }
-    break;
-    
   case _ind:                            /* indexed                           */
     if (useConvenience)
       W = (uint16_t)(O << 8) | GetUByte(PC);

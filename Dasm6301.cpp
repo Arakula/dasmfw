@@ -173,10 +173,8 @@ uint8_t O, T, M;
 uint16_t W;
 int MI;
 const char *I;
-addr_t PC = addr;
 bool bSetLabel;
-
-PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
+addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
 
 switch (M)                              /* which mode is this ?              */
   {
@@ -199,7 +197,7 @@ switch (M)                              /* which mode is this ?              */
       {
       W = GetUByte(PC);
       W = (uint16_t)PhaseInner(W, PC);
-      AddLabel(W, mnemo[MI].memType, "", true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true);
       }
     PC++;
     break;
@@ -226,11 +224,9 @@ uint16_t W;
 addr_t Wrel;
 int MI;
 const char *I;
-addr_t PC = addr;
 bool bGetLabel;
 Label *lbl;
-
-PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
+addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
 
 switch (M)                              /* which mode is this?               */
   {

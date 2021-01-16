@@ -261,6 +261,7 @@ Dasm6800::Dasm6800(void)
 codes = m6800_codes;
 useConvenience = true;
 showIndexedModeZeroOperand = false;
+dirpage = 0;  // ... and that's all it can be until the 6809
 useFCC = true;
 #if RB_VARIANT
 forceExtendedAddr = false;
@@ -271,6 +272,7 @@ forceExtendedAddr = true;
 forceDirectAddr = true;
 closeCC = false;
 #endif
+useDPLabels = false;
 
 mnemo.resize(mnemo6800_count);          /* set up mnemonics table            */
 for (int i = 0; i < mnemo6800_count; i++)
@@ -288,6 +290,9 @@ AddOption("closecc", "{off|on}\tadd closing delimiter to char constants",
           static_cast<PSetter>(&Dasm6800::Set6800Option),
           static_cast<PGetter>(&Dasm6800::Get6800Option));
 AddOption("fcc", "{off|on}\tuse FCC to define data",
+          static_cast<PSetter>(&Dasm6800::Set6800Option),
+          static_cast<PGetter>(&Dasm6800::Get6800Option));
+AddOption("dplabel", "{off|on}\tinterpret single-byte data as direct page labels",
           static_cast<PSetter>(&Dasm6800::Set6800Option),
           static_cast<PGetter>(&Dasm6800::Get6800Option));
 }
@@ -329,6 +334,11 @@ else if (lname == "fcc")
   useFCC = bnValue;
   return bIsBool ? 1 : 0;
   }
+else if (lname == "dplabel")
+  {
+  useDPLabels = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else
   return 0;                             /* only name consumed                */
 
@@ -350,6 +360,8 @@ else if (lname == "closecc")
   return closeCC ? "on" : "off";
 else if (lname == "fcc")
   return useFCC ? "on" : "off";
+else if (lname == "dplabel")
+  return useDPLabels ? "on" : "off";
 
 return "";
 }
@@ -669,11 +681,18 @@ addr_t Dasm6800::ParseData
 SetLabelUsed(addr, Const);              /* mark DefLabels as used            */
 
 int csz = GetCellSize(addr);
-if (csz == 2)                           /* if WORD data                      */
+if (!IsConst(addr))
   {
-  if (!IsConst(addr))
+  if (csz == 2)                         /* if WORD data                      */
     SetLabelUsed(GetUWord(addr), Code, addr);
+  else if (csz == 1 && useDPLabels)     /* or BYTE data and using DP labels  */
+    {
+    addr_t dp = GetDirectPage(addr, bus);
+    if (dp != NO_ADDRESS)
+      SetLabelUsed(dp | GetUByte(addr), Code, addr);
+    }
   }
+
 return csz;
 }
 
@@ -717,10 +736,8 @@ uint8_t O, T, M;
 uint16_t W;
 int MI;
 const char *I;
-addr_t PC = addr;
 bool bSetLabel;
-
-PC = FetchInstructionDetails(PC, O, T, M, W, MI, I);
+addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
 
 switch (M)                              /* which mode is this ?              */
   {
@@ -746,7 +763,7 @@ switch (M)                              /* which mode is this ?              */
     if (bSetLabel)
       {
       W = (uint16_t)PhaseInner(W, PC);
-      AddLabel(W, mnemo[MI].memType, "", true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true);
       }
     PC += 2;
     break;
@@ -755,12 +772,21 @@ switch (M)                              /* which mode is this ?              */
     bSetLabel = !IsConst(PC);
     if (!bSetLabel)
       SetDefLabelUsed(PC, bus);
-    T = GetUByte(PC);
     if (bSetLabel)
       {
-      W = T;  // on 6800, dp=0
-      W = (uint16_t)PhaseInner(W, PC);
-      AddLabel(W, mnemo[MI].memType, "", true);
+      // this isn't really necessary for 6800, but for derived classes
+      addr_t dp = GetDirectPage(PC);
+      if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
+        dp = GetDirectPage(addr);
+      if (dp == DEFAULT_ADDRESS)
+        dp = 0;
+      if (dp != NO_ADDRESS)
+        {
+        T = GetUByte(PC);
+        W = (uint16_t)dp | T;
+        W = (uint16_t)PhaseInner(W, PC);
+        AddRelativeLabel(W, PC, mnemo[MI].memType, true);
+        }
       }
     PC++;
     break;
@@ -774,7 +800,7 @@ switch (M)                              /* which mode is this ?              */
       {
       W = GetUWord(PC);
       W = (uint16_t)PhaseInner(W, PC);
-      AddLabel(W, mnemo[MI].memType, "", true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true);
       }
     PC += 2;
     break;
@@ -851,6 +877,40 @@ return true;
 }
 
 /*****************************************************************************/
+/* GetDisassemblyFlags : get flags for disassembly of data areas             */
+/*****************************************************************************/
+
+uint32_t Dasm6800::GetDisassemblyFlags(addr_t addr, int bus)
+{
+uint32_t flags = Disassembler::GetDisassemblyFlags(addr, bus);
+if (flags & SHMF_TXT)
+  {
+  if (FindLabel(addr, Const, bus))
+    flags &= ~SHMF_TXT;
+  if (useDPLabels)
+    {
+    addr_t dp = GetDirectPage(addr, bus);
+    if (dp != NO_ADDRESS)
+      {
+#if 0
+      // activate this to match ALL direct page labels
+      // only makes sense if data DEFINES the label, too
+      if (!IsConst(addr, bus))
+#else
+      // activate this to only match DEFINED labels
+      addr_t t = dp | GetUByte(addr);
+      if (!IsConst(addr, bus) &&
+          FindLabel(t, Untyped, bus))
+#endif
+        flags &= ~SHMF_TXT;
+      }
+    }
+  }
+
+return flags;
+}
+
+/*****************************************************************************/
 /* DisassembleData : disassemble data area at given memory address           */
 /*****************************************************************************/
 
@@ -866,8 +926,6 @@ addr_t Dasm6800::DisassembleData
     )
 {
 addr_t done;
-if (FindLabel(addr, Const, bus))
-  flags &= ~SHMF_TXT;
 
 if (flags & SHMF_RMB)                   /* if reserved memory block          */
   {
@@ -912,9 +970,12 @@ else                                    /* if FCB (hex or binary)            */
   for (done = addr; done < end; done++)
     {
     Label *deflbl = FindLabel(done, Const, bus);
+    addr_t dp = GetDirectPage(done, bus);
     string s;
     if (deflbl)
       s = deflbl->GetText();
+    else if (useDPLabels && dp != NO_ADDRESS)
+      s = Label2String(dp | GetUByte(done), 2, !IsConst(done), done);
     else
       s = Number2String(*getat(done), 2, done);
     if (sparm.size())                   /* if already something there        */
@@ -996,27 +1057,52 @@ switch (M)                              /* which mode is this?               */
     break;
 
   case _dir:                            /* direct                            */
+    {
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     T = GetUByte(PC);
-    W = (uint16_t)T;
-    if (bGetLabel)
-      W = (uint16_t)PhaseInner(W, PC);
-    sparm = Label2String(W, 4, bGetLabel, PC);
+    addr_t dp = GetDirectPage(PC);
+    if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
+      dp = GetDirectPage(addr);
+    if (dp == DEFAULT_ADDRESS)
+      dp = 0;
+    if (dp != NO_ADDRESS)
+      {
+      W = (uint16_t)dp | T;
+      if (bGetLabel)
+        W = (uint16_t)PhaseInner(W, PC);
+      //sparm = Label2String(W, 4, bGetLabel, PC);
+      sparm = GetForcedAddr(PC) ? "<" : "";
+      sparm += lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+      }
+    else // if no direct page, this can't be interpreted as a label
+      sparm = "<" + (lbl ? lbl->GetText() : Number2String(T, 2, PC));
     PC++;
+    }
     break;
 
   case _ext:                            /* extended                          */
+    {
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     W = GetUWord(PC);
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
-    if (forceExtendedAddr && (W & (uint16_t)0xff00) == 0)
-      sparm = ">" + (lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC));
+    string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+    addr_t dp = GetDirectPage(PC);
+    if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
+      dp = GetDirectPage(addr);
+    if (dp == DEFAULT_ADDRESS)
+      dp = 0;
+    if (forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp)
+      sparm = ">" + slbl;
     else
-      sparm = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+      {
+      sparm = GetForcedAddr(PC) ? ">" : "";
+      sparm += slbl;
+      }
     PC += 2;
+    }
     break;
     
   case _ix8:                            /* indexed for 6800 (unsigned)       */
