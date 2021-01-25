@@ -271,6 +271,11 @@
 			</File>
 		</Filter>
 		<File
+			RelativePath=".\dasmfw.htm"
+			DeploymentContent="true"
+			>
+		</File>
+		<File
 			RelativePath=".\history.txt"
 			>
 		</File>

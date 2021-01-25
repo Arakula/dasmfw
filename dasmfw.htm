@@ -1,0 +1,672 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" >
+<head>
+    <title>dasmfw / the DisASseMbler FrameWork</title>
+</head>
+<body>
+<h1>dasmfw / the DisASseMbler FrameWork</h1>
+
+<p align="right">Copyright (c) 2015-2020 Hermann Seib<br />
+Parts Copyright (c) 2000 Arto Salmi<br />
+Parts Copyright (c) 2013 Colin Bourassa<br />
+Parts Copyright (c) 2014-2015 Rainer Buchty</p>
+
+<p>dasmfw is a disassembler for a variety of processors. At the time of writing, these are:
+<ul>
+<li>Motorola 6800 / 6802 / 6808</li>
+<li>Motorola 6801 / 6803</li>
+<li>Motorola 6809</li>
+<li>Motorola 68HC11</li>
+<li>Motorola 68000</li>
+<li>Hitachi 6301 / 6303</li>
+<li>Hitachi 6309</li>
+<li>Atmel AVR8</li>
+</ul>
+</p>
+<p>dasmfw is the successor to <a href="https://github.com/Arakula/f9dasm">f9dasm</a>.
+It was created when I planned to add an AVR8 disassembler, for the following reasons:</p>
+<ul>
+<li>f9dasm consists of a single, monolithic source file. That was OK as long as it
+only disassembled 6809 code; 3 added disassemblers later, it had become a <i>very</i>
+complex and big source file with more than 5000 lines of code.
+Not easy to maintain any more - and adding another disassembler for a completely
+different CPU architecture wouldn't have made this any better.</li>
+<li>f9dasm deals with a very specific CPU layout only:
+big-endian 8 bit CPUs using a von Neumann architecture - i.e., the Motorola 6800 and descendants.
+It might be possible to add other architectures, but only by disproportionately increasing
+the overall code size.</li>
+<li>f9dasm is a simple C application. That was a good idea in 2000, when C was still king
+and object-oriented design had just started to gain momentum; it definitely isn't any more.
+One program that can handle many different CPU architectures, some of them based on others,
+<i>begs</i> for an object-oriented approach with polymorphism and inheritance.
+That is, a framework for disassemblers&hellip;</li>
+</ul>
+<p>So I did a complete redesign - dasmfw was born. A framework that makes it relatively easy
+to "plug in" new disassemblers, regardless of the architecture involved.</p>
+<p align="right">Hermann Seib, 2021</p>
+
+<h2>Syntax</h2>
+<pre>dasmfw [-option]* [filename]*</pre>
+<p>Options and filenames can be freely mixed; the <b>offset</b>, <b>begin</b>, <b>end</b>,
+<b>interleave</b>, and <b>bus</b> options always affect the following files.
+This makes it possible to load multiple interleaved EPROM images, for example.</p>
+<p>Options normally take a parameter, unless specified otherwise.
+The option/parameter pair can be specified in a variety of ways:</p>
+<ul>
+<li>-option parameter</li>
+<li>-option:parameter</li>
+<li>-option=parameter</li>
+<li>-[no]option (if it's a binary parameter that's either off or on)</li>
+</ul>
+<p>If an option expects a numeric parameter, it can be given as a hexadecimal value
+   with a leading <b>0x</b>. Values without <b>0x</b> are interpreted to have the base
+   set with the <b>pbase</b> option (see below). Various disassemblers add their own
+   interpretative capabilities to that; for example, a value with a leading <b>$</b>
+   is interpreted as hexadecimal in 6800-based disassemblers.</p>
+
+<h3>Input file name</h3>
+<p>dasmfw accepts input files in a variety of formats; some of them are disassembler-specific
+(FLEX binary files are only meaningful for 6800- or 6809-derived disassemblers, for example),
+some are generally usable: binary files, Intel hex format and Motorola S09 format.</p>
+<p>For binary files, an interleave factor (see <b>-interleave</b> option below) can be directly
+specified by adding ":" plus the factor to the filename.</p>
+
+<h3>Disassembler Selection Option</h3>
+<dl>
+  <dt><b>dasm <i>code</i></b></dt>
+  <dd>This is the one option that <i>must</i> be given: which disassembler should be used?
+      It can be specified in one of the following ways:
+      <ul>
+        <li>by using the <b>-dasm</b>=<i>code</i> command line option. When called without
+            any parameters, dasmfw lists the available disassemblers and their codes.
+            If, for example, a file containing 6809 code is to be assembled, <b>-dasm 6809</b>
+            would have to be given</li>
+        <li>by passing an info file to dasmfw that contains an <b>option dasm</b> statement
+            (more on info files later)</li>
+        <li>by copying or renaming (or, on unixoid systems, create a symlink) the executable
+            to another name consisting of <b>dasm</b><i>code</i> - for example, in Windows,
+            copy it to dasm6809.exe to create a 6809 disassembler.</li>
+      </ul>
+  </dd>
+</dl>
+
+<h3>General Command Line Options</h3>
+<dl>
+  <dt><b>?</b>, <b>help <i>[option|info]</i></b></dt>
+  <dd>This option can be used to display help on the available options or info file
+      instructions (more on that later).</dd>
+  <dt><b>out <i>filename</i></b></dt>
+  <dd>normally, dasmfw streams to standard output;
+      this option forces it to write to the specified file instead.<br />
+      If you're feeling particularly funny, you can specify <b>-out:console</b>,
+      which has the same effect as not bothering to specify an output file at all.</dd>
+  <dt><b>info <i>filename</i></b></dt>
+  <dd><i>filename</i> gives an information file which contains additional
+      hints for the disassembler. See the <b>Info File</b> section below.<br />
+      Passing the file name <i>help</i> displays help for the information file.</dd>
+</dl>
+
+<h3>Output Formatting Options</h3>
+<dl>
+  <dt><b>logo <i>on|off</i></b><br />
+      <b>nologo</b></dt>
+  <dd>Normally, dasmfw proudly announces its name, the used disassembler and the loaded
+      files both on the console and in the output file, if used; by specifying <b>-nologo</b>,
+      this can be disabled for cleaner output files.</dd>
+  <dt><b>addr <i>on|off</i></b><br />
+      <b>noaddr</b></dt>
+  <dd>if disabled, suppresses the address field output for clean assembler source files
+      (default is enabled)</dd>
+  <dt><b>hex <i>on|off</i></b><br />
+      <b>nohex</b></dt>
+  <dd>disables or enables hex dump output (default is enabled).<br />
+      While analyzing a file, the hex dump can be quite helpful; if you want to generate a
+      clean assembler source file, you can disable it.</dd>
+  <dt><b>asc <i>on|off</i></b><br />
+      <b>noasc</b></dt>
+  <dd>can be used to enable or disable output of the ASCII equivalent to code/data.<br />
+      Default is to output ASCII.</dd>
+  <dt><b>comment <i>on|off</i></b><br />
+      <b>nocomment</b></dt>
+  <dd>can be used to enable or disable the output of comments (which can be provided
+     in an info file, see below).<br />
+	 Normally, comments are enabled. And for a good reason - disabling comments also
+	 disables other texts added to the output, like conditional assembly pseudo-ops
+	 and the like.</dd>
+  <dt><b>cref <i>on|off</i></b><br />
+      <b>nocref</b></dt>
+  <dd>if set to on, dasmfw adds a cross-reference list of all used labels to the output
+      file.</dd>
+  <dt><b>unused <i>on|off</i></b><br />
+      <b>nounused</b></dt>
+  <dd>if set to on, dasmfw outputs unused labels set in info files, too. Normally, only
+      labels that are referenced somewhere are added to the output.</dd>
+  <dt><b>labellen <i>num</i></b></dt>
+  <dd>can be used to reserve space in this length for code labels.
+      By default, dasmfw reserves 8 places for labels; that's a fairly standard amount.
+      If you plan on using labels with a length above 7, you might consider reserving
+      more space for a nice output.<br /> 1 is minimum, 255 is maximum.</dd>
+  <dt><b>eqlbllen <i>num</i></b></dt>
+  <dd>can be used to reserve space in this length for EQU labels.
+      By default, dasmfw reserves 8 places for EQU labels; that's a fairly standard amount.
+      If you plan on using EQU labels with a length above 7, you might consider reserving
+      more space for a nice output.<br /> 1 is minimum, 255 is maximum.</dd>
+  <dt><b>opcodelen <i>num</i></b></dt>
+  <dd>can be used to reserve space in this length for the opcode part of a disassembled instruction.
+      By default, dasmfw reserves 8 places for opcodes; that's a fairly standard amount.
+      Depending on your taste, you can reserve more or less.<br /> 1 is minimum, 255 is maximum.</dd>
+  <dt><b>copndlen <i>num</i></b></dt>
+  <dd>can be used to reserve space in this length for the operand part of a disassembled instruction
+      with a line comment. Default is 24; depending on your taste, you can reserve more or less.
+      <br /> 1 is minimum, 255 is maximum.</dd>
+  <dt><b>uopndlen <i>num</i></b></dt>
+  <dd>can be used to reserve space in this length for the operand part of a disassembled instruction
+      with<i>out</i> a line comment. Default is 52; depending on your taste, you can reserve more or less.
+      <br /> 1 is minimum, 255 is maximum.</dd>
+  <dt><b>dbcount <i>num</i></b></dt>
+  <dd>can be used to reserve space for hex/ascii dump bytes if the <b>hex</b> or <b>asc</b> options
+      are enabled; this shifts all line comments that many places to the right for a nice layout.
+      Default is 5; depending on your taste, you can reserve more or less.
+      <br /> 1 is minimum, 255 is maximum.</dd>
+</dl>
+<h3>Disassembler Options</h3>
+<p>Most of the following options are universally usable; some, however, are disassembler-specific.
+These are the universal options:</p>
+<dl>
+  <dt><b>offset <i>address</i></b></dt>
+  <dd>When disassembling a binary file, the default load address
+	  is 0, since the binary file does not contain any clues; using this
+	  option forces dasmfw to load the file at the specified address.</dd>
+  <dt><b>begin <i>address</i></b></dt>
+  <dd>start disassembly address (<i>address</i> has to be given in hex format)<br />
+      Default is the first referenced address in the file.</dd>
+  <dt><b>end <i>address</i></b></dt>
+  <dd>end disassembly address (<i>address</i> has to be given in hex format)<br />
+      Normally, this is defined either through the file size or its contents,
+	  if it has an embedded END addres. This option allows to override the implicit
+	  end address.</dd>
+  <dt><b>interleave <i>factor</i></b></dt>
+  <dd>When disassembling 68000 EPROMs, for example, it is quite likely that there are
+      separate EPROMs for the odd and even addresses; dasmfw allows to load them in an
+      interleaved way. <b>interleave 1</b> (default) means consecutive addresses; by
+      specifying an interleave factor of 2 or above (dasmfw accepts up to 8), the bytes
+      loaded from the binary are placed that many bytes apart in internal memory.<br />
+      This can also be specified as part of the input file name (see above).</dd>
+  <dt><b>bus <i>busname</i></b></dt>
+  <dd>can be used to specify that the following file is to be loaded into a bus-specific area.
+      At the moment, this is only meaningful for the AVR8 disassembler, as AVR8-based
+      microcontrollers are built around a Harvard architecture with separate code, data,
+      I/O, and EEPROM buses.</dd>
+  <dt><b>pbase <i>number</i></b></dt>
+  <dd>can be used to specify the default base for parsing numbers.<br />Default is 16.</dd>
+  <dt><b>defdisp <i>bin|char|oct|dec|hex</i></b></dt>
+  <dd>can be used to specify the default number output format.<br />Default is hex.</dd>
+  <dt><b>cchar <i>chr</i></b></dt>
+  <dd>can be used to set up the comment delimiter character<br />Default is <b>;</b></dd>
+  <dt><b>ldchar <i>chr</i></b></dt>
+  <dd>can be used to set up the label delimiter character. This character is added after labels
+      that get their own line if more than one label is defined for the same address.
+      Requires <b>multilabel on</b>.<br />
+      Default is <b>:</b></dd>
+  <dt><b>loadlabel <i>on|off</i></b><br />
+      <b>noloadlabel</b></dt>      
+  <dd>flag whether an entry point label (if defined by the input file) is used.<br />
+      Default is on.</dd>
+  <dt><b>multilabel <i>on|off</i></b><br />
+      <b>nomultilabel</b></dt>      
+  <dd>can be used to decide whether multiple labels can be set for a single address.<br />
+      Default is off.</dd>
+  <dt><b>autolabel <i>on|off</i></b><br />
+      <b>noautolabel</b></dt>      
+  <dd>Normally, dasmfw generates label names based on the type (code/data) and the address
+      if no text label is given for the address in an info file. With <b>autolabel on</b>,
+      the last text label plus the current label's offset to that is used to generate the name.
+      This can be convenient if all subroutine entry points have already been determined to 
+      automatically create meaningful labels inside the subroutines.<br />
+      Default is off.</dd>
+  <dt><b>sysvec <i>on|off</i></b><br />
+      <b>nosysvec</b></dt>      
+  <dd>If the current processor has a system vector table at a given address and the input file(s)
+      contain the table area, dasmfw can automatically format the system vector table and assign
+      labels to the referenced addresses.<br />Default is on.</dd>
+</dl>
+<p>The following options are disassembler-specific; some are only available for specific
+   disassemblers. If in doubt, invoking dasmfw with the command line
+   <b>dasmfw -dasm=<i>code</i> -?</b> can be used to find out whether a specific
+   option is available for the used disassember, and which parameters can be given.</p>
+<dl>
+  <dt><b>conv <i>on|off</i></b><br />
+      <b>noconv</b></dt>
+  <dd>Quite some assemblers know "convenience mnemonics"; these are evaluated to a combination
+      of "real" processor instructions. dasmfw can be instructed to detect these instruction
+      combinations and to convert them back to the original convenience mnemonics. Not all
+      possible convenience mnemonics are supported; some have a different implementation in
+      various assemblers, so re-assembling dasmfw's output might lead to a binary that's no
+      longer identical to the original. These convenience mnemonics are not used.<br />
+      Default is on.</dd>
+  <dt><b>showzero <i>on|off</i></b><br />
+      <b>noshowzero</b></dt>
+  <dd>For 6800-based disassemblers (including the Hitachi range)<br />
+      Normally, indexed-mode operands with value 0 are not output
+      (like, for example, in "LDA ,X"). Using this option forces their output
+      (like, in the given example example, "LDA $00,X").<br />
+      Default is off.</dd>
+  <dt><b>closecc <i>on|off</i></b><br />
+      <b>noclosecc</b></dt>
+  <dd>In many assemblers, a closing delimiter for a single character is not necessary;
+      dasmfw normally uses the most appropriate way of handling character constants.
+      This setting can be used if the default does not provide the required output.<br />
+      Default is processor-dependent.</dd>
+  <dt><b>fcc <i>on|off</i></b><br />
+      <b>nofcc</b></dt>
+  <dd>Many assemblers provide more than one way to fill an area with single byte characters;
+      examples for 6800-based processors mostly provide <b>FCB</b> ("fill constant byte") and
+      <b>FCC</b> ("fill constant character") mnemonics for that, where FCB can be used to define
+      (a range of) single bytes and FCC can be also used to define strings.
+      Where possible, dasmfw tries to represent arrays of printable characters as strings
+      (i.e., with <b>fcc on</b>, which is more space-efficient and readable. This setting
+      can be used to turn it off for the complete disassembly. For individual areas, use of
+      the <b>const</b> statement in an info file (see below) may be the better option.<br />
+      Default is normally on.</dd>
+  <dt><b>dplabel <i>on|off</i></b><br />
+      <b>nodplabel</b></dt>
+  <dd>Various processors know the concept of a <i>direct page</i> which allows for shorter
+      instructions; if the referenced address is in the direct page area, it can be given as a
+      single byte. dasmfw can be instructed to interpret single-byte data as direct-page addresses
+      by default; using a <b>const</b> info file statement can be used for specific addresses where
+      this is definitely wrong.<br />
+      Since this is a bit hairy, default is off.</dd>
+  <dt><b>flex <i>on|off</i><br />noflex</b></dt>
+  <dd>For 6809-based disassemblers only.<br />
+      If the file in question is known to be a binary for the FLEX9 operating system, dasmfw can
+      automatically supply labels for many of the known available FLEX9 entry points.<br />
+      Default is off.</dd>
+  <dt><b>os9 <i>on|off</i><br />noos9</b></dt>
+  <dd>For 6809-based disassemblers only.<br />
+      If the file in question is known to be a binary for the OS/9 operating system, dasmfw can
+      automatically patch SWI2 instructions to the corresponding OS9 system call.<br />
+      Default is off.</dd>
+  <dt><b>asm <i>assembler</i></b></dt>
+  <dd>For some processors (currently, 68000-based only), dasmfw can generate output that's
+      best suited for a specific assembler. Normally, a "works on most" route is taken.<br />
+      Default depends on the disassembler.</dd>
+  <dt><b>codebits <i>num</i></b></dt>
+  <dd>AVR8 only<br />Here, the number of bits usaed for code addresses can be given in range 8..32.<br />
+      Default is 22.</dd>
+  <dt><b>highcode <i>addr</i></b></dt>
+  <dd>AVR8 only<br />Here, the highest code address can be given in range 512..4194303 (0x3fffff)<br />
+      Default is 0x3fffff.</dd>
+  <dt><b>highdata <i>addr</i></b></dt>
+  <dd>AVR8 only<br />Here, the highest data address can be given in range 128..65535 (0xffff)<br />
+      Default is 0xffff.</dd>
+  <dt><b>higheeprom <i>addr</i></b></dt>
+  <dd>AVR8 only<br />Here, the highest EEPROM address can be given in range 128..65535 (0xffff)<br />
+      Default is 0xffff.</dd>
+  <dt><b>dbalign <i>on|off</i></b></dt>
+  <dd>AVR8 only<br />With this option, dasmfw tries its best to align .db to word boundaries.<br />
+      Default is on.</dd>
+  <dt><b>avr-gcc <i>on|off</i></b></dt>
+  <dd>AVR8 only<br />With this option, dasmfw creates avr-gcc compatible output in .sx format.<br />
+      Default is off.</dd>
+</dl>
+
+<h2>Info File</h2>
+<p>Using the <b>-info <i>filename</i></b> option, you can give dasmfw additional
+information about the layout of the processed file.</p>
+<p>Normally, dasmfw will try to interpret everything as <i>code</i>;
+it doesn't try to find out which areas contain code and which areas contain data,
+or the format of the data. Using an info file, you can give it detailed instructions
+how to process the file, add comments, insert additional stuff, and so on.</p>
+<p>The info file is a simple text file, which contains one instruction per line.<br />
+The instructions are case-insensitive.<br />
+Addresses need to be given in <i>hexadecimal</i> notation.
+Anything following an asterisk (<b>*</b>) is interpreted as a comment.</p>
+<p>dasmfw looks for default information files in the following positions:</p>
+<ol>
+<li>in a subdirectory <b>.dasmfw</b> of the current user's home directory</li>
+<li>in the current directory</li>
+</ol>
+<p>In both cases, the current disassembler's name + <b>.nfo</b> is used; normally,
+that would be <b>dasmfw.nfo</b>, but if you renamed or symlinked it to dasm6809, for example,
+it would be dasm6809.nfo.</p>
+<p>This can be used to set up global or project-specific options.</p>
+
+<h3>Info File Instructions</h3>
+<p>Each instruction line has the following syntax:</p>
+<pre>inst [bus tgtbus] [range] [value] [* comment]</pre>
+<p><b>inst</b> is one of the instructions described below.<br />
+<b>tgtbus</b> is one of the busses defined for the current disassembler; for the AVR8, this can be
+<i>code</i>, <i>data</i>, <i>io</i>, or <i>eeprom</i>;
+it can also be specified numerically as <i>0..3</i>.
+For all others, only the default <i>code</i> (or <i>0</i>) is defined.
+This defines the <i>target bus</i> for the instruction, if it should differ from the currently
+selected bus (see the <b>bus</b> instruction below). Not all disassemblers need the target bus
+definition (in fact, currently the AVR8 disassembler is the only one that <i>does</i> use it).<br />
+<b>range</b> consists of up to 3 parts: from, to, step, in the format</p>
+<pre>from[-to[/step]]</pre>
+<p>where not all instructions need each part. The step size, if needed and not given, defaults to 1.
+</p>
+<h3>Global Info File Instructions</h3>
+
+<dl>
+  <dt><b>bus <i>infobus</i></b></dt>
+  <dd><i>infobus</i> defines the bus to be used for all following instructions.<br />
+  Only meaningful for the AVR8 disassembler at the moment, where it be <i>code</i>,
+  <i>data</i>, <i>io</i>, or <i>eeprom</i>; it can also be specified numerically as <i>0..3</i>.
+  All others deal with a plain, simple von Neumann architecture with exactly one bus,
+  which doesn't necessitate separate sections in the loaded binary.</dd>
+  
+  <dt><b>include <i>filename</i></b></dt>
+  <dd>includes the given info file.</dd>
+  
+  <dt><b>file <i>filename [baseaddr]</i></b></dt>
+  <dd>This instructs dasmfw to load the given file at the given address.<br />
+      Can be used instead of the command line parameter for the file name;
+	  this can, for example, be useful if you want to generate a listing for a
+	  bunch of small EPROMs that cover a continuous memory area.</dd>
+	  
+  <dt><b>option <i>option [value]</i></b></dt>
+  <dd><i>option</i> is one of the options listed above, just without the leading
+      hyphen (-).</dd>
+</dl>
+<dl>
+  <dt><b>code <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines the given address (range) as containing code.<br />
+  A step size can be given, but... honestly, I can't dream up a situation where
+  that might make sense. That goes for a lot of the instructions below, too :-)</dd>
+  
+  <dt><b>data <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines the given address (range) as containing data instead of code.<br />
+      dasmfw will try to decipher ASCII strings in the area and display them
+	  in the best possible format.</dd>
+</dl>
+<dl>
+  <dt><b>bin[ary] <i>addr[-addr[/step]]</i></b></dt>
+  <dt><b>char[acter] <i>addr[-addr[/step]]</i></b></dt>
+  <dt><b>oct[al] <i>addr[-addr[/step]]</i></b></dt>
+  <dt><b>dec[imal] <i>addr[-addr[/step]]</i></b></dt>
+  <dt><b>hex[adecimal] <i>addr[-addr[/step]]</i></b><br />
+      <b>sedecimal <i>addr[-addr[/step]]</i></b> (for purists ;-)</dt>
+  <dd>defines the output format used for the given data range.<br />
+  This can also be used for constants in the <i>code</i> area; if, for example,
+  dasmfw outputs the following line of code:<br />
+  <pre>        LDA     #$D6                     *C115: 86 D6</pre>
+  and you know pretty well that this is a binary bit mask, you can force it to
+  display the data in a nicer format by giving the instruction
+  <b>bin c116</b> (note that the address of the constant byte is given,
+  <i>not</i> the address of the instruction!).
+  This results in the modified output
+  <pre>        LDA     #%11010110               *C115: 86 D6</pre>
+  which may be easier to read (depending on your mental approach to assembler
+  programming :-).<br />
+  Note that <b>char</b> and <b>bin</b> can not be used for (d)word areas (see below).</dd>
+</dl>
+<dl>
+  <dt><b>signed <i>addr[-addr[/step]]</i></b></dt>
+  <dt><b>unsigned <i>addr[-addr[/step]]</i></b></dt>
+  <dt><b>float <i>addr[-addr[/step]]</i></b></dt>
+  <dt><b>double <i>addr[-addr[/step]]</i></b></dt>
+  <dt><b>tenbytes <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines the type of a given memory location. signed and unsigned define integral types,
+  float, double, and tenbytes define floating-point values of sizes 4, 8, or 10, respectively
+  (always signed).</dd>
+</dl>
+<dl>
+  <dt><b>byte <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines that the area consists of <i>bytes</i> (i.e., 1-byte entities).</dd>
+  <dt><b>word <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines that the area consists of <i>words</i> (i.e., 2-byte entities,
+      byte order defined by the processor architecture) instead of single bytes.</dd>
+  <dt><b>dword <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines that the area consists of <i>double words</i> (i.e., 4-byte entities,
+      byte order defined by the processor architecture) instead of single bytes.<br />
+      Only useful for processors that can handle this.</dd>
+<!-- prepared, but not used yet - requires 8-byte addr_t!
+  <dt><b>qword <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines that the area consists of <i>quad words</i> (i.e., 8-byte entities,
+      byte order defined by the processor architecture) instead of single bytes.<br />
+      Only useful for processors that can handle this.</dd>
+-->
+</dl>
+<dl>
+  <dt><b>const <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines the data in the given range as <i>constants</i>.<br />
+      Normally, if dasmfw can interpret the data as addresses, it will;
+	  and if there's a label defined for this address, it will display
+	  the label instead of the original value.<br />
+	  For a range of characters, const is used to instruct dasmfw to treat them
+	  as separate entities and display their hex value instead of displaying them
+	  as characters or parts of a string.</dd>
+</dl>
+<dl>
+  <dt><b>break <i>addr[-addr[/step]]</i></b></dt>
+  <dd>Normally, when disassembling data areas, dasmfw puts as much data
+      into a line as possible (governed by the <b>copndlen</b> and <b>uopndlen</b> options),
+      provided they have the same type and there's no label that needs to be used.
+      Since this doesn't necessarily reflect the data organization (for example, an
+      array might consist of triplets), <b>break</b> can be used to insert a line break
+      before the given address (range).</dd>
+  <dt><b>unbreak <i>addr[-addr[/step]]</i></b></dt>
+  <dd>Removes breaks from the given address (range).</dd>
+</dl>
+<dl>
+  <dt><b>unused <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines the given address range as unused.<br />
+      This can be useful if an area in the loaded file is known to be empty;
+	  there's no need to put it into the generated assembler source.</dd>
+  <dt><b>force[used] <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines the given address range as used.</dd>
+  <dt><b>rmb <i>addr[-addr[/step]]</i></b><br />
+      <b>bss <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines the given address range as reserved, but not initialized to
+      defined values.</dd>
+</dl>
+<dl>
+  <dt><b>forceaddr <i>addr[-addr[/step]]</i></b></dt>
+  <dd>If the targeted processor (and assembler, if available) can handle
+   <i>forced direct / extended addressing</i>, dasmfw tries its best to determine
+   whether adding the required &lt; and &gt; marks is necessary; in very rare
+   occasions, this may fail (or, if you build the "RB" variant, it isn't done anyway).
+   In such a case, this instruction can be used to force the mark.</dd>
+  <dt><b>unforceaddr <i>addr[-addr[/step]]</i></b></dt>
+  <dd>Removes the <b>forceaddr</b> (see above) flag for the given range.</dd>
+</dl>
+<dl>
+  <dt><b>label <i>addr name</i></b></dt>
+  <dd>sets a label at the given address.<br />
+      Note that dasmfw doesn't restrict the length of the label, nor does it enforce
+	  a given range of characters (except for * and zero bytes - these terminate
+	  the name). This may conflict with the assembler of your choice, so choose
+	  the labels with caution.</dd>
+	  
+  <dt><b>used[label] <i>addr [name]</i></b></dt>
+  <dd>forces the given address used.<br />
+	  Normally, dasmfw would only emit a label definition in the form of an
+	  EQU statement if the label is really used in the code.</dd>
+	  
+  <dt><b>unlabel <i>addr[-addr]</i></b></dt>
+  <dd>removes defined labels in the given address range.<br />
+      This is mainly useful if you use a set of info files (see the
+	  <b>include</b> instruction below) and want to remove label definitions
+	  from an earlier info file.</dd>
+	  
+  <dt><b>deflabel <i>addr [name]</i></b></dt>
+  <dd>can be used to create definition labels. deflabel uses the value at the
+      referenced address and creates a definition label for it, which is then used instead
+      of the value. For example (6800 instruction set), the code 86 24 at address $008d
+       would be disassembled to LDA #24; by adding the instruction deflabel 008e NiceVal 
+       (note that the deflabel has to be set for the <i>data byte</i>, not for the start
+       of the instruction!), the instruction would be disassembled as LDA #NiceVal and a
+       NiceVal EQU $24 statement would be added at the top.<br />
+       A little bit of caution is necessary here; if the same deflabel is used for different
+       values, the last one wins and is used for the EQU statement.</dd>
+</dl>
+<dl>
+  <dt><b>insert <i>[after] [addr[-addr[/step]]] text</i></b></dt>
+  <dd>This instruction adds the given text to the text lines which
+      are displayed before a given (range of) address(es).<br />
+	  In contrast to a comment, there's no comment character written before
+	  the text, which allows to insert any assembler statement or pseudo-op.<br />
+	  Normally, the line is inserted before the disassembled line(s);
+	  if <i>after</i> is specified, it is inserted after the disassembled line(s).</dd>
+	  
+  <dt><b>comment <i>[after] [addr[-addr[/step]]] text</i></b></dt>
+  <dd>appends a comment to the lines displayed before a given address (range).<br />
+	  Normally, the comment is inserted before the disassembled line(s);
+	  if <i>after</i> is specified, it is inserted after the disassembled line(s).</dd>
+  
+  <dt><b>lcomment <i>addr[-addr[/step]] text</i></b></dt>
+  <dd>appends a <i>line</i> comment to the lines displayed before a given address
+      (range).<br />
+	  A line comment is displayed as a comment to the right of the instruction.<br />
+	  If more than one line comment is given, they are displayed on separate lines,
+	  but all to the right of the instruction.</dd>
+	  
+  <dt><b>prepend <i>[after] [addr[-addr[/step]]] text</i></b></dt>
+  <dd>This instruction <i>prepends</i> the given text to the text lines which
+      are displayed before (or after) a given (range of) address(es).<br />
+	  This is mainly useful if you use a set of info files (see the
+	  <b>include</b> instruction below) and want to add additional text from
+	  a later info file before text lines from an earlier info file.</dd>
+	  
+  <dt><b>prepcomm <i>[after] [addr[-addr[/step]]] text</i></b></dt>
+  <dd>Same as <b>prepend</b> (see above), but it prepends a <i>comment</i> 
+      instead of a normal text line.</dd>
+      
+  <dt><b>preplcom[ment] <i>addr[-addr[/step]] text</i></b></dt>
+  <dd>prepends a line comment to the lines displayed before a given address
+      (range).</dd>
+      
+  <dt><b>uncomment <i>[after] addr[-addr[/step]]</i></b></dt>
+  <dd>removes <b>insert</b> and <b>comment</b> lines from the given address range.<br />
+      This is mainly useful if you use a set of info files (see the
+	  <b>include</b> instruction below) and want to remove comments
+	  from an earlier info file so that you can replace them.</dd>
+	  
+  <dt><b>unlcomment <i>addr[-addr[/step]]</i></b></dt>
+  <dd>removes line comments from the given address range.<br />
+      This is mainly useful if you use a set of info files (see the
+	  <b>include</b> instruction below) and want to remove line 
+	  comments from an earlier info file.</dd>
+	  
+  <dt><b>rel[ative] <i>addr[-addr] baseaddr</i></b></dt>
+  <dd>This can be used to make instructions with indexed addressing easier
+      to read.</dd>
+      
+  <dt><b>unrel[ative] <i>addr[-addr[/step]]</i></b></dt>
+  <dd>cancels the effect of <b>relative</b> instructions.</dd> 
+  
+  <dt><b>remap <i>addr[-addr[/step]] offset</i></b></dt>
+  <dd>This is a tricky instruction that only makes sense in very special
+      situations; imagine, for example, that you already have an elaborate
+	  info file for a specific EPROM - and then you get another EPROM that
+	  contains <i>nearly</i> the same stuff, just with one or two instructions
+	  added or missing.<br />
+	  You could, of course, adapt all instructions in your info file to the new
+	  address layout.<br />
+	  Would you? I wouldn't.<br />
+	  In this case, it's easier to prepend a <b>remap</b> instruction that tells
+	  dasmfw to "shift" the following addresses in the info file some bytes.
+	  Remaps are cumulative; that is, if you define a remapped region and then define
+	  another remap <i>inside</i> that region, the second remap is added to the first
+	  one for the given range.</dd>
+	  
+  <dt><b>unremap <i>addr[-addr[/step]]</i></b></dt>
+  <dd>This one removes all remaps for the given range.
+      In contrast to remap, it is <i>not</i> cumulative; all remaps for the given region
+      are removed.</dd>
+      
+  <dt><b>phase <i>addr[-addr[/step]] [+|-]phase</i></b></dt>
+  <dd>Sometimes, an EPROM can contain data that are mapped to a different location;
+      in this case, all jump targets etc. inside that area are incorrect,
+      i.e., "out of phase".
+      The <b>phase</b> instruction tells dasmfw to disassemble that area as if it
+      was starting at the address given in <b><i>phase</i></b>.<br />
+      Using this instruction embeds PHASE/DEPHASE pseudo-ops in the generated source code, so
+      an Assembler that can process these pseudo-ops is required
+      (the mighty <a href="http://john.ccac.rwth-aachen.de:8000/as/">AS</a> can do it,
+      and my A09 can do it since V1.30, too).<br />
+      This deals with one part of the problem - data inside phased areas are
+      disassembled correctly. But to reference them correctly from <i>outside</i> the
+      phased area requires additional, <b><i>relative</i></b> phase statements.<br />
+      Relative phase statements are made by adding a + or - before <b><i>phase</i></b>
+      (which in this case is a relative value).<br />
+      <b>Attention:</b> a relative phase statement can only be set <i>inside</i> a phased
+      area; so, if relative phasing is required, <i>all</i> areas in the disassembled module
+      that use it have to be put into a phased area, even the "un-phased" ones, like:
+      <pre>phase 8000-ffff 8000</pre>
+      and relative phases have to be defined <i>after</i> the phase area definition.<br />
+      If your Assembler of choice can't handle phasing, all you can do is to cut the binary
+      in slices, use the <b>-offset</b> command line option to disassemble them,
+      and merge the generated assembler source files by hand.
+      </dd>
+      
+  <dt><b>cvec[tor] <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines a <i>code vector</i> area (a table of code addresses).<br />
+      Works like <b>word <i>addr[-addr]</i></b>, but also defines code labels for
+	  the addresses if necessary</dd>
+	  
+  <dt><b>dvec[tor] <i>addr[-addr[/step]]</i></b></dt>
+  <dd>defines a <i>data vector</i> area (a table of data addresses).<br />
+      Works like <b>word <i>addr[-addr]</i></b>, but also defines data labels for
+	  the addresses if necessary</dd>
+</dl>
+<dl>	  
+  <dt><b>patch <i>addr[-addr[/step]] hex [hex]*</i></b></dt>
+  <dd>Can be used to patch bytes in a loaded file. Using this feature, modified versions
+      of a file can be created automatically.<br />
+  <a href="https://github.com/Arakula/A09">A09</a> can be used to emit patch instructions
+  instead of listings to make it easier to develop modified versions of a program.</dd>
+  <dt><b>patchw <i>addr[-addr[/step]] word [word]*</i></b></dt>
+  <dd>Can be used to patch words (i.e., 2-byte entities in the byte order defined
+      by the processor architecture) in a loaded file.</dd>
+  <dt><b>patchd <i>addr[-addr[/step]] dword [dword]*</i></b></dt>
+  <dd>Can be used to patch double words (i.e., 4-byte entities in the byte order defined
+      by the processor architecture) in a loaded file.<br />
+      Patching in unused areas causes them to become used.</dd>
+</dl>
+<dl>	  
+  <dt><b>end</b></dt>
+  <dd>Terminates processing of this info file at this line.</dd>
+
+</dl>
+
+<h3>Disassembler-specific Info File Instructions</h3>
+Some of the disassemblers add their own instructions.
+
+<dl>
+  <dt><b>setdp <i>[addr[-addr[/step]]] dp-content</i></b></dt>
+  <dd>6809 and derived only<br />
+      uses the specified direct page (if the specified processor can 
+      do that - 6800 and its derivates implicitly uses Direct Page 0).<br />
+      To allow usage with programs that repeatedly change the direct page,
+      an address range can be given.<br />
+      If only the start address is given, the range is assumed to start there
+      and go up to the end of the address range.<br />
+      If no address is given, the global direct page is changed.<br />
+      Any value between 00 and FF sets the direct page (0 is the default);
+      values outside this range <i>disable</i> direct page processing by forcing dasmfw to
+      emit a
+<pre>        SETDP</pre>
+      line which 6809 assemblers normally interpret as "don't use direct page addressing".<br />
+      Only the last global <b>setdp</b> statement is used.</dd>
+      
+  <dt><b>unsetdp <i>[addr[-addr[/step]]]</i></b></dt>
+  <dd>6809 and derived only<br />
+      removes <i>setdp</i> effects from the given range or, if no range is given,
+      sets the global direct page back to the default.</dd>
+</dl>
+
+<p><i><b>Note:</b></i> wherever <i><b>text</b></i> requires leading blanks or tabs,
+it isn't possible to simply put them into the instruction, as dasmfw would discard them.
+For these cases, simply prepend a '\' (backslash) to the text, like, for example, in<br />
+<b>insert 0 \&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OPT H63</b><br />
+so that dasmfw knows where <i><b>text</b></i> really starts.
+Despite the similarity, dasmfw doesn't know the range of "C" escape characters; a '\'
+simply means "Ignore this backslash, but make sure the next character is part of the text".
+If you need to have a <b>*</b> as part of the text, it is mandatory to write it as <b>\*</b>;
+dasmfw would otherwise assume the line ends at the <b>*</b>, which starts the comment part.
+</p>
+
+</body>
+</html>

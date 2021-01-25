@@ -524,14 +524,15 @@ return
 
 bool Dasm6809::ProcessInfo
     (
-    string key,
-    string value,
-    addr_t &from,
+    string key,                         /* parsed key                        */
+    string value,                       /* rest of the line                  */
+    addr_t &from,                       /* from/to (if range given)          */
     addr_t &to,
-    vector<TMemoryArray<addr_t>> &remaps,
-    bool bProcInfo,
-    int bus,
-    int tgtbus
+    addr_t &step,                       /* step size                         */
+    vector<TMemoryArray<addr_t>> &remaps ,  /* remaps, if necessary          */
+    bool bProcInfo,                     /* flag whether processing           */
+    int bus,                            /* target bus for command            */
+    int tgtbus                          /* target bus for parameters (ign.)  */
     )
 {
 if (!bProcInfo || bus != BusCode)       /* only if processing code bus...    */

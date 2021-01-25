@@ -57,7 +57,7 @@ using namespace std;
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.16"
+#define DASMFW_VERSION  "0.17"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t caddr_t;               /* container for maximal code address*/
@@ -226,7 +226,7 @@ protected:
   addr_t DisassembleLine(addr_t addr, string sComDel, string sComHdr, string labelDelim, int bus = BusCode);
   bool PrintLine(string sLabel = "", string smnemo = "", string sparm = "", string scomment = "", int labelLen = -1);
   bool LoadInfo(string fileName, vector<string> &loadStack, bool bProcInfo = true, bool bSetDasm = false);
-  int ParseInfoRange(string value, addr_t &from, addr_t &to, bool remapped = true);
+  int ParseInfoRange(string value, addr_t &from, addr_t &to, addr_t &step, bool remapped = true);
   int ParseOption
     (
     string option,                      /* option name                       */

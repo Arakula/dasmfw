@@ -257,7 +257,7 @@ class DasmAvr8 :
     void SetRelative(addr_t addr, MemAttributeAvr8::RelType newType = MemAttributeAvr8::RelUntyped, addr_t rel = NO_ADDRESS, int relBus = Avr8BusTypes, int bus = BusCode)
       { if (memattr[bus]) ((MemAttributeAvr8Handler *)memattr[bus])->SetRelative(addr, newType, rel, relBus); }
 
-    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, vector<TMemoryArray<addr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode);
+    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, addr_t &step, vector<TMemoryArray<addr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode);
 
   protected:
     // parse data area for labels

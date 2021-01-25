@@ -458,6 +458,7 @@ bool DasmAvr8::ProcessInfo
     string value,                       /* rest of the line                  */
     addr_t &from,                       /* from/to (if range given)          */
     addr_t &to, 
+    addr_t &step,                       /* step size                         */
     vector<TMemoryArray<addr_t>> &remaps,  /* remaps, if necessary           */
     bool bProcInfo,                     /* flag whether processing           */
     int bus,                            /* target bus for command            */

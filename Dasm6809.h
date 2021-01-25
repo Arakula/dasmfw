@@ -138,7 +138,7 @@ class Dasm6809 : public Dasm6800
     virtual void SetDirectPage(addr_t addr, addr_t dp, int bus = BusCode)
       { if (memattr[bus]) ((MemAttribute6809Handler *)memattr[bus])->SetDirectPage(addr, dp); }
 
-    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, vector<TMemoryArray<addr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode);
+    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, addr_t &step, vector<TMemoryArray<addr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode);
 
   protected:
     // parse instruction at given memory address for labels

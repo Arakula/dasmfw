@@ -938,9 +938,16 @@ return nLen > 0;
 /* ParseInfoRange : parses a range definition from an info file              */
 /*****************************************************************************/
 
-int Application::ParseInfoRange(string value, addr_t &from, addr_t &to, bool remapped)
+int Application::ParseInfoRange
+    (
+    string value,
+    addr_t &from,
+    addr_t &to,
+    addr_t &step,
+    bool remapped
+    )
 {
-int n = pDasm ? pDasm->String2Range(value, from, to) : 0;
+int n = pDasm ? pDasm->String2Range(value, from, to, step) : 0;
 if (n < 1)
   from = NO_ADDRESS;
 if (from != NO_ADDRESS)
@@ -968,6 +975,8 @@ else if (to != NO_ADDRESS)
     n = 0;
     }
   }
+if (n < 3)
+  step = 1;
 return n;
 }
 
@@ -1069,6 +1078,7 @@ enum InfoCmd
   infoByte,                             /* BYTE addr[-addr]                  */
   infoWord,                             /* WORD addr[-addr]                  */
   infoDWord,                            /* DWORD addr[-addr]                 */
+  infoQWord,                            /* QWORD addr[-addr]                 */
   // cell display types
   infoBinary,                           /* BINARY addr[-addr]                */
   infoChar,                             /* CHAR addr[-addr]                  */
@@ -1148,6 +1158,7 @@ static struct                           /* structure to convert key to type  */
   { "BYTE",         infoByte },
   { "WORD",         infoWord },
   { "DWORD",        infoDWord },
+  { "QWORD",        infoQWord },
   // cell display types
   { "BIN",          infoBinary },
   { "BINARY",       infoBinary },
@@ -1281,10 +1292,10 @@ do
 
     if (pDasm && !bSetDasm)             /* let disassembler have a go at it  */
       {
-      addr_t from, to;                  /* address range has to be first!    */
-      ParseInfoRange(value, from, to);
+      addr_t from, to, step;            /* address range has to be first!    */
+      ParseInfoRange(value, from, to, step);
       if (pDasm->ProcessInfo(key, value,
-                             from, to,
+                             from, to, step,
                              remaps, bProcInfo,
                              infoBus, tgtBus))
         cmdType = infoUnknown;
@@ -1348,7 +1359,7 @@ do
         else
           value.clear();
         addr_t offs, ign;
-        ParseInfoRange(value, offs, ign);
+        ParseInfoRange(value, offs, ign, ign);
         if (offs != NO_ADDRESS)
           saFNames.push_back(sformat("-offset:0x%x", offs));
         saFNames.push_back(fn);
@@ -1372,15 +1383,15 @@ do
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
         value = trim(value.substr(idx));
-        addr_t from, to, off;
+        addr_t from, to, step, off;
         // allow remapped remaps - but don't remap the remap range :-)
-        if (ParseInfoRange(range, from, to, false) >= 1 &&
+        if (ParseInfoRange(range, from, to, step, false) >= 1 &&
             (cmdType == infoUnRemap || pDasm->String2Number(value, off)))
           {
           remaps[infoBus].AddMemory(from, to + 1 - from);
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
-               scanned++)
+               scanned += step)
             {
             if (cmdType == infoRemap)
               *remaps[infoBus].getat(scanned) += off;
@@ -1403,6 +1414,7 @@ do
       case infoByte :                   /* BYTE addr[-addr]                  */
       case infoWord :                   /* WORD addr[-addr]                  */
       case infoDWord :                  /* DWORD addr[-addr]                 */
+      case infoQWord :                  /* QWORD addr[-addr]                 */
       // cell display types
       case infoBinary :                 /* BINARY addr[-addr]                */
       case infoChar :                   /* CHAR addr[-addr]                  */
@@ -1423,15 +1435,15 @@ do
       case infoForceAddr :              /* FORCEADDR addr[-addr]             */
       case infoUnForceAddr :            /* UNFORCEADDR addr[-addr]           */
         {
-        addr_t from, to, tgtaddr;
-        if (ParseInfoRange(value, from, to) >= 1)
+        addr_t from, to, step, tgtaddr;
+        if (ParseInfoRange(value, from, to, step) >= 1)
           {
           // if forcing an area into use, allocate untyped memory for it
           if (cmdType == infoUsed)
             pDasm->AddMemory(from, to - from + 1, Untyped, NULL, infoBus);
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
-               scanned++)
+               scanned += step)
             {
             MemoryType ty = pDasm->GetMemType(scanned, infoBus);
             int sz;
@@ -1500,6 +1512,9 @@ do
 #endif
                   pDasm->SetCellSize(scanned, 4, infoBus);
                   break;
+                case infoQWord :
+                  pDasm->SetCellSize(scanned, 8, infoBus);
+                  break;
                 case infoBinary :
                   pDasm->SetDisplay(scanned, MemAttribute::Binary, infoBus);
                   break;
@@ -1524,10 +1539,12 @@ do
                 case infoFloat :
                   pDasm->SetCellSize(scanned, 4, infoBus);
                   pDasm->SetCellType(scanned, MemAttribute::Float, infoBus);
+                  scanned += 3;
                   break;
                 case infoDouble :
                   pDasm->SetCellSize(scanned, 8, infoBus);
                   pDasm->SetCellType(scanned, MemAttribute::Float, infoBus);
+                  scanned += 7;
                   break;
                 case infoTenBytes :
                   pDasm->SetCellSize(scanned, 10, infoBus);
@@ -1593,26 +1610,26 @@ do
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
         value = trim(value.substr(idx));
-        addr_t from, to, rel;
-        if (ParseInfoRange(range, from, to) >= 1 &&
+        addr_t from, to, step, rel;
+        if (ParseInfoRange(range, from, to, step) >= 1 &&
             pDasm->String2Number(value, rel))
           {
           pDasm->AddRelative(from, to - from + 1, NULL, infoBus);
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
-               scanned++)
+               scanned += step)
            pDasm->SetRelative(scanned, rel, infoBus);
           }
         }
         break;
       case infoUnRelative :             /* UNRELATIVE addr[-addr]            */
         {
-        addr_t from, to;
-        if (ParseInfoRange(value, from, to) >= 1)
+        addr_t from, to, step;
+        if (ParseInfoRange(value, from, to, step) >= 1)
           {
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
-               scanned++)
+               scanned += step)
            pDasm->SetRelative(scanned, 0, infoBus);
           }
         }
@@ -1621,7 +1638,7 @@ do
       case infoDefLabel :               /* DEFLABEL addr[-addr] label        */
       case infoUsedLabel :              /* USEDLABEL addr[-addr] [label]     */
         {
-        addr_t from, to;
+        addr_t from, to, step;
         string range;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
@@ -1635,12 +1652,12 @@ do
             (cmdType == infoDefLabel) ? Const :
             Untyped;
         bool bUsed = (/* cmdType == infoDefLabel || */ cmdType == infoUsedLabel);
-        if (ParseInfoRange(range, from, to) >= 1 && bTextOk)
+        if (ParseInfoRange(range, from, to, step) >= 1 && bTextOk)
           {
           bool bNoDelta = cmdType == infoUsedLabel && value.empty();
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
-               scanned++)
+               scanned += step)
             {
             pDasm->AddLabel(
                 scanned, memType, 
@@ -1655,8 +1672,8 @@ do
         break;
       case infoUnlabel :                /* UNLABEL addr[-addr]               */
         {
-        addr_t from, to;
-        if (ParseInfoRange(value, from, to) >= 1)
+        addr_t from, to, ign;
+        if (ParseInfoRange(value, from, to, ign) >= 1)
           {
           for (int i = pDasm->GetLabelCount(infoBus) - 1; i >= 0; i--)
             {
@@ -1677,8 +1694,8 @@ do
         value = trim(value.substr(idx));
         char sign = value.size() ? value[0] : 0;
         bool bSigned = (sign == '+' || sign == '-');
-        addr_t from, to, phase;
-        if (ParseInfoRange(range, from, to) >= 1 &&
+        addr_t from, to, ign, phase;
+        if (ParseInfoRange(range, from, to, ign) >= 1 &&
             pDasm->String2Number(value, phase))
           {
           // This might cause garbage if overlapping or disjunct areas of
@@ -1715,8 +1732,8 @@ do
         break;
       case infoUnphase :                /* UNPHASE addr[-addr]               */
         {
-        addr_t from, to;
-        if (ParseInfoRange(value, from, to) >= 1)
+        addr_t from, to, ign;
+        if (ParseInfoRange(value, from, to, ign) >= 1)
           {
           for (addr_t scanned = from;
                scanned >= from && scanned <= to;
@@ -1747,20 +1764,20 @@ do
           bAfter = true;
           value = (idx < value.size()) ? trim(value.substr(idx)) : "";
           }
-        addr_t from, to;
+        addr_t from, to, step;
         string range;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
         // comments/inserts can have NO address, in which case they
         // are output before anything else
-        if (ParseInfoRange(range, from, to) < 1)
+        if (ParseInfoRange(range, from, to, step) < 1)
           idx = 0;
         value = (idx >= value.size()) ? "" :
           triminfo(value.substr(idx), true, true, true);
         for (addr_t scanned = from;
              scanned >= from && scanned <= to;
-             scanned++)
+             scanned += step)
           {
                                         /* make sure comment breaks output   */
           pDasm->SetBreakBefore(scanned, true, infoBus);
@@ -1794,8 +1811,8 @@ do
           bAfter = true;
           value = (idx < value.size()) ? trim(value.substr(idx)) : "";
           }
-        addr_t from, to;
-        if (ParseInfoRange(value, from, to) >= 1)
+        addr_t from, to, ign;
+        if (ParseInfoRange(value, from, to, ign) >= 1)
           {
           int i;
           if (cmdType == infoUncomment)
@@ -1828,14 +1845,14 @@ do
       case infoPatchDWord :             /* PATCHDW addr [dword]*             */
       case infoPatchFloat :             /* PATCHF addr [float]*              */
         {
-        addr_t from, to;
+        addr_t from, to, step;
         string range;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
         value = (idx >= value.size()) ? "" :
           triminfo(value.substr(idx), true, false);
-        if (ParseInfoRange(range, from, to) >= 1)
+        if (ParseInfoRange(range, from, to, step) >= 1)
           {
           // "to" is not interesting here.
           do
@@ -1855,7 +1872,8 @@ do
                   {
                   if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
                     pDasm->AddMemory(from, 1, Code, NULL, infoBus);
-                  pDasm->SetUByte(from++, (uint8_t)to, infoBus);
+                  pDasm->SetUByte(from, (uint8_t)to, infoBus);
+                  from += step;
                   }
                 else
                   from = NO_ADDRESS;
@@ -1866,7 +1884,7 @@ do
                   if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
                     pDasm->AddMemory(from, 2, Data, NULL, infoBus);
                   pDasm->SetUWord(from, (uint16_t)to, infoBus);
-                  from += 2;
+                  from += (step > 2) ? step : 2;
                   }
                 else
                   from = NO_ADDRESS;
@@ -1877,7 +1895,7 @@ do
                   if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
                     pDasm->AddMemory(from, 4, Data, NULL, infoBus);
                   pDasm->SetUDWord(from, (uint32_t)to, infoBus);
-                  from += 4;
+                  from += (step > 4) ? step : 4;
                   }
                 else
                   from = NO_ADDRESS;
@@ -1902,6 +1920,8 @@ do
                   // Tenbytes ... no, sorry. Not yet. Maybe never.
                   else
                     from = NO_ADDRESS;
+                  if (from != NO_ADDRESS)
+                    from += (step > (addr_t)sz) ? step : (addr_t)sz;
                   }
                 else
                   from = NO_ADDRESS;

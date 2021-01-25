@@ -855,7 +855,7 @@ for (int i = GetLabelCount(bus) - 1; i >= 0; i--)
     addr_t addr = pLbl->GetAddress();
     MemoryType memType = GetMemType(addr, bus);
     int sz = GetCellSize(addr, bus);
-    if (memType != Untyped && memType != Code && !IsFloat(addr, bus))
+    if (memType != Untyped && memType != Bss && !IsFloat(addr, bus))
       {
       if (s.size() > 0)
         {

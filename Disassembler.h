@@ -638,7 +638,7 @@ class Disassembler
     // load a code file; interleave can be >1 for interleaved Low/High EPROM pairs, for example
     bool Load(string filename, string &sLoadType, int interleave = 1, int bus = BusCode);
     // process an info file line
-    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, vector<TMemoryArray<addr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode) { return false; }
+    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, addr_t &step, vector<TMemoryArray<addr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode) { return false; }
 
   // the real disassembler activities
   protected:
@@ -779,9 +779,10 @@ class Disassembler
       // return end && !*end;
 #endif
       }
-    virtual int String2Range(string s, addr_t &from, addr_t &to)
+    virtual int String2Range(string s, addr_t &from, addr_t &to, addr_t &step)
       {
       from = to = NO_ADDRESS;
+      step = 1;
       string::size_type midx = s.find('-');
       if (midx == 0)
         {
@@ -789,8 +790,21 @@ class Disassembler
         if (midx != s.npos) midx++;
         }
       if (midx != s.npos)
-        return (int)String2Number(s.substr(0, midx), from) +
-               (int)String2Number(s.substr(midx + 1), to);
+        {
+        string sfrom(s.substr(0, midx));
+        string sto(s.substr(midx + 1));
+        // a range can have a step size.
+        string::size_type sidx = sto.find('/');
+        string sstep;
+        if (sidx != string::npos && sidx > 0)
+          {
+          sstep = sto.substr(sidx + 1);
+          sto = sto.substr(0, sidx);
+          }
+        return (int)String2Number(sfrom, from) +
+               (int)String2Number(sto, to) +
+               (int)String2Number(sstep, step);
+        }
       else
         return (int)String2Number(s, from);
       }
