@@ -688,26 +688,39 @@ return true;
 /* AddRelativeLabel : add label for addr OR the relative addresses           */
 /*****************************************************************************/
 
+// TODO: is that enough? Or does it need 2 busses (for addr and for at)?
 bool Disassembler::AddRelativeLabel
     (
     addr_t addr,
     addr_t at,
     MemoryType memType,
     bool bUsed,
-    int bus
+    int bus,
+    addr_t craddr,                      /* cref address                      */
+    int crbus                           /* cref bus                          */
     )
 {
 addr_t relative = GetRelative(at, bus);
 addr_t addrRel = addr + relative;
 addr_t hiaddr = GetHighestBusAddr(bus) + 1;
 addr_t addrRelMod = (hiaddr) ? addrRel % hiaddr : addrRel;
+bool rc;
 if (addrRelMod != addr)
   {
-  AddLabel(relative, memType, "", true);
-  return AddLabel(addrRelMod, memType, "", true);
+  if (AddLabel(relative, memType, "", true, bus) &&
+      craddr != NO_ADDRESS)
+    SetLabelUsed(relative, memType, bus, craddr, crbus);
+  rc = AddLabel(addrRelMod, memType, "", true, bus);
+  if (rc && craddr != NO_ADDRESS)
+    SetLabelUsed(addrRelMod, memType, bus, craddr, crbus);
   }
 else
-  return AddLabel(addr, memType, "", true);
+  {
+  rc = AddLabel(addr, memType, "", true, bus);
+  if (rc && craddr != NO_ADDRESS)
+    SetLabelUsed(addr, memType, bus, craddr, crbus);
+  }
+return rc;
 }
 
 /*****************************************************************************/

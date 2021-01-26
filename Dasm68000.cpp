@@ -673,13 +673,13 @@ addr_t Dasm68000::ParseData
 SetLabelUsed(addr, Const, NO_ADDRESS, bus);
 
 // TODO: complete this!
-int csz = GetCellSize(addr);
-if (!IsConst(addr))
+int csz = GetCellSize(addr, bus);
+if (!IsConst(addr, bus) && !IsBss(addr))
   {
   if (csz == 2)                         /* if WORD data                      */
-    SetLabelUsed(GetUWord(addr), Code, addr);
+    SetLabelUsed(GetUWord(addr), Code, bus, addr);
   else if (csz == 4)                    /* if DWORD data                     */
-    SetLabelUsed(GetUDWord(addr), Code, addr);
+    SetLabelUsed(GetUDWord(addr), Code, bus, addr);
   }
 return csz;
 }
@@ -910,9 +910,9 @@ switch(mode)
         // sprintf(s,"$%lx%s",(long)short_adr, sExtShort.c_str());
         if (!IsConst(addr))
           {
-          SetLabelUsed((uint16_t)short_adr, mt, instaddr);
+          SetLabelUsed((uint16_t)short_adr, mt, BusCode, instaddr);
           a1 = PhaseInner((uint16_t)short_adr, instaddr);
-          AddRelativeLabel(a1, addr, mt, true);
+          AddRelativeLabel(a1, addr, mt, true, BusCode, instaddr);
           }
         addr += 2;
         break;
@@ -920,10 +920,10 @@ switch(mode)
         a1 = GetSDWord(addr);
         SetCellSize(addr, 4);
         if (!IsConst(addr))
-          SetLabelUsed(a1, mt, instaddr);
+          SetLabelUsed(a1, mt, BusCode, instaddr);
         a1 = PhaseInner(a1, instaddr);
         if ((addr_t)a1 <= GetHighestCodeAddr())
-          AddRelativeLabel(a1, addr, mt, true);
+          AddRelativeLabel(a1, addr, mt, true, BusCode, instaddr);
         addr += 4;
         break;
       case 2:	/*	program counter with displacement	*/
@@ -932,10 +932,10 @@ switch(mode)
         a1 = (int32_t)addr + displacement;
         // sprintf(s,"$%lx(PC)",a1);
         if (!IsConst(addr))
-          SetLabelUsed(a1, mt, instaddr);
+          SetLabelUsed(a1, mt, BusCode, instaddr);
         a1 = PhaseInner(a1, instaddr);
         if ((addr_t)a1 <= GetHighestCodeAddr())
-          AddRelativeLabel(a1, addr, mt, true);
+          AddRelativeLabel(a1, addr, mt, true, BusCode, instaddr);
         addr += 2;
         break;
       case 3:
@@ -958,7 +958,7 @@ switch(mode)
           {
           a1 = GetSDWord(addr);
           if (!IsConst(addr))
-            SetLabelUsed(a1, mt, instaddr);
+            SetLabelUsed(a1, mt, BusCode, instaddr);
           addr += 4;
 #if 0
           // this MIGHT be a label, but more likely it's constant data,
@@ -1109,7 +1109,7 @@ else
   }
 
 if (bSetLabelUsed)
-  SetLabelUsed(dest, Code, instaddr);
+  SetLabelUsed(dest, Code, BusCode, instaddr);
 
 dest = PhaseInner(dest, startaddr);
 AddLabel(dest, mnemo[OpTable[optable_index].mnemo].memType, "", true);
@@ -1244,9 +1244,9 @@ int16_t reg = code & 0x07;
 int16_t displacement = GetSWord(addr);
 int32_t dest = (int32_t)addr + displacement;
 if (!IsConst(addr))
-  SetLabelUsed(dest, Code, instaddr);
+  SetLabelUsed(dest, Code, BusCode, instaddr);
 dest = PhaseInner(dest, addr - 2);
-AddRelativeLabel(dest, addr, mnemo[OpTable[optable_index].mnemo].memType, true);
+AddRelativeLabel(dest, addr, mnemo[OpTable[optable_index].mnemo].memType, true, BusCode, instaddr);
 addr += 2;
 
 // sparm = sformat("%s,$%lx", GetDataReg(reg), dest);

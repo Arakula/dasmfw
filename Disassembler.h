@@ -521,7 +521,7 @@ class Disassembler
   // Label handling
   public:
     bool AddLabel(addr_t addr, MemoryType memType = Code, string sLabel = "", bool bUsed = false, int bus = BusCode);
-    bool AddRelativeLabel(addr_t addr, addr_t at, MemoryType memType = Code, bool bUsed = false, int bus = BusCode);
+    bool AddRelativeLabel(addr_t addr, addr_t at, MemoryType memType = Code, bool bUsed = false, int bus = BusCode, addr_t craddr = NO_ADDRESS, int crbus = BusCode);
     Label *GetFirstLabel(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, int bus = BusCode)
       { return Labels[bus].GetFirst(addr, it, memType); }
     Label *GetNextLabel(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, int bus = BusCode)
@@ -593,7 +593,7 @@ class Disassembler
         }
       return false;
       }
-    bool SetLabelUsed(addr_t addr, MemoryType memType = Code, addr_t ref = NO_ADDRESS, int bus = BusCode)
+    bool SetLabelUsed(addr_t addr, MemoryType memType = Code, int bus = BusCode, addr_t ref = NO_ADDRESS, int busref = BusCode)
       {
       bool bDone = false;
       LabelArray::iterator it;
@@ -603,7 +603,7 @@ class Disassembler
         // "Const" is a DefLabel, so only match it if Const is requested
         if (memType == Const || !pLabel->IsConst())
           {
-          pLabel->SetUsed(true, ref);   /* mark it as used                   */
+          pLabel->SetUsed(true, ref, busref);   /* mark it as used                   */
           bDone = true;
           }
         pLabel = GetNextLabel(addr, it, memType, bus);
@@ -612,7 +612,7 @@ class Disassembler
       }
     Label *SetDefLabelUsed(addr_t addr, int bus = BusCode)
       {
-      if (SetLabelUsed(addr, Const, NO_ADDRESS, bus))
+      if (SetLabelUsed(addr, Const, bus))
         return FindLabel(addr, Const, bus);
       return NULL;
       }

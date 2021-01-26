@@ -459,7 +459,7 @@ if (T & 0x80)
           if (bSetLabel)
             {
             AddLabel(W, mnemo[MI].memType, "", true);
-            SetLabelUsed(W, mnemo[MI].memType, pc);
+            SetLabelUsed(W, mnemo[MI].memType, BusCode, pc);
             }
           return PC;
         }
@@ -600,7 +600,7 @@ switch (M)                              /* which mode is this ?              */
       if (bSetLabel)
         {
         W = (uint16_t)PhaseInner(W, PC);
-        AddRelativeLabel(W, PC, mnemo[MI].memType, true);
+        AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
         }
       }
     PC++;
@@ -623,7 +623,7 @@ switch (M)                              /* which mode is this ?              */
     if (bSetLabel)
       {
       W = (uint16_t)PhaseInner(GetUWord(PC), PC);
-      AddRelativeLabel(W, PC, mnemo[MI].memType, true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
       }
     else
       SetDefLabelUsed(PC, bus);

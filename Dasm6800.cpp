@@ -681,15 +681,15 @@ addr_t Dasm6800::ParseData
 SetLabelUsed(addr, Const);              /* mark DefLabels as used            */
 
 int csz = GetCellSize(addr);
-if (!IsConst(addr))
+if (!IsConst(addr) && !IsBss(addr))
   {
   if (csz == 2)                         /* if WORD data                      */
-    SetLabelUsed(GetUWord(addr), Code, addr);
+    SetLabelUsed(GetUWord(addr), Code, BusCode, addr);
   else if (csz == 1 && useDPLabels)     /* or BYTE data and using DP labels  */
     {
     addr_t dp = GetDirectPage(addr, bus);
     if (dp != NO_ADDRESS)
-      SetLabelUsed(dp | GetUByte(addr), Code, addr);
+      SetLabelUsed(dp | GetUByte(addr), Code, BusCode, addr);
     }
   }
 
@@ -763,7 +763,7 @@ switch (M)                              /* which mode is this ?              */
     if (bSetLabel)
       {
       W = (uint16_t)PhaseInner(W, PC);
-      AddRelativeLabel(W, PC, mnemo[MI].memType, true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
       }
     PC += 2;
     break;
@@ -785,7 +785,7 @@ switch (M)                              /* which mode is this ?              */
         T = GetUByte(PC);
         W = (uint16_t)dp | T;
         W = (uint16_t)PhaseInner(W, PC);
-        AddRelativeLabel(W, PC, mnemo[MI].memType, true);
+        AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
         }
       }
     PC++;
@@ -800,7 +800,7 @@ switch (M)                              /* which mode is this ?              */
       {
       W = GetUWord(PC);
       W = (uint16_t)PhaseInner(W, PC);
-      AddRelativeLabel(W, PC, mnemo[MI].memType, true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
       }
     PC += 2;
     break;
@@ -820,7 +820,8 @@ switch (M)                              /* which mode is this ?              */
     if (bSetLabel)
       {
       W = (uint16_t)DephaseOuter(W, PC - 1);
-      AddLabel(W, mnemo[MI].memType, "", true);
+      // AddLabel(W, mnemo[MI].memType, "", true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
       }
     break;
     
@@ -1008,11 +1009,9 @@ uint16_t W;
 addr_t Wrel;
 int MI;
 const char *I;
-addr_t PC = addr;
+addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
 bool bGetLabel;
 Label *lbl;
-
-PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
 
 switch (M)                              /* which mode is this?               */
   {

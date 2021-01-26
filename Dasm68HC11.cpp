@@ -542,7 +542,7 @@ switch (M)                              /* which mode is this ?              */
       {
       W = GetUByte(PC);
       W = (uint16_t)PhaseInner(W, PC);
-      AddRelativeLabel(W, PC, mnemo[MI].memType, true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
       }
     PC++;
     bSetLabel = !IsConst(PC);
@@ -569,7 +569,7 @@ switch (M)                              /* which mode is this ?              */
       {
       W = GetUByte(PC);
       W = (uint16_t)PhaseInner(W, PC);
-      AddRelativeLabel(W, PC, Data, true);
+      AddRelativeLabel(W, PC, Data, true, BusCode, addr);
       }
     PC++;
     bSetLabel = !IsConst(PC);
@@ -583,7 +583,8 @@ switch (M)                              /* which mode is this ?              */
     if (bSetLabel)
       {
       W = (uint16_t)DephaseOuter(W, PC);
-      AddLabel(W, mnemo[MI].memType, "", true);
+      // AddLabel(W, mnemo[MI].memType, "", true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
       }
     else
       SetDefLabelUsed(PC, bus);
@@ -604,7 +605,8 @@ switch (M)                              /* which mode is this ?              */
     if (bSetLabel)
       {
       W = (uint16_t)DephaseOuter(W, PC);
-      AddLabel(W, mnemo[MI].memType, "", true);
+      // AddLabel(W, mnemo[MI].memType, "", true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
       }
     else
       SetDefLabelUsed(PC, bus);

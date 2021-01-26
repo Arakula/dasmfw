@@ -626,7 +626,8 @@ for (i = j = 0; i < pLabel->RefCount(); i++)
   AddrBus &ref = pLabel->GetRef(i);
   if (ref != addrp)
     {
-    string sLblText = pDasm->Label2String(ref.addr, 8, false, NO_ADDRESS, ref.bus);
+    int nDigits = (pDasm->BusAddressBits(ref.bus) + 3) / 4;
+    string sLblText = pDasm->Label2String(ref.addr, nDigits, true, NO_ADDRESS, ref.bus);
     if (ref.bus != bus)
       sLblText += "(" + pDasm->GetBusName(ref.bus) + ")";
     if (j && sLine.size() + 2 + sLblText.size() > 79)

@@ -593,7 +593,7 @@ switch (cmdType)
 
       for (addr_t scanned = from;
                   scanned >= from && scanned <= to;
-                  scanned++)
+                  scanned += step)
         SetRelative(scanned, rt, rel, tgtbus, bus);
       }
     }
@@ -993,13 +993,13 @@ addr_t DasmAvr8::ParseData
     )
 {
                                         /* mark DefLabels as used            */
-SetLabelUsed(addr, Const, NO_ADDRESS, bus);
+SetLabelUsed(addr, Const, bus);
 
 int csz = GetCellSize(addr, bus);
 if (csz == 2)                           /* if WORD data                      */
   {
-  if (!IsConst(addr, bus))
-    SetLabelUsed(GetUWord(addr, bus), Untyped, addr, bus);
+  if (!IsConst(addr, bus) && !IsBss(addr))
+    SetLabelUsed(GetUWord(addr, bus), Untyped, bus, addr, bus /* TODO: correct?*/);
   }
 return csz;
 }
@@ -1234,7 +1234,7 @@ for (i = 0; i < numOperands; i++)
     case OpndRegEvenPStartR24:
       break;
     case OpndIOReg:
-      SetLabelUsed(operand, Untyped, addr, BusIO);
+      SetLabelUsed(operand, Untyped, BusIO, addr);
       break;
     case OpndBit:
     case OpndDESRound:

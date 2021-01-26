@@ -197,7 +197,7 @@ switch (M)                              /* which mode is this ?              */
       {
       W = GetUByte(PC);
       W = (uint16_t)PhaseInner(W, PC);
-      AddRelativeLabel(W, PC, mnemo[MI].memType, true);
+      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
       }
     PC++;
     break;
