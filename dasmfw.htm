@@ -6,7 +6,7 @@
 <body>
 <h1>dasmfw / the DisASseMbler FrameWork</h1>
 
-<p align="right">Copyright (c) 2015-2020 Hermann Seib<br />
+<p align="right">Copyright (c) 2015-2021 Hermann Seib<br />
 Parts Copyright (c) 2000 Arto Salmi<br />
 Parts Copyright (c) 2013 Colin Bourassa<br />
 Parts Copyright (c) 2014-2015 Rainer Buchty</p>
@@ -133,10 +133,12 @@ specified by adding ":" plus the factor to the filename.</p>
 	 Normally, comments are enabled. And for a good reason - disabling comments also
 	 disables other texts added to the output, like conditional assembly pseudo-ops
 	 and the like.</dd>
+<!-- not fully implemented yet!
   <dt><b>cref <i>on|off</i></b><br />
       <b>nocref</b></dt>
-  <dd>if set to on, dasmfw adds a cross-reference list of all used labels to the output
+  <dd>if set to on, dasmfw adds a cross-reference list to all used labels in the output
       file.</dd>
+-->
   <dt><b>unused <i>on|off</i></b><br />
       <b>nounused</b></dt>
   <dd>if set to on, dasmfw outputs unused labels set in info files, too. Normally, only
@@ -655,6 +657,34 @@ Some of the disassemblers add their own instructions.
   <dd>6809 and derived only<br />
       removes <i>setdp</i> effects from the given range or, if no range is given,
       sets the global direct page back to the default.</dd>
+</dl>
+<dl>      
+  <dt><b>reglabel <i>addr Rxx [text]</i></b></dt>
+  <dd>AVR8 only<br />
+      Due to the abundance of registers, AVR8 code tends to keep many local variables
+      in registers. reglabel allows to set a label to be used instead of the register
+      name starting at the given address.</dd>
+  <dt><b>unreglabel <i>addr Rxx</i></b></dt>
+  <dd>AVR8 only<br />
+      Cancels the previous reglabel definition for the passed register.</dd>    
+  <dt><b>high <i>[bus tgtbus] addr[-addr] addr</i></b></dt>
+  <dd>AVR8 only<br />
+      TODO (... I should document things like that immediately, not years later! :-)</dd>    
+  <dt><b>low <i>[bus tgtbus] addr[-addr] addr</i></b></dt>
+  <dd>AVR8 only<br />
+      TODO</dd>    
+  <dt><b>mhigh <i>[bus tgtbus] addr[-addr] addr</i></b></dt>
+  <dd>AVR8 only<br />
+      TODO</dd>    
+  <dt><b>mlow <i>[bus tgtbus] addr[-addr] addr</i></b></dt>
+  <dd>AVR8 only<br />
+      TODO</dd>    
+  <dt><b>high2 <i>[bus tgtbus] addr[-addr] addr</i></b></dt>
+  <dd>AVR8 only<br />
+      TODO</dd>    
+  <dt><b>low2 <i>[bus tgtbus] addr[-addr] addr</i></b></dt>
+  <dd>AVR8 only<br />
+      TODO</dd>    
 </dl>
 
 <p><i><b>Note:</b></i> wherever <i><b>text</b></i> requires leading blanks or tabs,
