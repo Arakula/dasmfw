@@ -858,6 +858,17 @@ for (int i = GetLabelCount(bus) - 1; i >= 0; i--)
     addr_t addaddr = pLbl->GetAddress() + offs;
     AddLabel(addaddr, pLbl->GetType(),
              s.substr(0, p), true, bus);
+    // copy all references to the base label
+    Label *pBaseLbl = FindLabel(addaddr, pLbl->GetType(), bus);
+    if (pBaseLbl)
+      {
+      for (size_t refi = 0; refi < pLbl->RefCount(); refi++)
+        {
+        AddrBus &ref = pLbl->GetRef(refi);
+        pBaseLbl->SetUsed(true, ref.addr, ref.bus);
+        }
+      }
+
     // this might have caused an insertion, so restart here
     i++;
     continue;
