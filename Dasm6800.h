@@ -61,19 +61,19 @@ class Dasm6800 :
     // return whether big- or little-endian
     virtual Endian GetEndianness() { return BigEndian; }
     // return bus width
-    virtual int GetBusWidth(int bus = BusCode) { return 16; }
+    virtual int GetBusWidth(int bus = BusCode) { (void)bus; return 16; }
     // return code bits
     virtual int GetCodeBits() { return 16; }
     // return code pointer size in bytes
     virtual int GetCodePtrSize() { return 2; }
     // return highest possible code address
-    virtual caddr_t GetHighestCodeAddr() { return 0xffff; }
+    virtual cadr_t GetHighestCodeAddr() { return 0xffff; }
     // return data bits
     virtual int GetDataBits() { return 8; }
     // return data pointer size in bytes
     virtual int GetDataPtrSize() { return 2; }
     // return highest possible data address
-    virtual daddr_t GetHighestDataAddr() { return 0xffff; }
+    virtual dadr_t GetHighestDataAddr() { return 0xffff; }
 
   // Options handler
   protected:
@@ -82,42 +82,42 @@ class Dasm6800 :
 
   protected:
     // parse data area for labels
-    virtual addr_t ParseData(addr_t addr, int bus = BusCode);
+    virtual adr_t ParseData(adr_t addr, int bus = BusCode);
     // parse instruction at given memory address for labels
-    virtual addr_t ParseCode(addr_t addr, int bus = BusCode);
+    virtual adr_t ParseCode(adr_t addr, int bus = BusCode);
     // pass back correct mnemonic and parameters for a label
     virtual bool DisassembleLabel(Label *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode);
     // pass back correct mnemonic and parameters for a DefLabel
     virtual bool DisassembleDefLabel(DefLabel *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode);
     // disassemble data area at given memory address
-    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode);
+    virtual adr_t DisassembleData(adr_t addr, adr_t end, uint32_t flags, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, string &smnemo, string &sparm, int bus = BusCode);
+    virtual adr_t DisassembleCode(adr_t addr, string &smnemo, string &sparm, int bus = BusCode);
     // Get Flags for disassembly of data areas
-    virtual uint32_t GetDisassemblyFlags(addr_t addr, int bus = BusCode);
+    virtual uint32_t GetDisassemblyFlags(adr_t addr, int bus = BusCode);
 
     // Get/Set additional cell information
-    virtual addr_t GetDirectPage(addr_t addr, int bus = BusCode)
-      { return 0; }
-    virtual void SetDirectPage(addr_t addr, addr_t dp, int bus = BusCode)
-      { }
+    virtual adr_t GetDirectPage(adr_t addr, int bus = BusCode)
+      { (void)addr; (void)bus; return 0; }
+    virtual void SetDirectPage(adr_t addr, adr_t dp, int bus = BusCode)
+      { (void)addr; (void)dp; (void)bus; }
 
   public:
     // Initialize parsing
     virtual bool InitParse(int bus = BusCode);
     // pass back disassembler-specific state changes before/after a disassembly line
-    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode);
+    virtual bool DisassembleChanges(adr_t addr, adr_t prevaddr, adr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode);
 
 
   protected:
     bool LoadFlex(FILE *f, string &sLoadType);
     virtual bool LoadFile(string filename, FILE *f, string &sLoadType, int interleave = 1, int bus = BusCode);
-    virtual bool String2Number(string s, addr_t &value);
-    virtual string Number2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode);
-    virtual string Address2String(addr_t addr, int bus = BusCode)
-      { return sformat("$%04X", addr); }
-    virtual addr_t FetchInstructionDetails(addr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, string *smnemo = NULL);
-    virtual string GetIx8IndexReg(uint8_t O) { return ",X"; }
+    virtual bool String2Number(string s, adr_t &value);
+    virtual string Number2String(adr_t value, int nDigits, adr_t addr, int bus = BusCode);
+    virtual string Address2String(adr_t addr, int bus = BusCode)
+      { (void)bus; return sformat("$%04X", addr); }
+    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, string *smnemo = NULL);
+    virtual string GetIx8IndexReg(uint8_t O) { (void)O; return ",X"; }
 
   protected:
     // 6800 addressing modes
@@ -256,10 +256,10 @@ class Dasm6800 :
     static uint8_t m6800_codes[512];
 
     uint8_t *codes;
-    static char *bit_r[];
-    static char *block_r[];
+    static const char *bit_r[];
+    static const char *block_r[];
     static OpCode opcodes[mnemo6800_count];
-    addr_t dirpage;
+    adr_t dirpage;
 
     bool useConvenience;
     bool useFCC;

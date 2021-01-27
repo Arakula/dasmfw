@@ -49,7 +49,7 @@ static bool bRegistered = RegisterDisassembler("6809", Create6809);
 /* os9_codes : OS/9 entry points                                             */
 /*****************************************************************************/
 
-char *Dasm6809::os9_codes[0x100] =
+const char *Dasm6809::os9_codes[0x100] =
   {
   "F$Link",      "F$Load",      "F$UnLink",    "F$Fork",        /* 00..03 */
   "F$Wait",      "F$Chain",     "F$Exit",      "F$Mem",         /* 04..07 */
@@ -339,13 +339,13 @@ uint8_t Dasm6809::m6809_codes11[512] =
   };
 
 
-static char *m6809_exg_tfr[] =
+static const char *m6809_exg_tfr[] =
   {
   "D", "X", "Y", "U", "S", "PC","??","??",
   "A", "B", "CC","DP","??","??","??","??"
   };
 
-char Dasm6809::reg[] = { 'X', 'Y', 'U', 'S' };
+const char Dasm6809::reg[] = { 'X', 'Y', 'U', 'S' };
 
 /*****************************************************************************/
 /* opcodes : additional opcodes over 6800                                    */
@@ -526,15 +526,18 @@ bool Dasm6809::ProcessInfo
     (
     string key,                         /* parsed key                        */
     string value,                       /* rest of the line                  */
-    addr_t &from,                       /* from/to (if range given)          */
-    addr_t &to,
-    addr_t &step,                       /* step size                         */
-    vector<TMemoryArray<addr_t>> &remaps ,  /* remaps, if necessary          */
+    adr_t &from,                        /* from/to (if range given)          */
+    adr_t &to,
+    adr_t &step,                        /* step size                         */
+    vector<TMemoryArray<adr_t>> &remaps,  /* remaps, if necessary            */
     bool bProcInfo,                     /* flag whether processing           */
     int bus,                            /* target bus for command            */
     int tgtbus                          /* target bus for parameters (ign.)  */
     )
 {
+(void)remaps;  // unused ATM
+(void)tgtbus;
+
 if (!bProcInfo || bus != BusCode)       /* only if processing code bus...    */
   return false;
 
@@ -555,14 +558,14 @@ static struct                           /* structure to convert key to type  */
   };
 
 InfoCmd cmdType = infoUnknown;
-for (int i = 0; i < _countof(sKey); i++)
+for (size_t i = 0; i < _countof(sKey); i++)
   if (key == sKey[i].name)
     {
     cmdType = sKey[i].cmdType;
     break;
     }
 if (cmdType == infoUnknown)
-  return false;
+  return false;  // I KNOW that the parent classes don't do anything else.
 
 switch (cmdType)
   {
@@ -572,7 +575,7 @@ switch (cmdType)
     string::size_type idx = value.find_first_of(" \t");
     if (idx == value.npos) idx = value.size();
     srange = value.substr(0, idx);
-    addr_t dp = NO_ADDRESS;
+    adr_t dp = NO_ADDRESS;
     value = (idx == value.size()) ? "" : trim(value.substr(idx));
     if (value.size() &&                 /* if addr[-addr] dp                 */
         value[0] != '*')
@@ -593,19 +596,21 @@ switch (cmdType)
       }
     if (from == NO_ADDRESS)
       dirpage = dp;
-    else for (addr_t scanned = from;
+    else for (adr_t scanned = from;
               scanned >= from && scanned <= to;
-              scanned++)
+              scanned += step)
       SetDirectPage(scanned, dp, bus);
     }
     break;
   case infoUnsetDP :                    /* UNSETDP [addr[-addr]]             */
     if (from == NO_ADDRESS)
       dirpage = 0;
-    else for (addr_t scanned = from;
+    else for (adr_t scanned = from;
               scanned >= from && scanned <= to;
-              scanned++)
+              scanned += step)
       SetDirectPage(scanned, 0, bus);
+    break;
+  default :  // keep gcc happy
     break;
   }
 return true;
@@ -631,7 +636,7 @@ if (bus == BusCode)
       "SWI2",                           /* fff4                              */
       "FIRQ",                           /* fff6                              */
       };
-    for (addr_t addr = 0xfff2; addr < 0xfff8; addr += 2)
+    for (adr_t addr = 0xfff2; addr < 0xfff8; addr += 2)
       {
       MemoryType memType = GetMemType(addr);
       if (memType != Untyped &&         /* if system vector loaded           */
@@ -641,7 +646,7 @@ if (bus == BusCode)
         SetMemType(addr, Data);         /* that's a data word                */
         SetCellSize(addr, 2);
                                         /* look whether it points to loaded  */
-        addr_t tgtaddr = GetUWord(addr);
+        adr_t tgtaddr = GetUWord(addr);
         if (GetMemType(tgtaddr) != Untyped)
           {                             /* if so,                            */
           SetMemType(tgtaddr, Code);    /* that's code there                 */
@@ -661,9 +666,9 @@ return Dasm6800::InitParse(bus);
 /* FetchInstructionDetails : fetch details about current instruction         */
 /*****************************************************************************/
 
-addr_t Dasm6809::FetchInstructionDetails
+adr_t Dasm6809::FetchInstructionDetails
     (
-    addr_t PC,
+    adr_t PC,
     uint8_t &O,
     uint8_t &T,
     uint8_t &M,
@@ -707,13 +712,14 @@ return PC;
 /* IndexParse : parses index for labels                                      */
 /*****************************************************************************/
 
-addr_t Dasm6809::IndexParse(int MI, addr_t pc)
+#define HMHMHM 0
+adr_t Dasm6809::IndexParse(int MI, adr_t pc, adr_t instaddr)
 {
 uint8_t T;
 uint16_t W;
 uint16_t Wrel;
 char R;
-addr_t PC = pc;
+adr_t PC = pc;
 bool bSetLabel = true;
 Label *lbl;
 
@@ -746,7 +752,12 @@ if (T & 0x80)
         SetDefLabelUsed(PC);
       T = GetUByte(PC++);
       if (bSetLabel)
+#if HMHMHM
+        AddRelativeLabel((uint16_t)((int)((char)T) + PC), PC - 1, mnemo[MI].memType,
+                         true, BusCode, instaddr);
+#else
         AddLabel((uint16_t)((int)((char)T) + PC), mnemo[MI].memType, "", true);
+#endif
       break;
     case 0x08:
       bSetLabel = !IsConst(PC);
@@ -757,14 +768,18 @@ if (T & 0x80)
         SetDefLabelUsed(PC);
       W = (uint16_t)((int)((char)T));
       Wrel += W;
-      PC++;
       // no labels in indirect addressing!
       // ...except when they are explicitly given in the info file, of course
       if (bSetLabel &&
           (W != Wrel ||                 /* if it's relative, or label's there*/
             FindLabel(Wrel)))
+#if 1
+        AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, instaddr);
+#else
         AddLabel(Wrel,                  /* mark it as used                   */
                  mnemo[MI].memType, "", true);
+#endif
+      PC++;
       break;
     case 0x18:
       SetDefLabelUsed(PC);
@@ -777,7 +792,12 @@ if (T & 0x80)
       SetCellSize(PC, 2);
       W = GetUWord(PC); PC += 2;
       if (bSetLabel)
+#if HMHMHM
+        AddRelativeLabel((uint16_t)(W + PC), PC - 2, mnemo[MI].memType, true,
+                         BusCode, instaddr);
+#else
         AddLabel((uint16_t)(W + PC), mnemo[MI].memType, "", true);
+#endif
       break;
     case 0x09:
       bSetLabel = !IsConst(PC);
@@ -787,14 +807,18 @@ if (T & 0x80)
       SetCellSize(PC, 2);
       W = GetUWord(PC);
       Wrel += W;
-      PC += 2;
       // no labels in indirect addressing!
       // ...except when they are explicitly given in the info file, of course
       if (bSetLabel &&
           (W != Wrel ||                 /* if it's relative, or label's there*/
             FindLabel(Wrel)))
+#if 1
+        AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, instaddr);
+#else
         AddLabel(Wrel,                  /* mark it as used                   */
                  mnemo[MI].memType, "", true);
+#endif
+      PC += 2;
       break;
     case 0x19:
     case 0x1D:
@@ -804,7 +828,12 @@ if (T & 0x80)
       SetCellSize(PC, 2);
       W = GetUWord(PC); PC += 2;
       if (bSetLabel)
+#if HMHMHM
+        AddRelativeLabel((uint16_t)(W + PC), PC - 2, mnemo[MI].memType, true,
+                         BusCode, instaddr);
+#else
         AddLabel((uint16_t)(W + PC), mnemo[MI].memType, "", true);
+#endif
       break;
 
     default:
@@ -815,9 +844,14 @@ if (T & 0x80)
         if (lbl)
           lbl->SetUsed();
         SetCellSize(PC, 2);
-        W = GetUWord(PC); PC += 2;
+        W = GetUWord(PC);
         if (bSetLabel)
+#if HMHMHM
+          AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, instaddr);
+#else
           AddLabel(W, mnemo[MI].memType, "", true);
+#endif
+        PC += 2;
         }
       break;
     }
@@ -834,13 +868,19 @@ else
     lbl = bSetLabel ? NULL : FindLabel(PC - 1, Const);
     W = (uint16_t)(c + Wrel);
     if (bSetLabel)
+#if HMHMHM
+      AddRelativeLabel(W, PC - 1, mnemo[MI].memType, true, BusCode, instaddr);
+#else
       AddLabel(W, mnemo[MI].memType, "", true);
+#endif
     }
   else
     lbl = FindLabel(PC - 1, Const);
   if (lbl)
     lbl->SetUsed();
   }
+
+(void)R;  // unused ATM - keep gcc happy
 return PC;
 }
 
@@ -848,13 +888,13 @@ return PC;
 /* IndexString : converts index to string                                    */
 /*****************************************************************************/
 
-string Dasm6809::IndexString(addr_t &pc)
+string Dasm6809::IndexString(adr_t &pc)
 {
 uint8_t T;
 uint16_t W, Wrel;
 char R;
 string buf;
-addr_t PC = pc;
+adr_t PC = pc;
 bool bGetLabel;
 Label *lbl;
 
@@ -1124,9 +1164,9 @@ return buf;
 /* ParseCode : parse instruction at given memory address for labels          */
 /*****************************************************************************/
 
-addr_t Dasm6809::ParseCode
+adr_t Dasm6809::ParseCode
     (
-    addr_t addr,
+    adr_t addr,
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
@@ -1136,7 +1176,7 @@ int MI;
 const char *I;
 bool bSetLabel;
 Label *lbl;
-addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
 
 if ((T == _swi2) && os9Patch)
   return (PC + 1 - addr);
@@ -1144,7 +1184,7 @@ if ((T == _swi2) && os9Patch)
 switch (M)                              /* which mode is this ?              */
   {
   case _ind:                            /* indexed                           */
-    PC = IndexParse(MI,PC);
+    PC = IndexParse(MI, PC, addr);
     break;
     
   case _rew:                            /* relative word                     */
@@ -1179,9 +1219,9 @@ return PC - addr;                       /* pass back # processed bytes       */
 /* DisassembleCode : disassemble code instruction at given memory address    */
 /*****************************************************************************/
 
-addr_t Dasm6809::DisassembleCode
+adr_t Dasm6809::DisassembleCode
     (
-    addr_t addr,
+    adr_t addr,
     string &smnemo,
     string &sparm,
     int bus                             /* ignored for 6800 and derivates    */
@@ -1191,7 +1231,7 @@ uint8_t O, T, M;
 uint16_t W;
 int MI;
 const char *I;
-addr_t PC = addr;
+adr_t PC = addr;
 bool bGetLabel;
 Label *lbl;
 
@@ -1446,9 +1486,9 @@ return PC - addr;                       /* pass back # processed bytes       */
 
 bool Dasm6809::DisassembleChanges
     (
-    addr_t addr,
-    addr_t prevaddr,
-    addr_t prevsz,
+    adr_t addr,
+    adr_t prevaddr,
+    adr_t prevsz,
     bool bAfterLine,
     vector<LineChange> &changes,
     int bus
@@ -1463,9 +1503,9 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
 if (!bAfterLine)                        /* if before the address             */
   {
   // report direct page changes
-  addr_t dpold =
+  adr_t dpold =
       (prevaddr == NO_ADDRESS) ? DEFAULT_ADDRESS : GetDirectPage(prevaddr, bus);
-  addr_t dp = GetDirectPage(addr, bus);
+  adr_t dp = GetDirectPage(addr, bus);
   if (!dp && dpold == DEFAULT_ADDRESS) dpold = dp;
   if (dp != dpold)
     {
@@ -1488,8 +1528,8 @@ void Dasm6809::AddFlexLabels()
 {
 static struct
   {
-  addr_t from;
-  addr_t to;
+  adr_t from;
+  adr_t to;
   char const *txt;
   } FlexLbls[] =
   {
@@ -1595,9 +1635,9 @@ static struct
     { 0xde1b, 0xde1b, "DDJ_SEEK" },     /* seek to specified track           */
   };
 
-for (int i = 0; i < _countof(FlexLbls); i++)
+for (size_t i = 0; i < _countof(FlexLbls); i++)
   {
-  for (addr_t a = FlexLbls[i].from; a <= FlexLbls[i].to; a++)
+  for (adr_t a = FlexLbls[i].from; a <= FlexLbls[i].to; a++)
     {
     string s(FlexLbls[i].txt);
     if (a != FlexLbls[i].from)

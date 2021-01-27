@@ -126,9 +126,9 @@ uint8_t Dasm6800::m6800_codes[512] =
   _ill  ,_nom,   _ill  ,_nom,   _ldx  ,_ext,   _stx  ,_ext,     /* FC..FF */
   };
 
-char *Dasm6800::bit_r[] = {"CC","A","B","??"};
+const char *Dasm6800::bit_r[] = {"CC","A","B","??"};
 
-char *Dasm6800::block_r[] =
+const char *Dasm6800::block_r[] =
   {
   "D","X","Y","U","S","?","?","?","?","?","?","?","?","?","?","?"
   };
@@ -381,7 +381,7 @@ struct SFlexRecord
   int IsTransferAddress() { return (bSOI == 0x16); }
   int IsRecord()          { return (bSOI == 0x02); }
   int GetSize()           { return bDataLen; }
-  addr_t GetLoadAddress() { return (((addr_t)(bLoadAddress[0])) << 8) | bLoadAddress[1]; }
+  adr_t GetLoadAddress() { return (((adr_t)(bLoadAddress[0])) << 8) | bLoadAddress[1]; }
   uint8_t *GetData()      { return bData; }
   };
 #pragma pack()
@@ -434,8 +434,8 @@ struct SFlexRecord rec;
 int nCurPos = ftell(f);
 int nRecs = 0;
 bool bExecutable = false;
-addr_t fbegin = GetHighestCodeAddr(), fend = GetLowestCodeAddr();
-addr_t i;
+adr_t fbegin = GetHighestCodeAddr(), fend = GetLowestCodeAddr();
+adr_t i;
 
 int c = fgetc(f);                       /* fetch first byte to decide        */
 if (c == EOF)                           /* whether it may be a FLEX(9) binary*/
@@ -446,8 +446,8 @@ if (c != 0 && c != 0x02 && c != 0x16)
 
 while (ReadFlexRecord(f, &rec))
   {
-  addr_t nStart = rec.GetLoadAddress();
-  addr_t nEnd = nStart + rec.GetSize() - 1;
+  adr_t nStart = rec.GetLoadAddress();
+  adr_t nEnd = nStart + rec.GetSize() - 1;
 
   nRecs++;
   if (nStart < fbegin)
@@ -486,6 +486,9 @@ if (nRecs > 0)
     end = fend;
   sLoadType = "FLEX";
   }
+
+(void)bExecutable;  // unused ATM - "load" is enough
+
 return (nRecs > 0);
 }
 
@@ -503,7 +506,7 @@ return LoadFlex(f, sLoadType) ||  // FLEX9 files need no interleave nor bus
 /* String2Number : convert a string to a number in all known formats         */
 /*****************************************************************************/
 
-bool Dasm6800::String2Number(string s, addr_t &value)
+bool Dasm6800::String2Number(string s, adr_t &value)
 {
 /* Standard formats for known 680x assemblers :
    - a character has a leading '
@@ -544,12 +547,14 @@ return Disassembler::String2Number(s, value);
 
 string Dasm6800::Number2String
     (
-    addr_t value,
+    adr_t value,
     int nDigits,
-    addr_t addr,
+    adr_t addr,
     int bus
     )
 {
+(void)bus;
+
 string s;
 
 /* Standard formats for known 680x assemblers :
@@ -560,10 +565,10 @@ string s;
    - a hex constant has a leading $
 */
 
-MemoryType memType = GetMemType(addr);
+MemAttribute::Type cellType = GetCellType(addr);
 MemAttribute::Display disp;
 bool bSigned = false;
-if (memType == MemAttribute::CellUntyped)
+if (cellType == MemAttribute::CellUntyped)
   disp = MemAttribute::DefaultDisplay;
 else
   {
@@ -595,7 +600,7 @@ else if (disp == MemAttribute::Binary)  /* if a binary                       */
   }
 else if (disp == MemAttribute::Hex)     /* if hex                            */
   {
-  addr_t mask = 0;
+  adr_t mask = 0;
   for (int i = 0; i < nDigits; i++)
     mask |= (0x0f << (i * 4));
   value &= mask;
@@ -615,7 +620,7 @@ else                                    /* otherwise                         */
     }
   else
     {
-    addr_t mask = 0;
+    adr_t mask = 0;
     for (int i = 0; i < nDigits; i++)
       mask |= (0x0f << (i * 4));
     value &= mask;
@@ -643,7 +648,7 @@ if (bus == BusCode)
       "NMI",                            /* fffc                              */
       "RST"                             /* fffe                              */
       };
-    for (addr_t addr = 0xfff8; addr <= GetHighestCodeAddr(); addr+= 2)
+    for (adr_t addr = 0xfff8; addr <= GetHighestCodeAddr(); addr+= 2)
       {
       MemoryType memType = GetMemType(addr);
       if (memType != Untyped &&         /* if system vector loaded           */
@@ -653,7 +658,7 @@ if (bus == BusCode)
         SetMemType(addr, Data);         /* that's a data word                */
         SetCellSize(addr, 2);
                                         /* look whether it points to loaded  */
-        addr_t tgtaddr = GetUWord(addr);
+        adr_t tgtaddr = GetUWord(addr);
         if (GetMemType(tgtaddr) != Untyped)
           {                             /* if so,                            */
           SetMemType(tgtaddr, Code);    /* that's code there                 */
@@ -672,9 +677,9 @@ return Disassembler::InitParse(bus);
 /* ParseData : parse data at given memory address for labels                 */
 /*****************************************************************************/
 
-addr_t Dasm6800::ParseData
+adr_t Dasm6800::ParseData
     (
-    addr_t addr,
+    adr_t addr,
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
@@ -687,7 +692,7 @@ if (!IsConst(addr) && !IsBss(addr))
     SetLabelUsed(GetUWord(addr), Code, BusCode, addr);
   else if (csz == 1 && useDPLabels)     /* or BYTE data and using DP labels  */
     {
-    addr_t dp = GetDirectPage(addr, bus);
+    adr_t dp = GetDirectPage(addr, bus);
     if (dp != NO_ADDRESS)
       SetLabelUsed(dp | GetUByte(addr), Code, BusCode, addr);
     }
@@ -700,9 +705,9 @@ return csz;
 /* FetchInstructionDetails : fetch details about current instruction         */
 /*****************************************************************************/
 
-addr_t Dasm6800::FetchInstructionDetails
+adr_t Dasm6800::FetchInstructionDetails
     (
-    addr_t PC,
+    adr_t PC,
     uint8_t &O,
     uint8_t &T,
     uint8_t &M,
@@ -726,9 +731,9 @@ return PC;
 /* ParseCode : parse instruction at given memory address for labels          */
 /*****************************************************************************/
 
-addr_t Dasm6800::ParseCode
+adr_t Dasm6800::ParseCode
     (
-    addr_t addr,
+    adr_t addr,
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
@@ -737,7 +742,7 @@ uint16_t W;
 int MI;
 const char *I;
 bool bSetLabel;
-addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
 
 switch (M)                              /* which mode is this ?              */
   {
@@ -775,7 +780,7 @@ switch (M)                              /* which mode is this ?              */
     if (bSetLabel)
       {
       // this isn't really necessary for 6800, but for derived classes
-      addr_t dp = GetDirectPage(PC);
+      adr_t dp = GetDirectPage(PC);
       if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
         dp = GetDirectPage(addr);
       if (dp == DEFAULT_ADDRESS)
@@ -846,7 +851,7 @@ bool Dasm6800::DisassembleLabel
 string lbltxt = label->GetText();
 if (lbltxt.find_first_of("+-") == string::npos)
   {
-  addr_t laddr = label->GetAddress();
+  adr_t laddr = label->GetAddress();
   if (lbltxt.size() && !GetRelative(laddr, bus))
     slabel = lbltxt;
   else
@@ -871,6 +876,7 @@ bool Dasm6800::DisassembleDefLabel
     int bus
     )
 {
+(void)bus;
 slabel = label->GetText();
 smnemo = "EQU";
 sparm = label->GetDefinition();
@@ -881,7 +887,7 @@ return true;
 /* GetDisassemblyFlags : get flags for disassembly of data areas             */
 /*****************************************************************************/
 
-uint32_t Dasm6800::GetDisassemblyFlags(addr_t addr, int bus)
+uint32_t Dasm6800::GetDisassemblyFlags(adr_t addr, int bus)
 {
 uint32_t flags = Disassembler::GetDisassemblyFlags(addr, bus);
 if (flags & SHMF_TXT)
@@ -890,7 +896,7 @@ if (flags & SHMF_TXT)
     flags &= ~SHMF_TXT;
   if (useDPLabels)
     {
-    addr_t dp = GetDirectPage(addr, bus);
+    adr_t dp = GetDirectPage(addr, bus);
     if (dp != NO_ADDRESS)
       {
 #if 0
@@ -899,7 +905,7 @@ if (flags & SHMF_TXT)
       if (!IsConst(addr, bus))
 #else
       // activate this to only match DEFINED labels
-      addr_t t = dp | GetUByte(addr);
+      adr_t t = dp | GetUByte(addr);
       if (!IsConst(addr, bus) &&
           FindLabel(t, Untyped, bus))
 #endif
@@ -915,10 +921,10 @@ return flags;
 /* DisassembleData : disassemble data area at given memory address           */
 /*****************************************************************************/
 
-addr_t Dasm6800::DisassembleData
+adr_t Dasm6800::DisassembleData
     (
-    addr_t addr,
-    addr_t end,
+    adr_t addr,
+    adr_t end,
     uint32_t flags,
     string &smnemo,
     string &sparm,
@@ -926,7 +932,7 @@ addr_t Dasm6800::DisassembleData
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-addr_t done;
+adr_t done;
 
 if (flags & SHMF_RMB)                   /* if reserved memory block          */
   {
@@ -971,7 +977,7 @@ else                                    /* if FCB (hex or binary)            */
   for (done = addr; done < end; done++)
     {
     Label *deflbl = FindLabel(done, Const, bus);
-    addr_t dp = GetDirectPage(done, bus);
+    adr_t dp = GetDirectPage(done, bus);
     string s;
     if (deflbl)
       s = deflbl->GetText();
@@ -996,9 +1002,9 @@ return done - addr;
 /* DisassembleCode : disassemble code instruction at given memory address    */
 /*****************************************************************************/
 
-addr_t Dasm6800::DisassembleCode
+adr_t Dasm6800::DisassembleCode
     (
-    addr_t addr,
+    adr_t addr,
     string &smnemo,
     string &sparm,
     int bus                             /* ignored for 6800 and derivates    */
@@ -1006,10 +1012,10 @@ addr_t Dasm6800::DisassembleCode
 {
 uint8_t O, T, M;
 uint16_t W;
-addr_t Wrel;
+adr_t Wrel;
 int MI;
 const char *I;
-addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
+adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
 bool bGetLabel;
 Label *lbl;
 
@@ -1060,7 +1066,7 @@ switch (M)                              /* which mode is this?               */
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     T = GetUByte(PC);
-    addr_t dp = GetDirectPage(PC);
+    adr_t dp = GetDirectPage(PC);
     if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
       dp = GetDirectPage(addr);
     if (dp == DEFAULT_ADDRESS)
@@ -1088,7 +1094,7 @@ switch (M)                              /* which mode is this?               */
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
     string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-    addr_t dp = GetDirectPage(PC);
+    adr_t dp = GetDirectPage(PC);
     if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
       dp = GetDirectPage(addr);
     if (dp == DEFAULT_ADDRESS)
@@ -1112,7 +1118,7 @@ switch (M)                              /* which mode is this?               */
     if (Wrel)
       {
       W = (int)((unsigned char)T) + (uint16_t)Wrel;
-      sparm = Label2String((addr_t)((int)((unsigned char)T)), 4,
+      sparm = Label2String((adr_t)((int)((unsigned char)T)), 4,
                            bGetLabel, PC) + GetIx8IndexReg(O);
       }
     else if (lbl)
@@ -1153,9 +1159,9 @@ return PC - addr;                       /* pass back # processed bytes       */
 
 bool Dasm6800::DisassembleChanges
     (
-    addr_t addr,
-    addr_t prevaddr,
-    addr_t prevsz,
+    adr_t addr,
+    adr_t prevaddr,
+    adr_t prevsz,
     bool bAfterLine,
     vector<LineChange> &changes,
     int bus
@@ -1180,19 +1186,20 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
   }
 else // no bus check necessary, there's only one
   {
-  addr_t org = DephaseOuter(addr, addr);
-  addr_t prevorg = DephaseOuter(prevaddr, prevaddr);
+  adr_t org = DephaseOuter(addr, addr);
+  adr_t prevorg = DephaseOuter(prevaddr, prevaddr);
+  (void)org;(void)prevorg;  // unused ATM
   if (addr != prevaddr + prevsz)
     {
     if (!bAfterLine)
       {
-      TMemory<addr_t, addr_t> *curPhArea  = FindPhase(addr);
-      TMemory<addr_t, addr_t> *prevPhArea = FindPhase(prevaddr);
+      TMemory<adr_t, adr_t> *curPhArea  = FindPhase(addr);
+      TMemory<adr_t, adr_t> *prevPhArea = FindPhase(prevaddr);
 
-      addr_t prevphase = prevPhArea ? prevPhArea->GetType() : NO_ADDRESS;
-      addr_t prevphstart = prevPhArea ? prevPhArea->GetStart() : NO_ADDRESS;
-      addr_t curphase = curPhArea ? curPhArea->GetType() : NO_ADDRESS;
-      addr_t curphstart = curPhArea ? curPhArea->GetStart() : NO_ADDRESS;
+      adr_t prevphase = prevPhArea ? prevPhArea->GetType() : NO_ADDRESS;
+      adr_t prevphstart = prevPhArea ? prevPhArea->GetStart() : NO_ADDRESS;
+      adr_t curphase = curPhArea ? curPhArea->GetType() : NO_ADDRESS;
+      adr_t curphstart = curPhArea ? curPhArea->GetStart() : NO_ADDRESS;
       LineChange chg;
       changes.push_back(chg);
       if (prevphase != NO_ADDRESS && prevphstart != curphstart)

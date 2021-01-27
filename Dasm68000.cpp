@@ -518,7 +518,7 @@ else // "gen" or anything else
 /* String2Number : convert a string to a number in all known formats         */
 /*****************************************************************************/
 
-bool Dasm68000::String2Number(string s, addr_t &value)
+bool Dasm68000::String2Number(string s, adr_t &value)
 {
 /* Standard formats for known 680xx assemblers :
    - a character has a leading '
@@ -559,9 +559,9 @@ return Disassembler::String2Number(s, value);
 
 string Dasm68000::Number2String
     (
-    addr_t value,
+    adr_t value,
     int nDigits,
-    addr_t addr,
+    adr_t addr,
     int bus
     )
 {
@@ -575,15 +575,15 @@ string s;
    - a hex constant has a leading $
 */
 
-MemoryType memType = GetMemType(addr);
+MemAttribute::Type cellType = GetCellType(addr, bus);
 MemAttribute::Display disp;
 bool bSigned = false;
-if (memType == MemAttribute::CellUntyped)
+if (cellType == MemAttribute::CellUntyped)
   disp = MemAttribute::DefaultDisplay;
 else
   {
-  disp = GetDisplay(addr);
-  bSigned = IsSigned(addr);
+  disp = GetDisplay(addr, bus);
+  bSigned = IsSigned(addr, bus);
   }
 
 if (disp == MemAttribute::DefaultDisplay)
@@ -610,7 +610,7 @@ else if (disp == MemAttribute::Binary)  /* if a binary                       */
   }
 else if (disp == MemAttribute::Hex)     /* if hex                            */
   {
-  addr_t mask = 0;
+  adr_t mask = 0;
   for (int i = 0; i < nDigits; i++)
     mask |= (0x0f << (i * 4));
   value &= mask;
@@ -638,7 +638,7 @@ else                                    /* otherwise                         */
     }
   else
     {
-    addr_t mask = 0;
+    adr_t mask = 0;
     for (int i = 0; i < nDigits; i++)
       mask |= (0x0f << (i * 4));
     value &= mask;
@@ -663,9 +663,9 @@ return Disassembler::InitParse(bus);
 /* ParseData : parse data at given memory address for labels                 */
 /*****************************************************************************/
 
-addr_t Dasm68000::ParseData
+adr_t Dasm68000::ParseData
     (
-    addr_t addr,
+    adr_t addr,
     int bus
     )
 {
@@ -728,15 +728,15 @@ return 0;
 /* ParseCode : parse instruction at given memory address for labels          */
 /*****************************************************************************/
 
-addr_t Dasm68000::ParseCode
+adr_t Dasm68000::ParseCode
     (
-    addr_t addr,
+    adr_t addr,
     int bus
     )
 {
-uint16_t code = GetUWord(addr /*, bus*/);
+uint16_t code = GetUWord(addr, bus);
 int i = otIndex[code];
-addr_t len = 2;                         /* default to 2 bytes length         */
+adr_t len = 2;                         /* default to 2 bytes length         */
 switch (OpTable[i].ot)                  /* parse according to op type        */
   {
   case optype_01 :
@@ -827,7 +827,7 @@ switch (OpTable[i].ot)                  /* parse according to op type        */
     len = ParseOptype29(addr, addr + 2, code, i) - addr;
     break;
   default :                             /* not a valid instruction ?         */
-    SetInvalidInstruction(addr, 2);     /* mark it as such                   */
+    SetInvalidInstruction(addr, 2, bus);  /* mark it as such                 */
     break;
   }
 
@@ -838,10 +838,10 @@ return len;
 /* ParseEffectiveAddress : parse the EA part of an instruction               */
 /*****************************************************************************/
 
-addr_t Dasm68000::ParseEffectiveAddress
+adr_t Dasm68000::ParseEffectiveAddress
     (
-    addr_t instaddr,                    /* address of instruction start      */
-    addr_t addr,                        /* current address                   */
+    adr_t instaddr,                    /* address of instruction start      */
+    adr_t addr,                        /* current address                   */
     uint16_t ea,
     int16_t index,                      /* index into opcode table           */
     int op_mode
@@ -922,7 +922,7 @@ switch(mode)
         if (!IsConst(addr))
           SetLabelUsed(a1, mt, BusCode, instaddr);
         a1 = PhaseInner(a1, instaddr);
-        if ((addr_t)a1 <= GetHighestCodeAddr())
+        if ((adr_t)a1 <= GetHighestCodeAddr())
           AddRelativeLabel(a1, addr, mt, true, BusCode, instaddr);
         addr += 4;
         break;
@@ -934,7 +934,7 @@ switch(mode)
         if (!IsConst(addr))
           SetLabelUsed(a1, mt, BusCode, instaddr);
         a1 = PhaseInner(a1, instaddr);
-        if ((addr_t)a1 <= GetHighestCodeAddr())
+        if ((adr_t)a1 <= GetHighestCodeAddr())
           AddRelativeLabel(a1, addr, mt, true, BusCode, instaddr);
         addr += 2;
         break;
@@ -991,6 +991,11 @@ switch(mode)
     SetInvalidInstruction(instaddr, 2);
     break;
   }	/*	end of switch mode	*/
+
+(void)index_reg;  // these are unused ATM
+(void)index_reg_ind;
+(void)index_size;
+
 return addr;
 }
 
@@ -998,23 +1003,29 @@ return addr;
 /* ParseOptypeXX : parsers for the various 68000 op types                    */
 /*****************************************************************************/
 
-addr_t Dasm68000::ParseOptype01(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype01(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr;
+(void)code;
+(void)optable_index;
+
 int16_t displacement = GetSWord(addr);  /* get displacement                 */
+(void)displacement;  // unused ATM
 addr += 2;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype02(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype02(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 uint16_t dest_reg = (code >> 9) & 0x07; /* get destination reg               */
+(void)dest_reg;  // unused ATM
 uint16_t source = code & 0x3f;          /* this is an effective address      */
                                         /* calculate effective address       */
 addr = ParseEffectiveAddress(instaddr, addr, source, optable_index, 0);
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype03(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype03(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 uint16_t dest_reg = (code >> 9) & 0x07;
 uint16_t source = code & 0x3f;          /* this is an effective address      */
@@ -1037,10 +1048,12 @@ else
 op_mode = xlate_size(&size, 0);
 addr = ParseEffectiveAddress(instaddr, addr, source, optable_index, op_mode);
 
+(void)dir;  // unused ATM
+(void)dest_reg;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype04(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype04(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 int size = (code >> 12) & 0x03;
 int16_t op_mode = xlate_size(&size, 1);
@@ -1053,7 +1066,7 @@ addr = ParseEffectiveAddress(instaddr, addr, dest, optable_index, 0);
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype05(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype05(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 // PEA type instructions
 int16_t source = code & 0x3f;
@@ -1061,7 +1074,7 @@ addr = ParseEffectiveAddress(instaddr, addr, source, optable_index, 0);
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype06(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype06(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 // ADDQ type instructions
 
@@ -1072,10 +1085,11 @@ int16_t data = (code >> 9) & 0x07;
 if (data == 0)
   data = 8;
 addr = ParseEffectiveAddress(instaddr, addr, dest, optable_index, 0);
+(void)op_mode; // unused ATM
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype07(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype07(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 // TST type instructions
 
@@ -1084,15 +1098,16 @@ int size = (code >> 6) & 0x03;
 int16_t op_mode = xlate_size(&size, 0);
 addr = ParseEffectiveAddress(instaddr, addr, dest, optable_index, 0);
 
+(void)op_mode;  // unused ATM
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype08(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype08(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
-addr_t startaddr = addr - 2;
+adr_t startaddr = addr - 2;
 // Branches
 uint16_t displacement = code & 0xff;
-addr_t dest;
+adr_t dest;
 bool bSetLabelUsed = !IsConst(startaddr);
 if (displacement == 0)
   {
@@ -1116,20 +1131,23 @@ AddLabel(dest, mnemo[OpTable[optable_index].mnemo].memType, "", true);
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype09(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype09(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr; (void)code; (void)optable_index;
 // UNLINK type instructions
 int16_t reg = code & 0x07;
+(void)reg;  // unused ATM
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype10(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype10(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr; (void)code; (void)optable_index;
 // RTS type instructions - no arguments
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype11(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype11(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 // LSR type instructions
 
@@ -1139,7 +1157,9 @@ if (size < 3)  /* register shifts */
   int16_t type = (code >> 5) & 0x01;
   int16_t dest = (code & 0x07);
   int16_t count = (code >> 9) & 0x07;
-#if 0
+#if 1
+  (void)type; (void)dest; (void)count;
+#else
   smnemo += GetSizeSuffix(size);
   if (type)
     sparm = sformat("%s,%s", GetDataReg(count), GetDataReg(dest));
@@ -1161,18 +1181,20 @@ else  /* memory shifts */
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype12(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype12(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr; (void)optable_index;
 // EXT type instruction
 
 int16_t op_mode = ((code >> 6) & 0x07) - 1;
 int16_t reg = code & 0x07;
 // smnemo += GetSizeSuffix(op_mode);
 // sparm = GetDataReg(reg);
+(void)op_mode; (void)reg;  // unused ATM
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype13(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype13(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 // ADDI type instruction
 
@@ -1193,11 +1215,13 @@ addr = ParseEffectiveAddress(instaddr, addr, dest, optable_index, 0);
 
 // smnemo += GetSizeSuffix(size);
 // sparm = sformat("#$%x,%s", il_data, e_a);
+(void)il_data;  // unused ATM
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype14(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype14(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr; (void)optable_index;
 // ABCD type instruction
 
 int16_t dest = (code >> 9) & 0x07;
@@ -1210,10 +1234,12 @@ sparm = (dest_type) ?
     sformat("-(%s),-(%s)", GetAddrReg(source), GetAddrReg(dest)) :
     sformat("%s,%s", GetDataReg(source), GetDataReg(dest));
 */
+(void)dest; (void)source; (void)dest_type; (void)size;
+
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype15(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype15(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 // CLR type instruction
 
@@ -1222,10 +1248,11 @@ int size = (code >> 6) & 0x03;
 addr = ParseEffectiveAddress(instaddr, addr, dest, optable_index, 0);
 // smnemo += GetSizeSuffix(size);
 // sparm = e_a;
+(void)size;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype16(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype16(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 // CHK type instruction
 
@@ -1233,10 +1260,11 @@ int16_t dest = code & 0x3f;
 int16_t reg = (code >> 9) & 0x07;
 addr = ParseEffectiveAddress(instaddr, addr, dest, optable_index, WORD_SIZE);
 // sparm = sformat("%s,%s", e_a, GetDataReg(reg));
+(void)reg;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype17(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype17(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 // DBcc type instructions
 
@@ -1250,11 +1278,14 @@ AddRelativeLabel(dest, addr, mnemo[OpTable[optable_index].mnemo].memType, true, 
 addr += 2;
 
 // sparm = sformat("%s,$%lx", GetDataReg(reg), dest);
+(void)reg;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype18(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype18(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr; (void)optable_index;
+
 // EXG type instructions
 
 int16_t op_mode = (code >> 3) & 0x1f;
@@ -1265,8 +1296,10 @@ if (op_mode != 0x08 &&
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype19(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype19(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr; (void)optable_index;
+
 // CMPM type instructions
 
 int16_t source = code & 0x07;
@@ -1274,10 +1307,11 @@ int16_t dest = (code >> 9) & 0x07;
 int size = (code >> 6) & 0x03;
 // smnemo += GetSizeSuffix(size);
 // sparm = sformat("(%s)+,(%s)+", GetAddrReg(source), GetAddrReg(dest));
+(void)source; (void)dest; (void)size;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype20(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype20(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 // BTST # type instruction
 
@@ -1286,29 +1320,34 @@ int32_t il_data = GetSWord(addr);
 addr += 2;
 addr = ParseEffectiveAddress(instaddr, addr, dest, optable_index, 0);
 // sparm = sformat("#$%x,%s", il_data, e_a);
+(void)il_data;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype21(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype21(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 int16_t dest_reg = (code >> 9) & 0x07;
 int16_t source = code & 0x3f;           /* this is an effective address      */
 addr = ParseEffectiveAddress(instaddr, addr, source, optable_index, 0);
 // sparm = sformat("%s,%s", GetDataReg(dest_reg), e_a);
+(void)dest_reg;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype22(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype22(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr; (void)optable_index;
+
 // moveq
 
 int16_t data = (int16_t)((char)(code & 0xff));
 uint16_t dest_reg = (code >> 9) & 0x07;
 // sparm = sformat("#$%x,%s", data, GetDataReg(dest_reg));
+(void)data; (void)dest_reg;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype23(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype23(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 // movem
 
@@ -1419,30 +1458,37 @@ else
 smnemo += GetSizeSuffix(size ? 2 : 1);
 sparm = sformat("%s,%s", f, d);
 #endif
+(void)size; (void)direction;
 
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype24(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype24(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr; (void)optable_index;
+
 // trap
 
 int16_t vector = code & 0x0f;
 // sparm = sformat("#$%x", vector);
+(void)vector;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype25(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype25(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr; (void)code; (void)optable_index;
+
 // stop
 
 uint16_t data = GetUWord(addr);
 addr += 2;
 // sparm = sformat("#$%x", data);
+(void)data;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype26(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype26(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 // move sr
 
@@ -1453,27 +1499,34 @@ uint16_t mt = code & 0x0600;
 //sparm = (code & 0x400) ?
 //    sformat("%s,%s", e_a, reg) :
 //    sformat("%s,%s", reg, e_a);
-
+(void)mt;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype27(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype27(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr; (void)code; (void)optable_index;
+
 uint16_t data = GetUWord(addr);
 addr += 2;
 //sparm = sformat("#$%x,%s", data, (code & 0x40) ? "SR" : "CCR");
+(void)data;
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype28(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype28(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr; (void)code; (void)optable_index;
+
 // MOVE USP
 // sparm = sformat((code & 0x08) ? "USP,%s" : "%s,USP", GetAddrReg(code & 0x7));
 return addr;
 }
 
-addr_t Dasm68000::ParseOptype29(addr_t instaddr, addr_t addr, uint16_t code, int optable_index)
+adr_t Dasm68000::ParseOptype29(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
+(void)instaddr; (void)optable_index;
+
 // MOVEP - move peripheral data
 int data_reg = (code & 0x0e00) >> 9;
 int adr_reg =  code & 0x07;
@@ -1484,6 +1537,7 @@ addr += 2;
 //  sparm = sformat("%s,%x(%s)", GetDataReg(data_reg),displacement, GetAddrReg(adr_reg));
 //else
 //  sparm = sformat("%x(%s),%s", displacement, GetAddrReg(adr_reg), GetDataReg(data_reg));
+(void)data_reg; (void)adr_reg; (void)direction; (void)displacement;
 return addr;
 }
 
@@ -1503,7 +1557,7 @@ bool Dasm68000::DisassembleLabel
 string lbltxt = label->GetText();
 if (lbltxt.find_first_of("+-") == string::npos)
   {
-  addr_t laddr = label->GetAddress();
+  adr_t laddr = label->GetAddress();
   if (lbltxt.size() && !GetRelative(laddr, bus))
     slabel = lbltxt;
   else
@@ -1528,6 +1582,7 @@ bool Dasm68000::DisassembleDefLabel
     int bus
     )
 {
+(void)bus;
 slabel = label->GetText();
 smnemo = "EQU";
 sparm = label->GetDefinition();
@@ -1538,10 +1593,10 @@ return true;
 /* DisassembleData : disassemble data area at given memory address           */
 /*****************************************************************************/
 
-addr_t Dasm68000::DisassembleData
+adr_t Dasm68000::DisassembleData
     (
-    addr_t addr,
-    addr_t end,
+    adr_t addr,
+    adr_t end,
     uint32_t flags,
     string &smnemo,
     string &sparm,
@@ -1549,7 +1604,7 @@ addr_t Dasm68000::DisassembleData
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-addr_t done;
+adr_t done;
 if (FindLabel(addr, Const, bus))
   flags &= ~SHMF_TXT;
 
@@ -1644,17 +1699,17 @@ return done - addr;
 /* DisassembleCode : disassemble code instruction at given memory address    */
 /*****************************************************************************/
 
-addr_t Dasm68000::DisassembleCode
+adr_t Dasm68000::DisassembleCode
     (
-    addr_t addr,
+    adr_t addr,
     string &smnemo,
     string &sparm,
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-uint16_t code = GetUWord(addr /*, bus*/);
+uint16_t code = GetUWord(addr, bus);
 int i = otIndex[code];
-addr_t len = 2;                         /* default to 2 bytes length         */
+adr_t len = 2;                         /* default to 2 bytes length         */
 smnemo = mnemo[OpTable[i].mnemo].mne;   /* initialize mnemonic               */
 switch (OpTable[i].ot)                  /* parse according to op type        */
   {
@@ -1798,16 +1853,19 @@ return sizes[sizeCode & 7].c_str();
 /* DisassembleEffectiveAddress : disassemble the EA part of an instruction   */
 /*****************************************************************************/
 
-addr_t Dasm68000::DisassembleEffectiveAddress
+adr_t Dasm68000::DisassembleEffectiveAddress
     (
-    addr_t instaddr,                    /* address of instruction start      */
-    addr_t addr,                        /* current address                   */
+    adr_t instaddr,                     /* address of instruction start      */
+    adr_t addr,                         /* current address                   */
     string &s,                          /* destination buffer                */
     uint16_t ea,
     int16_t index,                      /* index into opcode table           */
     int op_mode
     )
 {
+(void)instaddr;
+(void)index;
+
 int mode;
 int reg;
 int32_t displacement;
@@ -1963,8 +2021,10 @@ return addr;
 /* DisassembleOptypeXX : disassemblers for the various 68000 op types        */
 /*****************************************************************************/
 
-addr_t Dasm68000::DisassembleOptype01(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype01(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)code; (void)optable_index; (void)smnemo;
+
 int reg = code & 0x07;                  /* get register number               */
 int16_t displacement = GetSWord(addr);  /* get word displacement             */
 sparm = sformat("%s,#%s", GetAddrReg(reg),
@@ -1973,8 +2033,9 @@ addr += 2;
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype02(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype02(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)smnemo;
 // LEA
 string e_a;                             /* place to put effective address    */
 uint16_t dest_reg = (code >> 9) & 0x07; /* get destination reg               */
@@ -1990,7 +2051,7 @@ sparm = sformat("%s,%s", e_a.c_str(), GetAddrReg(dest_reg));
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype03(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype03(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
 uint16_t dest_reg = (code >> 9) & 0x07;
 uint16_t source = code & 0x3f;          /* this is an effective address      */
@@ -2029,7 +2090,7 @@ sparm = (!dir) ?
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype04(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype04(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
 string e_a1, e_a2;
 int size = (code >> 12) & 0x03;
@@ -2053,8 +2114,9 @@ sparm = sformat("%s,%s", e_a1.c_str(), e_a2.c_str());
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype05(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype05(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)smnemo;
 // PEA type instructions
 int16_t source = code & 0x3f;
 addr = DisassembleEffectiveAddress(instaddr, addr, sparm, source, optable_index, 0);
@@ -2062,7 +2124,7 @@ addr = DisassembleEffectiveAddress(instaddr, addr, sparm, source, optable_index,
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype06(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype06(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
 // ADDQ type instructions
 
@@ -2078,10 +2140,11 @@ addr = DisassembleEffectiveAddress(instaddr, addr, e_a, dest, optable_index, 0);
 smnemo += GetSizeSuffix(size);
 sparm = sformat("#%s,%s", s_data.c_str(), e_a.c_str());
 
+(void)op_mode;  // unused ATM
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype07(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype07(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
 // TST type instructions
 
@@ -2091,16 +2154,18 @@ int16_t op_mode = xlate_size(&size, 0);
 addr = DisassembleEffectiveAddress(instaddr, addr, sparm, dest, optable_index, 0);
 smnemo += GetSizeSuffix(size);
 
+(void)op_mode;  // unused ATM
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype08(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype08(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)optable_index;
 // branches
 
-addr_t startaddr = addr - 1;
+adr_t startaddr = addr - 1;
 int32_t displacement = code & 0xff;
-addr_t dest;
+adr_t dest;
 bool bGetLabel = !IsConst(startaddr);
 if (displacement == 0)
   {
@@ -2128,8 +2193,9 @@ sparm = Label2String(dest, GetBusWidth() / 4, bGetLabel, startaddr);
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype09(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype09(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)optable_index; (void)smnemo;
 // UNLINK type instructions
 
 int16_t reg = code & 0x07;
@@ -2138,13 +2204,14 @@ sparm = GetAddrReg(reg);
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype10(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype10(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)code; (void)optable_index; (void)smnemo; (void)sparm;
 // RTS type instructions - no arguments
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype11(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype11(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
 // LSR type instructions
 
@@ -2175,8 +2242,9 @@ else  /* memory shifts */
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype12(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype12(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)optable_index;
 // EXT type instruction
 
 int16_t op_mode = ((code >> 6) & 0x07) - 1;
@@ -2187,7 +2255,7 @@ sparm = GetDataReg(reg);
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype13(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype13(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
 // ADDI type instruction
 
@@ -2214,8 +2282,9 @@ sparm = sformat("#%s,%s", s_data.c_str(), e_a.c_str());
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype14(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype14(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)optable_index;
 // ABCD type instruction
 
 int16_t dest = (code >> 9) & 0x07;
@@ -2229,7 +2298,7 @@ sparm = (dest_type) ?
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype15(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype15(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
 // CLR type instruction
 
@@ -2240,8 +2309,9 @@ smnemo += GetSizeSuffix(size);
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype16(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype16(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)smnemo;
 // CHK type instruction
 
 int16_t dest = code & 0x3f;
@@ -2252,8 +2322,9 @@ sparm = sformat("%s,%s", e_a.c_str(), GetDataReg(reg));
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype17(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype17(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)optable_index; (void)smnemo;
 // DBcc type instructions
 
 int16_t reg = code & 0x07;
@@ -2268,8 +2339,9 @@ addr += 2;
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype18(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype18(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)optable_index; (void)smnemo;
 // EXG type instructions
 
 int16_t dest = code & 0x07;
@@ -2295,8 +2367,9 @@ sparm = sformat("%s,%s", rx, ry);
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype19(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype19(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)optable_index;
 // CMPM type instructions
 
 int16_t source = code & 0x07;
@@ -2307,8 +2380,9 @@ sparm = sformat("(%s)+,(%s)+", GetAddrReg(source), GetAddrReg(dest));
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype20(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype20(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)smnemo;
 // BTST # type instruction
 
 int16_t dest = code & 0x3f;
@@ -2320,8 +2394,9 @@ sparm = sformat("#%s,%s", s_data.c_str(), e_a.c_str());
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype21(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype21(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)smnemo;
 int16_t dest_reg = (code >> 9) & 0x07;
 int16_t source = code & 0x3f;           /* this is an effective address      */
 string e_a;
@@ -2330,8 +2405,9 @@ sparm = sformat("%s,%s", GetDataReg(dest_reg), e_a.c_str());
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype22(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype22(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)optable_index; (void)smnemo;
 // moveq
 
 int16_t data = (int16_t)((char)(code & 0xff));
@@ -2340,7 +2416,7 @@ sparm = sformat("#$%x,%s", data, GetDataReg(dest_reg));
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype23(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype23(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
 // movem
 
@@ -2456,8 +2532,9 @@ sparm = sformat("%s,%s", f, d);
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype24(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype24(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)optable_index; (void)smnemo;
 // trap
 
 int16_t vector = code & 0x0f;
@@ -2465,8 +2542,9 @@ sparm = sformat("#%s", Number2String(vector, 1, addr - 2).c_str());
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype25(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype25(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)code; (void)optable_index; (void)smnemo;
 // stop
 
 uint16_t data = GetUWord(addr);
@@ -2475,8 +2553,9 @@ addr += 2;
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype26(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype26(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)smnemo;
 // move sr
 
 int16_t source = code & 0x3f;
@@ -2491,8 +2570,9 @@ sparm = (code & 0x400) ?
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype27(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype27(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)optable_index; (void)smnemo;
 uint16_t data = GetUWord(addr);
 sparm = sformat("#%s,%s",
                 Number2String(data, 4, addr).c_str(),
@@ -2501,15 +2581,17 @@ addr += 2;
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype28(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype28(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)optable_index; (void)smnemo;
 // MOVE USP
 sparm = sformat((code & 0x08) ? "USP,%s" : "%s,USP", GetAddrReg(code & 0x07));
 return addr;
 }
 
-addr_t Dasm68000::DisassembleOptype29(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
+adr_t Dasm68000::DisassembleOptype29(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm)
 {
+(void)instaddr; (void)optable_index; (void)smnemo;
 // MOVEP - move peripheral data
 int data_reg = (code & 0x0e00) >> 9;
 int adr_reg =  code & 0x07;
@@ -2536,9 +2618,9 @@ return addr;
 
 bool Dasm68000::DisassembleChanges
     (
-    addr_t addr,
-    addr_t prevaddr,
-    addr_t prevsz,
+    adr_t addr,
+    adr_t prevaddr,
+    adr_t prevsz,
     bool bAfterLine,
     vector<LineChange> &changes,
     int bus
@@ -2563,19 +2645,19 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
   }
 else // no bus check necessary, there's only one
   {
-  addr_t org = DephaseOuter(addr, addr);
-  addr_t prevorg = DephaseOuter(prevaddr, prevaddr);
+  adr_t org = DephaseOuter(addr, addr);
+  adr_t prevorg = DephaseOuter(prevaddr, prevaddr);
   if (addr != prevaddr + prevsz)
     {
     if (!bAfterLine)
       {
-      TMemory<addr_t, addr_t> *curPhArea  = FindPhase(addr);
-      TMemory<addr_t, addr_t> *prevPhArea = FindPhase(prevaddr);
+      TMemory<adr_t, adr_t> *curPhArea  = FindPhase(addr);
+      TMemory<adr_t, adr_t> *prevPhArea = FindPhase(prevaddr);
 
-      addr_t prevphase = prevPhArea ? prevPhArea->GetType() : NO_ADDRESS;
-      addr_t prevphstart = prevPhArea ? prevPhArea->GetStart() : NO_ADDRESS;
-      addr_t curphase = curPhArea ? curPhArea->GetType() : NO_ADDRESS;
-      addr_t curphstart = curPhArea ? curPhArea->GetStart() : NO_ADDRESS;
+      adr_t prevphase = prevPhArea ? prevPhArea->GetType() : NO_ADDRESS;
+      adr_t prevphstart = prevPhArea ? prevPhArea->GetStart() : NO_ADDRESS;
+      adr_t curphase = curPhArea ? curPhArea->GetType() : NO_ADDRESS;
+      adr_t curphstart = curPhArea ? curPhArea->GetStart() : NO_ADDRESS;
       LineChange chg;
       changes.push_back(chg);
       if (prevphase != NO_ADDRESS && prevphstart != curphstart)
@@ -2603,6 +2685,7 @@ else // no bus check necessary, there's only one
         }
       }
     }
+  (void)org; (void)prevorg;  // unused ATM
   }
 
 return Disassembler::DisassembleChanges(addr, prevaddr, prevsz, bAfterLine, changes, bus);

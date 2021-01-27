@@ -163,9 +163,9 @@ Dasm6301::~Dasm6301(void)
 /* ParseCode : parse instruction at given memory address for labels          */
 /*****************************************************************************/
 
-addr_t Dasm6301::ParseCode
+adr_t Dasm6301::ParseCode
     (
-    addr_t addr,
+    adr_t addr,
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
@@ -174,7 +174,7 @@ uint16_t W;
 int MI;
 const char *I;
 bool bSetLabel;
-addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
 
 switch (M)                              /* which mode is this ?              */
   {
@@ -211,9 +211,9 @@ return PC - addr;                       /* pass back # processed bytes       */
 /* DisassembleCode : disassemble code instruction at given memory address    */
 /*****************************************************************************/
 
-addr_t Dasm6301::DisassembleCode
+adr_t Dasm6301::DisassembleCode
     (
-    addr_t addr,
+    adr_t addr,
     string &smnemo,
     string &sparm,
     int bus                             /* ignored for 6800 and derivates    */
@@ -221,12 +221,12 @@ addr_t Dasm6301::DisassembleCode
 {
 uint8_t O, T, M;
 uint16_t W;
-addr_t Wrel;
+adr_t Wrel;
 int MI;
 const char *I;
 bool bGetLabel;
 Label *lbl;
-addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
+adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
 
 switch (M)                              /* which mode is this?               */
   {
@@ -242,7 +242,7 @@ switch (M)                              /* which mode is this?               */
     if (Wrel)
       {
       W = (int)((unsigned char)T) + (uint16_t)Wrel;
-      sparm += Label2String((addr_t)((int)((unsigned char)T)), 4,
+      sparm += Label2String((adr_t)((int)((unsigned char)T)), 4,
                             bGetLabel, PC) + GetIx8IndexReg(O);
       }
     else if (lbl)

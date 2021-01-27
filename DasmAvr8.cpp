@@ -456,10 +456,10 @@ bool DasmAvr8::ProcessInfo
     (
     string key,                         /* parsed key                        */
     string value,                       /* rest of the line                  */
-    addr_t &from,                       /* from/to (if range given)          */
-    addr_t &to, 
-    addr_t &step,                       /* step size                         */
-    vector<TMemoryArray<addr_t>> &remaps,  /* remaps, if necessary           */
+    adr_t &from,                       /* from/to (if range given)          */
+    adr_t &to, 
+    adr_t &step,                       /* step size                         */
+    vector<TMemoryArray<adr_t>> &remaps,  /* remaps, if necessary           */
     bool bProcInfo,                     /* flag whether processing           */
     int bus,                            /* target bus for command            */
     int tgtbus                          /* target bus for parameters         */
@@ -497,14 +497,14 @@ static struct                           /* structure to convert key to type  */
   };
 
 InfoCmd cmdType = infoUnknown;
-for (int i = 0; i < _countof(sKey); i++)
+for (size_t i = 0; i < _countof(sKey); i++)
   if (key == sKey[i].name)
     {
     cmdType = sKey[i].cmdType;
     break;
     }
 if (cmdType == infoUnknown)
-  return false;
+  return false;  // we KNOW the parent classes don't do anything else
 
 switch (cmdType)
   {
@@ -546,7 +546,7 @@ switch (cmdType)
     string::size_type idx = value.find_first_of(" \t");
     if (idx == value.npos) idx = value.size();
     srange = value.substr(0, idx);
-    addr_t rel = NO_ADDRESS;
+    adr_t rel = NO_ADDRESS;
     value = (idx == value.size()) ? "" : trim(value.substr(idx));
     if (value.size() &&                 /* if addr[-addr] dp                 */
         value[0] != '*')
@@ -579,24 +579,28 @@ switch (cmdType)
           rt = MemAttributeAvr8::RelLow2;
           rel *= 2;
           break;
+        default :  // keep gcc happy
+          break;
         }
 
       // range check for rel in tgtbus missing.
       // if (tgtbus != bus)
         {
-        addr_t *pmap = remaps[tgtbus].getat(rel);
+        adr_t *pmap = remaps[tgtbus].getat(rel);
         if (pmap) rel += *pmap;
         if (rel < GetLowestBusAddr(tgtbus) ||
             rel > GetHighestBusAddr(tgtbus))
           break;
         }
 
-      for (addr_t scanned = from;
+      for (adr_t scanned = from;
                   scanned >= from && scanned <= to;
                   scanned += step)
         SetRelative(scanned, rt, rel, tgtbus, bus);
       }
     }
+    break;
+  default :  // keep gcc happy
     break;
   }
 return true;
@@ -610,7 +614,7 @@ int DasmAvr8::SetAvr8Option(string lname, string value)
 {
 bool bnValue = true;                    /* default to "on"                   */
 bool bIsBool = ParseBool(value, bnValue);
-addr_t avalue;
+adr_t avalue;
 String2Number(value, avalue);
 int iValue = atoi(value.c_str());
 
@@ -667,7 +671,7 @@ else if (lname == "avr-gcc")
   avr_gcc = bnValue;
   if (!dbalignchg)
     dbalign = !avr_gcc;
-  for (int i = 0; i < _countof(smne); i++)
+  for (size_t i = 0; i < _countof(smne); i++)
 	mnemo[smne[i].idx].mne = smne[i].txt[avr_gcc];
   return bIsBool ? 1 : 0;
   }
@@ -710,8 +714,8 @@ if (!( (c >= '0' && c <= '9') ||
 
 bool done = false;
 int nBytes = 0;
-addr_t fbegin = GetHighestBusAddr(bus);
-addr_t fend = GetLowestBusAddr(bus);
+adr_t fbegin = GetHighestBusAddr(bus);
+adr_t fend = GetLowestBusAddr(bus);
 MemoryType memType = GetDefaultMemoryType(bus);
 
 // ATMEL Generic Hex files consist of CR+LF-terminated lines
@@ -723,7 +727,7 @@ MemoryType memType = GetDefaultMemoryType(bus);
 
 while (!done && (nBytes >= 0))          /* while there are lines             */
   {
-  addr_t nAddr;
+  adr_t nAddr;
   uint16_t value = 0;
   int i;
   uint8_t chks = 0;
@@ -742,7 +746,7 @@ while (!done && (nBytes >= 0))          /* while there are lines             */
     break;
   for (i = 0; i < 2; i++)               /* followed by up to 2 bytes of data */
     {
-    addr_t b = GetHex(f, 2);
+    adr_t b = GetHex(f, 2);
     if (b == NO_ADDRESS)
       break;
     value = (value << 8) | (uint16_t)b;
@@ -766,6 +770,8 @@ while (!done && (nBytes >= 0))          /* while there are lines             */
     ungetc(c, f);
   else
     done = true;
+
+  (void)chks;  // unused ATM
   }
 
 fseek(f, nCurPos, SEEK_SET);
@@ -779,6 +785,7 @@ if (nBytes >= 0)
 
 if (nBytes > 0)
   sLoadType = "Atmel Generic Hex";
+
 return (nBytes > 0);                    /* pass back #bytes interpreted      */
 }
 
@@ -802,7 +809,7 @@ return LoadAtmelGeneric(f, sLoadType, bus) ||  // ATMEL Generic Hex files need n
 /* String2Number : convert a string to a number in all known formats         */
 /*****************************************************************************/
 
-bool DasmAvr8::String2Number(string s, addr_t &value)
+bool DasmAvr8::String2Number(string s, adr_t &value)
 {
 /* Standard formats for AVRASM :
    - a character is enclosed in '
@@ -854,9 +861,9 @@ return Disassembler::String2Number(s, value);
 
 string DasmAvr8::Number2String
     (
-    addr_t value,
+    adr_t value,
     int nDigits,
-    addr_t addr,
+    adr_t addr,
     int bus
     )
 {
@@ -868,7 +875,7 @@ string s;
    - a hex constant has a leading 0x
 */
 
-MemoryType memType = GetMemType(addr, bus);
+MemAttribute::Type memType = GetCellType(addr, bus);
 MemAttribute::Display disp;
 bool bSigned = false;
 if (memType == MemAttribute::CellUntyped)
@@ -882,7 +889,7 @@ else
 if (disp == MemAttribute::DefaultDisplay)
   disp = defaultDisplay;
 
-addr_t rel;
+adr_t rel;
 int relBus;
 MemAttributeAvr8::RelType rt = GetRelative(addr, rel, relBus, bus);
 if (rt != MemAttributeAvr8::RelUntyped)
@@ -929,6 +936,8 @@ if (rt != MemAttributeAvr8::RelUntyped)
                     (rt == MemAttributeAvr8::RelHighMinus) ? "-" : "",
                     s.c_str());
         return s;
+      default :  // keep gcc happy
+        break;
       }
     }
   }
@@ -986,9 +995,9 @@ return Disassembler::InitParse(bus);
 /* ParseData : parse data at given memory address for labels                 */
 /*****************************************************************************/
 
-addr_t DasmAvr8::ParseData
+adr_t DasmAvr8::ParseData
     (
-    addr_t addr,
+    adr_t addr,
     int bus
     )
 {
@@ -1010,22 +1019,22 @@ return csz;
 
 int DasmAvr8::DisassembleString
     (
-	addr_t addr,
-	addr_t end,
+	adr_t addr,
+	adr_t end,
 	uint32_t flags,
 	string &s,
 	int maxparmlen,
 	int bus
 	)
 {
-addr_t done;
+adr_t done;
 int sbytes = 0;
 
 s = '"';                                /* start the game                    */
 for (done = addr; done < end; done++)
   {                                     /* if this would become too long     */
   flags = GetDisassemblyTextFlags(done, bus);
-  addr_t off = done - addr;
+  adr_t off = done - addr;
   if (flags & SHMF_TXT)
     {
     uint8_t *pc = getat(done, bus);
@@ -1084,10 +1093,10 @@ return sbytes;
 /* DisassembleData : disassemble data area at given memory address           */
 /*****************************************************************************/
 
-addr_t DasmAvr8::DisassembleData
+adr_t DasmAvr8::DisassembleData
     (
-    addr_t addr,
-    addr_t end,
+    adr_t addr,
+    adr_t end,
     uint32_t flags,
     string &smnemo,
     string &sparm,
@@ -1095,7 +1104,7 @@ addr_t DasmAvr8::DisassembleData
     int bus
     )
 {
-addr_t done;
+adr_t done;
 
 if (flags & SHMF_RMB)                   /* if reserved memory block          */
   {
@@ -1147,7 +1156,7 @@ else                                    /* if single-byte                    */
                                         /* assemble as many as possible      */
   for (done = addr; done < end; done++)
     {
-    addr_t off = done - addr;
+    adr_t off = done - addr;
     string s;
     flags = GetDisassemblyTextFlags(done, bus);
     // a DefLabel inhibits text output
@@ -1193,9 +1202,9 @@ return done - addr;
 /* ParseCode : parse instruction at given memory address for labels          */
 /*****************************************************************************/
 
-addr_t DasmAvr8::ParseCode
+adr_t DasmAvr8::ParseCode
     (
-    addr_t addr,
+    adr_t addr,
     int bus
     )
 {
@@ -1270,7 +1279,7 @@ for (i = 0; i < numOperands; i++)
       break;
     case OpndData:
       {
-      addr_t rel; int relBus;
+      adr_t rel; int relBus;
       // if this is relative, make sure a label for the relation is there
       MemAttributeAvr8::RelType rt = GetRelative(addr, rel, relBus, bus);
       if (rt != MemAttributeAvr8::RelUntyped)
@@ -1286,13 +1295,13 @@ for (i = 0; i < numOperands; i++)
       // fall thru on purpose
     case OpndLongAbsAddr:
     case OpndLongAbsAddrData:
-      bus = (mnemo[ii->mnemonic].memType != Code) ? BusData : BusCode;
+      bus = (mnemo[ii->mnemonic].memType == Code) ? (int)BusCode : (int)BusData;
       if (!IsConst(addr, BusData /*bus*/))
         AddRelativeLabel(operand, addr, mnemo[ii->mnemonic].memType, true, bus, addr);
       break;
     case OpndBranchAddr:
     case OpndRelAddr:
-      bus = (mnemo[ii->mnemonic].memType != Code) ? BusData : BusCode;
+      bus = (mnemo[ii->mnemonic].memType == Code) ? (int)BusCode : (int)BusData;
       if (!IsConst(addr, bus))
         AddRelativeLabel(operand + addr + 2, addr, mnemo[ii->mnemonic].memType, true, bus, addr);
       break;
@@ -1309,9 +1318,9 @@ return ii->width;
 /* DisassembleCode : disassemble code instruction at given memory address    */
 /*****************************************************************************/
 
-addr_t DasmAvr8::DisassembleCode
+adr_t DasmAvr8::DisassembleCode
     (
-    addr_t addr,
+    adr_t addr,
     string &smnemo,
     string &sparm,
     int bus
@@ -1369,7 +1378,6 @@ else if (ii->mnemonic == _and && opnds[0] == opnds[1])
 else if (ii->mnemonic == _andi)
   {
   int bset = 0;
-  int32_t chk = opnds[1];
   for (int j = 0; j < 8; j++)
     {
     if (opnds[1] & (1 << j))
@@ -1451,12 +1459,12 @@ for (i = 0; i < numOperands; i++)
     case OpndLongAbsAddrData:
     case OpndLongAbsAddr:
       sparm += Label2String(operand, 4, true, addr,
-                            (mnemo[ii->mnemonic].memType != Code) ? BusData : BusCode /*bus*/);
+          (mnemo[ii->mnemonic].memType == Code) ? (int)BusCode : (int)BusData);
       break;
     case OpndBranchAddr:
     case OpndRelAddr:
       sparm += Label2String(operand + addr + 2, 4, true, addr,
-                            (mnemo[ii->mnemonic].memType != Code) ? BusData : BusCode /*bus*/);
+          (mnemo[ii->mnemonic].memType == Code) ? (int)BusCode : (int)BusData);
       break;
     default:
       break;
@@ -1479,9 +1487,10 @@ bool DasmAvr8::DisassembleLabel
     int bus
     )
 {
+(void)slabel;
 if (label->GetText().find_first_of("+-") == string::npos)
   {
-  addr_t laddr = label->GetAddress();
+  adr_t laddr = label->GetAddress();
   smnemo = mnemo[(bus == BusIO) ? _d_port : _d_equ].mne;
   sparm = Label2String(laddr, 4, true, laddr, bus) + sequdelim[avr_gcc] +
           Address2String(laddr, bus);
@@ -1503,6 +1512,7 @@ bool DasmAvr8::DisassembleDefLabel
     int bus
     )
 {
+(void)bus;
 if (avr_gcc)
   {
   // for avr-gcc, it's easier to emit a #define in this case.
@@ -1529,9 +1539,9 @@ return true;
 
 bool DasmAvr8::DisassembleChanges
     (
-    addr_t addr,
-    addr_t prevaddr,
-    addr_t prevsz,
+    adr_t addr,
+    adr_t prevaddr,
+    adr_t prevsz,
     bool bAfterLine,
     vector<LineChange> &changes,
     int bus
@@ -1649,7 +1659,7 @@ return Disassembler::DisassembleChanges(addr, prevaddr, prevsz, bAfterLine, chan
 
 avrInstructionInfo *DasmAvr8::LookupInstruction(uint16_t opcode)
 {
-for (int i = 0; i < _countof(AVR_Instruction_Set); i++)
+for (size_t i = 0; i < _countof(AVR_Instruction_Set); i++)
   {
   uint16_t instructionBits = opcode;
 

@@ -265,7 +265,7 @@ uint8_t Dasm6309::h6309_codes11[512] =
   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* FC..FF */
   };
 
-static char *h6309_exg_tfr[] =
+static const char *h6309_exg_tfr[] =
   {
   "D", "X", "Y", "U", "S", "PC","W" ,"V",
   "A", "B", "CC","DP","0", "0", "E", "F"
@@ -398,7 +398,7 @@ if (bus == BusCode)
   if (bSetSysVec)
     {
     // set up DIV0 system vector
-    addr_t addr = 0xfff0;
+    adr_t addr = 0xfff0;
     MemoryType memType = GetMemType(addr);
     if (memType != Untyped &&           /* if system vector loaded           */
         memType != Const &&             /* and not defined as constant       */
@@ -406,7 +406,7 @@ if (bus == BusCode)
       {
       SetMemType(addr, Data);           /* that's a data word                */
       SetCellSize(addr, 2);
-      addr_t tgtaddr = GetUWord(addr);  /* look whether it points to loaded  */
+      adr_t tgtaddr = GetUWord(addr);  /* look whether it points to loaded  */
       if (GetMemType(tgtaddr) != Untyped)
         {                               /* if so,                            */
         SetMemType(tgtaddr, Code);      /* that's code there                 */
@@ -424,12 +424,12 @@ return Dasm6809::InitParse(bus);
 /* IndexParse : parses index for labels                                      */
 /*****************************************************************************/
 
-addr_t Dasm6309::IndexParse(int MI, addr_t pc)
+adr_t Dasm6309::IndexParse(int MI, adr_t pc, adr_t instaddr)
 {
 uint8_t T;
 uint16_t W;
 char R;
-addr_t PC = pc;
+adr_t PC = pc;
 bool bSetLabel = true;
 
 T = GetUByte(PC++);
@@ -466,20 +466,23 @@ if (T & 0x80)
       break;
     }
   }
-return Dasm6809::IndexParse(MI, pc);
+
+(void)R;  // unused ATM
+
+return Dasm6809::IndexParse(MI, pc, instaddr);
 }
 
 /*****************************************************************************/
 /* IndexString : converts index to string                                    */
 /*****************************************************************************/
 
-string Dasm6309::IndexString(addr_t &pc)
+string Dasm6309::IndexString(adr_t &pc)
 {
 uint8_t T;
 uint16_t W;
 char R;
 string buf;
-addr_t PC = pc;
+adr_t PC = pc;
 bool bGetLabel;
 Label *lbl;
 
@@ -565,9 +568,9 @@ return Dasm6809::IndexString(pc);
 /* ParseCode : parse instruction at given memory address for labels          */
 /*****************************************************************************/
 
-addr_t Dasm6309::ParseCode
+adr_t Dasm6309::ParseCode
     (
-    addr_t addr,
+    adr_t addr,
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
@@ -576,8 +579,8 @@ uint16_t W;
 int MI;
 const char *I;
 bool bSetLabel;
-addr_t dp = GetDirectPage(addr);
-addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+adr_t dp = GetDirectPage(addr);
+adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
 
 #if 1
 // speed up things a bit by checking here (would be done in 6809 anyway)
@@ -594,7 +597,7 @@ switch (M)                              /* which mode is this ?              */
     if (!bSetLabel)
       SetDefLabelUsed(PC, bus);
     T = GetUByte(PC);
-    if (dp >= 0)
+    if ((sadr_t)dp >= 0)
       {
       W = (uint16_t)dp | T;
       if (bSetLabel)
@@ -610,7 +613,7 @@ switch (M)                              /* which mode is this ?              */
     T = GetUByte(PC);
     SetDefLabelUsed(PC);
     PC++;
-    PC = IndexParse(MI, PC);
+    PC = IndexParse(MI, PC, addr);
     break;
 
   case _be:                             /* Bit Manipulation extended         */
@@ -660,10 +663,10 @@ return PC - addr;                       /* pass back # processed bytes       */
 /* DisassembleData : disassemble data area at given memory address           */
 /*****************************************************************************/
 
-addr_t Dasm6309::DisassembleData
+adr_t Dasm6309::DisassembleData
     (
-    addr_t addr,
-    addr_t end,
+    adr_t addr,
+    adr_t end,
     uint32_t flags,
     string &smnemo,
     string &sparm,
@@ -674,7 +677,7 @@ addr_t Dasm6309::DisassembleData
 if (!(flags & SHMF_RMB) &&              /* if display necessary              */
     ((flags & 0xff) == 3))              /* and dword-sized                   */
   {
-  addr_t done;
+  adr_t done;
 
   smnemo = "FQB";
                                         /* assemble as many as possible      */
@@ -700,9 +703,9 @@ return Dasm6809::DisassembleData(addr, end, flags, smnemo, sparm, maxparmlen, bu
 /* DisassembleCode : disassemble code instruction at given memory address    */
 /*****************************************************************************/
 
-addr_t Dasm6309::DisassembleCode
+adr_t Dasm6309::DisassembleCode
     (
-    addr_t addr,
+    adr_t addr,
     string &smnemo,
     string &sparm,
     int bus                             /* ignored for 6800 and derivates    */
@@ -713,9 +716,9 @@ uint16_t W;
 int MI;
 const char *I;
 bool bGetLabel;
-addr_t dp = GetDirectPage(addr);
+adr_t dp = GetDirectPage(addr);
 Label *lbl;
-addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
+adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
 
 #if 1
 // speed up things a bit by checking here (would be done in 6809 anyway)

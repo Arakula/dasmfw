@@ -44,19 +44,19 @@ class Dasm68000 :
     // return whether big- or little-endian
     virtual Endian GetEndianness() { return BigEndian; }
     // return bus width
-    virtual int GetBusWidth(int bus = BusCode) { return 24; }
+    virtual int GetBusWidth(int bus = BusCode) { (void)bus; return 24; }
     // return code bits
     virtual int GetCodeBits() { return 32; }
     // return code pointer size in bytes
     virtual int GetCodePtrSize() { return 4; }
     // return highest possible code address
-    virtual caddr_t GetHighestCodeAddr() { return 0xffffff; }
+    virtual cadr_t GetHighestCodeAddr() { return 0xffffff; }
     // return data bits
     virtual int GetDataBits() { return 16; }
     // return data pointer size in bytes
     virtual int GetDataPtrSize() { return 4; }
     // return highest possible data address
-    virtual daddr_t GetHighestDataAddr() { return 0xffffff; }
+    virtual dadr_t GetHighestDataAddr() { return 0xffffff; }
 
   // Options handler
   protected:
@@ -66,29 +66,29 @@ class Dasm68000 :
   // the real disassembler activities
   protected:
     // parse data area for labels
-    virtual addr_t ParseData(addr_t addr, int bus = BusCode);
+    virtual adr_t ParseData(adr_t addr, int bus = BusCode);
     // parse instruction at given memory address for labels
-    virtual addr_t ParseCode(addr_t addr, int bus = BusCode);
+    virtual adr_t ParseCode(adr_t addr, int bus = BusCode);
     // pass back correct mnemonic and parameters for a label
     virtual bool DisassembleLabel(Label *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode);
     // pass back correct mnemonic and parameters for a DefLabel
     virtual bool DisassembleDefLabel(DefLabel *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode);
     // disassemble data area at given memory address
-    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode);
+    virtual adr_t DisassembleData(adr_t addr, adr_t end, uint32_t flags, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, string &smnemo, string &sparm, int bus = BusCode);
+    virtual adr_t DisassembleCode(adr_t addr, string &smnemo, string &sparm, int bus = BusCode);
 
   public:
     // Initialize parsing
     virtual bool InitParse(int bus = BusCode);
     // pass back disassembler-specific state changes before/after a disassembly line
-    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode);
+    virtual bool DisassembleChanges(adr_t addr, adr_t prevaddr, adr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode);
     // create hex / ASCII representation of the current area
-    virtual bool DisassembleHexAsc(addr_t addr, addr_t len, addr_t max, string &sHex, string &sAsc, int bus = BusCode)
+    virtual bool DisassembleHexAsc(adr_t addr, adr_t len, adr_t max, string &sHex, string &sAsc, int bus = BusCode)
       {
       // 68000 displays hex in word-sized quantities instead of bytes
       sAsc = "\'";
-      addr_t i;
+      adr_t i;
       for (i = 0; i < len; i++)
         {
         uint8_t c = GetUByte(addr + i, bus);
@@ -105,10 +105,10 @@ class Dasm68000 :
       }
 
   protected:
-    virtual bool String2Number(string s, addr_t &value);
-    virtual string Number2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode);
-    virtual string Address2String(addr_t addr, int bus = BusCode)
-      { return sformat("$%06x", addr); }
+    virtual bool String2Number(string s, adr_t &value);
+    virtual string Number2String(adr_t value, int nDigits, adr_t addr, int bus = BusCode);
+    virtual string Address2String(adr_t addr, int bus = BusCode)
+      { (void)bus; return sformat("$%06x", addr); }
 
   protected:
     enum OpType
@@ -301,69 +301,69 @@ class Dasm68000 :
 
   protected:
     virtual void SetAsmType(string &newType);
-    virtual addr_t ParseEffectiveAddress(addr_t instaddr, addr_t addr, uint16_t ea, int16_t index, int op_mode);
-    virtual addr_t ParseOptype01(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype02(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype03(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype04(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype05(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype06(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype07(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype08(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype09(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype10(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype11(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype12(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype13(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype14(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype15(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype16(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype17(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype18(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype19(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype20(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype21(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype22(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype23(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype24(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype25(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype26(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype27(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype28(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
-    virtual addr_t ParseOptype29(addr_t instaddr, addr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseEffectiveAddress(adr_t instaddr, adr_t addr, uint16_t ea, int16_t index, int op_mode);
+    virtual adr_t ParseOptype01(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype02(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype03(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype04(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype05(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype06(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype07(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype08(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype09(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype10(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype11(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype12(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype13(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype14(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype15(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype16(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype17(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype18(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype19(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype20(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype21(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype22(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype23(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype24(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype25(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype26(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype27(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype28(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
+    virtual adr_t ParseOptype29(adr_t instaddr, adr_t addr, uint16_t code, int optable_index);
     virtual const char *GetAddrReg(int i);
     virtual const char *GetDataReg(int i);
     virtual const char *GetSizeSuffix(int sizeCode);
-    virtual addr_t DisassembleEffectiveAddress(addr_t instaddr, addr_t addr, string &s, uint16_t ea, int16_t index, int op_mode);
-    virtual addr_t DisassembleOptype01(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype02(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype03(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype04(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype05(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype06(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype07(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype08(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype09(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype10(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype11(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype12(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype13(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype14(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype15(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype16(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype17(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype18(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype19(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype20(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype21(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype22(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype23(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype24(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype25(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype26(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype27(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype28(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
-    virtual addr_t DisassembleOptype29(addr_t instaddr, addr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleEffectiveAddress(adr_t instaddr, adr_t addr, string &s, uint16_t ea, int16_t index, int op_mode);
+    virtual adr_t DisassembleOptype01(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype02(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype03(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype04(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype05(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype06(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype07(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype08(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype09(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype10(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype11(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype12(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype13(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype14(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype15(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype16(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype17(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype18(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype19(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype20(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype21(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype22(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype23(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype24(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype25(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype26(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype27(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype28(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
+    virtual adr_t DisassembleOptype29(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
   };
 
 

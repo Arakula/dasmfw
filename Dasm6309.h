@@ -45,11 +45,11 @@ class Dasm6309 : public Dasm6809
 
   protected:
     // parse instruction at given memory address for labels
-    virtual addr_t ParseCode(addr_t addr, int bus = BusCode);
+    virtual adr_t ParseCode(adr_t addr, int bus = BusCode);
     // disassemble data area at given memory address
-    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode);
+    virtual adr_t DisassembleData(adr_t addr, adr_t end, uint32_t flags, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, string &smnemo, string &sparm, int bus = BusCode);
+    virtual adr_t DisassembleCode(adr_t addr, string &smnemo, string &sparm, int bus = BusCode);
 
   protected:
     // additional 6309 addressing modes
@@ -162,8 +162,8 @@ class Dasm6309 : public Dasm6809
     static OpCode opcodes[mnemo6309_count - mnemo6809_count];
 
   protected:
-    virtual addr_t IndexParse(int MI, addr_t pc);
-    virtual string IndexString(addr_t &pc);
+    virtual adr_t IndexParse(int MI, adr_t pc, adr_t instaddr = NO_ADDRESS);
+    virtual string IndexString(adr_t &pc);
   };
 
 #endif // __Dasm6309_h_defined__

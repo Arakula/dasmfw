@@ -34,25 +34,25 @@ class MemAttributeHandler
   public:
     MemAttributeHandler() { }
     virtual ~MemAttributeHandler() { }
-    virtual bool AddMemory(addr_t addrStart = 0, addr_t memSize = 0, MemoryType memType = Code) = 0;
-    virtual MemoryType GetMemType(addr_t addr) = 0;
-    virtual void SetMemType(addr_t addr, MemoryType newType = Code) = 0;
-    virtual bool IsCellUsed(addr_t addr) = 0;
-    virtual void SetCellUsed(addr_t addr, bool bUsed = true) = 0;
-    virtual MemAttribute::Type GetCellType(addr_t addr) = 0;
-    virtual void SetCellType(addr_t addr, MemAttribute::Type newType) = 0;
-    virtual int GetCellSize(addr_t addr) = 0;
-    virtual void SetCellSize(addr_t addr, int newSize = 1) = 0;
-    virtual MemAttribute::Display GetDisplay(addr_t addr) = 0;
-    virtual void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay) = 0;
-    virtual bool GetBreakBefore(addr_t addr) = 0;
-    virtual void SetBreakBefore(addr_t addr, bool bOn = true) = 0;
-    virtual bool GetForcedAddr(addr_t addr) = 0;
-    virtual void SetForcedAddr(addr_t addr, bool bOn = true) = 0;
-    virtual uint32_t GetDisassemblyFlags(addr_t addr, uint8_t mem, Label *plbl) = 0;
+    virtual bool AddMemory(adr_t addrStart = 0, adr_t memSize = 0, MemoryType memType = Code) = 0;
+    virtual MemoryType GetMemType(adr_t addr) = 0;
+    virtual void SetMemType(adr_t addr, MemoryType newType = Code) = 0;
+    virtual bool IsCellUsed(adr_t addr) = 0;
+    virtual void SetCellUsed(adr_t addr, bool bUsed = true) = 0;
+    virtual MemAttribute::Type GetCellType(adr_t addr) = 0;
+    virtual void SetCellType(adr_t addr, MemAttribute::Type newType) = 0;
+    virtual int GetCellSize(adr_t addr) = 0;
+    virtual void SetCellSize(adr_t addr, int newSize = 1) = 0;
+    virtual MemAttribute::Display GetDisplay(adr_t addr) = 0;
+    virtual void SetDisplay(adr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay) = 0;
+    virtual bool GetBreakBefore(adr_t addr) = 0;
+    virtual void SetBreakBefore(adr_t addr, bool bOn = true) = 0;
+    virtual bool GetForcedAddr(adr_t addr) = 0;
+    virtual void SetForcedAddr(adr_t addr, bool bOn = true) = 0;
+    virtual uint32_t GetDisassemblyFlags(adr_t addr, uint8_t mem, Label *plbl) = 0;
     // basic access
     virtual size_t size() = 0;
-    virtual addr_t GetStart(int index) = 0;
+    virtual adr_t GetStart(int index) = 0;
     virtual size_t size(int index) = 0;
   };
 
@@ -82,41 +82,41 @@ class BasicMemAttributeHandler : public MemAttributeHandler
     virtual ~BasicMemAttributeHandler()
       { }
 
-    virtual bool AddMemory(addr_t addrStart = 0, addr_t memSize = 0, MemoryType memType = Code)
+    virtual bool AddMemory(adr_t addrStart = 0, adr_t memSize = 0, MemoryType memType = Code)
       { return attr.AddMemory(addrStart, memSize, memType); }
-    virtual MemoryType GetMemType(addr_t addr)
+    virtual MemoryType GetMemType(adr_t addr)
       { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->GetMemType() : Untyped; }
-    virtual void SetMemType(addr_t addr, MemoryType newType = Code)
+    virtual void SetMemType(adr_t addr, MemoryType newType = Code)
       { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetMemType(newType); }
-    virtual bool IsCellUsed(addr_t addr)
+    virtual bool IsCellUsed(adr_t addr)
       { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->IsUsed() : false; }
-    virtual void SetCellUsed(addr_t addr, bool bUsed = true)
+    virtual void SetCellUsed(adr_t addr, bool bUsed = true)
       { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetUsed(bUsed); }
-    virtual MemAttribute::Type GetCellType(addr_t addr)
+    virtual MemAttribute::Type GetCellType(adr_t addr)
       { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->GetCellType() : MemAttribute::CellUntyped; }
-    virtual void SetCellType(addr_t addr, MemAttribute::Type newType)
+    virtual void SetCellType(adr_t addr, MemAttribute::Type newType)
       { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetCellType(newType); }
-    virtual int GetCellSize(addr_t addr)
+    virtual int GetCellSize(adr_t addr)
       { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->GetSize() : 0; }
-    virtual void SetCellSize(addr_t addr, int newSize = 1)
+    virtual void SetCellSize(adr_t addr, int newSize = 1)
       { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetSize(newSize); }
-    virtual MemAttribute::Display GetDisplay(addr_t addr)
+    virtual MemAttribute::Display GetDisplay(adr_t addr)
       { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->GetDisplay() : MemAttribute::CellUndisplayable; }
-    virtual void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay)
+    virtual void SetDisplay(adr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay)
       { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetDisplay(newDisp); }
-    virtual bool GetBreakBefore(addr_t addr)
+    virtual bool GetBreakBefore(adr_t addr)
       { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->GetBreakBefore() : false; }
-    virtual void SetBreakBefore(addr_t addr, bool bOn = true)
+    virtual void SetBreakBefore(adr_t addr, bool bOn = true)
       { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetBreakBefore(bOn); }
-    virtual bool GetForcedAddr(addr_t addr)
+    virtual bool GetForcedAddr(adr_t addr)
       { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->GetForcedAddr() : false; }
-    virtual void SetForcedAddr(addr_t addr, bool bOn = true)
+    virtual void SetForcedAddr(adr_t addr, bool bOn = true)
       { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetForcedAddr(bOn); }
-    virtual uint32_t GetDisassemblyFlags(addr_t addr, uint8_t mem, Label *plbl)
+    virtual uint32_t GetDisassemblyFlags(adr_t addr, uint8_t mem, Label *plbl)
       { return GetBasicDisassemblyFlags(attr.getat(addr), mem, plbl); }
     // basic access
     virtual size_t size() { return (size_t)attr.size(); }
-    virtual addr_t GetStart(int index) { return attr[index].GetStart(); }
+    virtual adr_t GetStart(int index) { return attr[index].GetStart(); }
     virtual size_t size(int index) { return attr[index].size(); }
 
   protected:
@@ -185,11 +185,11 @@ class Disassembler
     // return bus width
     virtual int GetBusWidth(int bus = BusCode) = 0;
     // return lowest address for a bus
-    virtual addr_t GetLowestBusAddr(int bus = BusCode)
-      { return 0; }
+    virtual adr_t GetLowestBusAddr(int bus = BusCode)
+      { (void)bus; return 0; }
     // return highest address for a bus
-    virtual addr_t GetHighestBusAddr(int bus = BusCode)
-      { return (addr_t)(((addr_t)1 << GetBusWidth(bus)) - 1); }
+    virtual adr_t GetHighestBusAddr(int bus = BusCode)
+      { return (adr_t)(((adr_t)1 << GetBusWidth(bus)) - 1); }
     // return a bus name
     virtual string GetBusName(int bus = BusCode)
       {
@@ -212,7 +212,7 @@ class Disassembler
       }
     // return the default memory type for a bus (used in loading)
     virtual MemoryType GetDefaultMemoryType(int bus = BusCode)
-      { return Code; }
+      { (void)bus; return Code; }
 
     // return code bits
     virtual int GetCodeBits() = 0;
@@ -222,15 +222,15 @@ class Disassembler
     // return code pointer size in bytes
     virtual int GetCodePtrSize() = 0;
     // return lowest possible code address
-    virtual caddr_t GetLowestCodeAddr() { return 0; }
+    virtual cadr_t GetLowestCodeAddr() { return 0; }
     // return highest possible code address
-    virtual caddr_t GetHighestCodeAddr() = 0;
+    virtual cadr_t GetHighestCodeAddr() = 0;
     // return data pointer size in bytes
     virtual int GetDataPtrSize() = 0;
     // return lowest possible data address
-    virtual daddr_t GetLowestDataAddr() { return 0; }
+    virtual dadr_t GetLowestDataAddr() { return 0; }
     // return highest possible data address
-    virtual daddr_t GetHighestDataAddr() = 0;
+    virtual dadr_t GetHighestDataAddr() = 0;
 
   // Setup disassembler after construction
     virtual bool Setup();
@@ -264,21 +264,21 @@ class Disassembler
     // print disassembler-specific info file help
     virtual string InfoHelp() { return ""; }
     // global typed options
-    addr_t GetBegin() { return begin; }
-    addr_t GetEnd() { return end; }
-    addr_t GetOffset() { return offset; }
+    adr_t GetBegin() { return begin; }
+    adr_t GetEnd() { return end; }
+    adr_t GetOffset() { return offset; }
     int GetBus(int bus) { return busorder[bus]; }
 
   // Memory access
   public:
     // Add memory area
-    virtual bool AddMemory(addr_t addrStart = 0, addr_t memSize = 0, MemoryType memType = Code, uint8_t *contents = NULL, int bus = BusCode)
+    virtual bool AddMemory(adr_t addrStart = 0, adr_t memSize = 0, MemoryType memType = Code, uint8_t *contents = NULL, int bus = BusCode)
       {
       if (!memory[bus].AddMemory(addrStart, memSize, memType, contents))
         return false;
       return memattr[bus] && memattr[bus]->AddMemory(addrStart, memSize, memType);
       }
-    template<class T> T inline getat(addr_t addr, int bus = BusCode)
+    template<class T> T inline getat(adr_t addr, int bus = BusCode)
       {
       T val;
       if (!getat(addr, (uint8_t *)&val, sizeof(val), bus))
@@ -291,12 +291,12 @@ class Disassembler
     int GetMemAttrArrayCount(int bus = BusCode) { return memattr[bus] ? memattr[bus]->size() : 0; }
     MemAttributeHandler *GetMemoryAttributeHandler(int bus = BusCode) { return memattr[bus]; }
     // find memory area index for a given address
-    addr_t GetMemIndex(addr_t addr, int bus = BusCode)
+    adr_t GetMemIndex(adr_t addr, int bus = BusCode)
       { return memory[bus].GetMemIndex(addr); }
     // get next loaded memory address
-    addr_t GetNextAddr(addr_t addr, int bus = BusCode)
+    adr_t GetNextAddr(adr_t addr, int bus = BusCode)
       {
-      addr_t nextAddr = addr + 1;
+      adr_t nextAddr = addr + 1;
       while (!IsCellUsed(nextAddr, bus))
         {
         uint8_t *pNext = getat(nextAddr, bus);
@@ -304,7 +304,7 @@ class Disassembler
           {
           for (int i = 0; i < GetMemoryArrayCount(); i++)
             {
-            addr_t nextStart = GetMemoryArray(i, bus).GetStart();
+            adr_t nextStart = GetMemoryArray(i, bus).GetStart();
             if (nextStart > nextAddr)
               {
               pNext = getat(nextStart, bus);
@@ -322,64 +322,65 @@ class Disassembler
       }
 
     // Get/Set integer memory as defined by cell type / size
-    addr_t GetTypedInt(addr_t addr, int bus = BusCode);
-    void SetTypedInt(addr_t value, addr_t addr, int bus = BusCode);
+    adr_t GetTypedInt(adr_t addr, int bus = BusCode);
+    void SetTypedInt(adr_t value, adr_t addr, int bus = BusCode);
     // Get/Set memory byte
-    int8_t GetSByte(addr_t addr, int bus = BusCode)
+    int8_t GetSByte(adr_t addr, int bus = BusCode)
       { return (int8_t)*getat(addr, bus); }
-    uint8_t GetUByte(addr_t addr, int bus = BusCode)
+    uint8_t GetUByte(adr_t addr, int bus = BusCode)
       { uint8_t *pb = getat(addr, bus); return pb ? *pb : 0; }
-    bool SetSByte(addr_t addr, int8_t val, int bus = BusCode)
+    bool SetSByte(adr_t addr, int8_t val, int bus = BusCode)
       { return setat(addr, (uint8_t)val, bus); }
-    bool SetUByte(addr_t addr, uint8_t val, int bus = BusCode)
+    bool SetUByte(adr_t addr, uint8_t val, int bus = BusCode)
       { return setat(addr, val, bus); }
     // Get/Set memory word
-    int16_t GetSWord(addr_t addr, int bus = BusCode)
+    int16_t GetSWord(adr_t addr, int bus = BusCode)
       { return getat<int16_t>(addr, bus); }
-    uint16_t GetUWord(addr_t addr, int bus = BusCode)
+    uint16_t GetUWord(adr_t addr, int bus = BusCode)
       { return getat<uint16_t>(addr, bus); }
-    bool SetSWord(addr_t addr, int16_t val, int bus = BusCode)
+    bool SetSWord(adr_t addr, int16_t val, int bus = BusCode)
       { return setat(addr, (uint8_t *)&val, sizeof(val), bus); }
-    bool SetUWord(addr_t addr, uint16_t val, int bus = BusCode)
+    bool SetUWord(adr_t addr, uint16_t val, int bus = BusCode)
       { return setat(addr, (uint8_t *)&val, sizeof(val), bus); }
     // Get/Set memory dword
-    int32_t GetSDWord(addr_t addr, int bus = BusCode)
+    int32_t GetSDWord(adr_t addr, int bus = BusCode)
       { return getat<int32_t>(addr, bus); }
-    uint32_t GetUDWord(addr_t addr, int bus = BusCode)
+    uint32_t GetUDWord(adr_t addr, int bus = BusCode)
       { return getat<uint32_t>(addr, bus); }
-    bool SetSDWord(addr_t addr, int32_t val, int bus = BusCode)
+    bool SetSDWord(adr_t addr, int32_t val, int bus = BusCode)
       { return setat(addr, (uint8_t *)&val, sizeof(val), bus); }
-    bool SetUDWord(addr_t addr, uint32_t val, int bus = BusCode)
+    bool SetUDWord(adr_t addr, uint32_t val, int bus = BusCode)
       { return setat(addr, (uint8_t *)&val, sizeof(val), bus); }
     // Get/Set memory qword
-    int64_t GetSQWord(addr_t addr, int bus = BusCode)
+    int64_t GetSQWord(adr_t addr, int bus = BusCode)
       { return getat<int64_t>(addr, bus); }
-    uint64_t GetUQWord(addr_t addr, int bus = BusCode)
+    uint64_t GetUQWord(adr_t addr, int bus = BusCode)
       { return getat<uint64_t>(addr, bus); }
-    bool SetSQWord(addr_t addr, int64_t val, int bus = BusCode)
+    bool SetSQWord(adr_t addr, int64_t val, int bus = BusCode)
       { return setat(addr, (uint8_t *)&val, sizeof(val), bus); }
-    bool SetUQWord(addr_t addr, uint64_t val, int bus = BusCode)
+    bool SetUQWord(adr_t addr, uint64_t val, int bus = BusCode)
       { return setat(addr, (uint8_t *)&val, sizeof(val), bus); }
     // Get/Set 32-bit floating-point IEEE 854 value
-    float GetFloat(addr_t addr, int bus = BusCode)
+    float GetFloat(adr_t addr, int bus = BusCode)
       { return getat<float>(addr, bus); }
-    bool SetFloat(addr_t addr, float val, int bus = BusCode)
+    bool SetFloat(adr_t addr, float val, int bus = BusCode)
       { return setat(addr, (uint8_t *)&val, sizeof(val), bus); }
     // Get/Set 64-bit floating-point IEEE 854 value
-    double GetDouble(addr_t addr, int bus = BusCode)
+    double GetDouble(adr_t addr, int bus = BusCode)
       { return getat<double>(addr, bus); }
-    bool SetDouble(addr_t addr, double val, int bus = BusCode)
+    bool SetDouble(adr_t addr, double val, int bus = BusCode)
       { return setat(addr, (uint8_t *)&val, sizeof(val), bus); }
     // Get/set delimited ASCII string
-    string GetString(addr_t addr, char cTerm = '\0', int bus = BusCode)
+    string GetString(adr_t addr, char cTerm = '\0', int bus = BusCode)
       {
+      (void)bus;
       string s;
       char c;
-      while ((c = (char)getat(addr++)) != cTerm)
+      while ((c = static_cast<char>(*getat(addr++))) != cTerm)
         s += c;
       return s;
       }
-    bool SetString(addr_t addr, string s, char cTerm = '\0', int bus = BusCode)
+    bool SetString(adr_t addr, string s, char cTerm = '\0', int bus = BusCode)
       {
       if (setat(addr, (uint8_t *)s.c_str(), s.size(), bus))
         return setat(addr + s.size(), (uint8_t)cTerm, bus);
@@ -389,39 +390,39 @@ class Disassembler
     // we'll deal with it in time.
 
     // Get/Set cell information
-    MemoryType GetMemType(addr_t addr, int bus = BusCode)
+    MemoryType GetMemType(adr_t addr, int bus = BusCode)
       { return memattr[bus] ? memattr[bus]->GetMemType(addr) : Untyped; }
-    void SetMemType(addr_t addr, MemoryType newType = Code, int bus = BusCode)
+    void SetMemType(adr_t addr, MemoryType newType = Code, int bus = BusCode)
       { if (memattr[bus]) memattr[bus]->SetMemType(addr, newType); }
-    bool IsCellUsed(addr_t addr, int bus = BusCode)
+    bool IsCellUsed(adr_t addr, int bus = BusCode)
       { return memattr[bus] ? memattr[bus]->IsCellUsed(addr) : false; }
-    void SetCellUsed(addr_t addr, bool bUsed = true, int bus = BusCode)
+    void SetCellUsed(adr_t addr, bool bUsed = true, int bus = BusCode)
       { if (memattr[bus]) memattr[bus]->SetCellUsed(addr, bUsed); }
-    MemAttribute::Type GetCellType(addr_t addr, int bus = BusCode)
+    MemAttribute::Type GetCellType(adr_t addr, int bus = BusCode)
       { return memattr[bus] ? memattr[bus]->GetCellType(addr) : MemAttribute::CellUntyped; }
-    void SetCellType(addr_t addr, MemAttribute::Type newType, int bus = BusCode)
+    void SetCellType(adr_t addr, MemAttribute::Type newType, int bus = BusCode)
       { if (memattr[bus]) memattr[bus]->SetCellType(addr, newType); }
-    int GetCellSize(addr_t addr, int bus = BusCode)
+    int GetCellSize(adr_t addr, int bus = BusCode)
       { return memattr[bus] ? memattr[bus]->GetCellSize(addr) : 0; }
-    void SetCellSize(addr_t addr, int newSize = 1, int bus = BusCode)
+    void SetCellSize(adr_t addr, int newSize = 1, int bus = BusCode)
       { if (memattr[bus]) memattr[bus]->SetCellSize(addr, newSize); }
-    MemAttribute::Display GetDisplay(addr_t addr, int bus = BusCode)
+    MemAttribute::Display GetDisplay(adr_t addr, int bus = BusCode)
       { return memattr[bus] ? memattr[bus]->GetDisplay(addr) : MemAttribute::CellUndisplayable; }
-    void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay, int bus = BusCode)
+    void SetDisplay(adr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay, int bus = BusCode)
       { if (memattr[bus]) memattr[bus]->SetDisplay(addr, newDisp); }
-    bool GetBreakBefore(addr_t addr, int bus = BusCode)
+    bool GetBreakBefore(adr_t addr, int bus = BusCode)
       { return memattr[bus] ? memattr[bus]->GetBreakBefore(addr) : false; }
-    void SetBreakBefore(addr_t addr, bool bOn = true, int bus = BusCode)
+    void SetBreakBefore(adr_t addr, bool bOn = true, int bus = BusCode)
       { if (memattr[bus]) memattr[bus]->SetBreakBefore(addr, bOn); }
-    bool GetForcedAddr(addr_t addr, int bus = BusCode)
+    bool GetForcedAddr(adr_t addr, int bus = BusCode)
       { return memattr[bus] ? memattr[bus]->GetForcedAddr(addr) : false; }
-    void SetForcedAddr(addr_t addr, bool bOn = true, int bus = BusCode)
+    void SetForcedAddr(adr_t addr, bool bOn = true, int bus = BusCode)
       { if (memattr[bus]) memattr[bus]->SetForcedAddr(addr, bOn); }
     // get/set default cell display format
     MemAttribute::Display GetDisplay() { return defaultDisplay; }
     void SetDisplay(MemAttribute::Display newDisp) { defaultDisplay = newDisp; }
     // Get Flags for disassembly of data areas
-    virtual uint32_t GetDisassemblyFlags(addr_t addr, int bus = BusCode)
+    virtual uint32_t GetDisassemblyFlags(adr_t addr, int bus = BusCode)
       {
       uint8_t *mem = getat(addr, bus);
       if (!mem) return 0;
@@ -429,60 +430,60 @@ class Disassembler
       Label *plbl = FindLabel(addr, Untyped, bus);
       return memattr[bus] ? memattr[bus]->GetDisassemblyFlags(addr, *mem, plbl) : 0;
       }
-    void SetInvalidInstruction(addr_t addr, int newSize = 1, int bus = BusCode)
+    void SetInvalidInstruction(adr_t addr, int newSize = 1, int bus = BusCode)
       {
       // this can be called during disassembler parsing to mark an invalid instruction
-      SetMemType(addr, Const);
-      SetCellSize(addr, newSize);
-      SetCellType(addr, MemAttribute::CellUntyped);
+      SetMemType(addr, Const, bus);
+      SetCellSize(addr, newSize, bus);
+      SetCellType(addr, MemAttribute::CellUntyped, bus);
       }
 
     // convenience functionality for the above
-    bool IsCode(addr_t addr, int bus = BusCode) { return GetMemType(addr, bus) == Code; }
-    bool IsData(addr_t addr, int bus = BusCode) { return GetMemType(addr, bus) == Data; }
-    bool IsConst(addr_t addr, int bus = BusCode) { return GetMemType(addr, bus) == Const; }
-    bool IsBss(addr_t addr, int bus = BusCode) { return GetMemType(addr, bus) == Bss; }
-    bool IsBinary(addr_t addr, int bus = BusCode) { return GetDisplay(addr, bus) == MemAttribute::Binary; }
-    bool IsChar(addr_t addr, int bus = BusCode) { return GetDisplay(addr, bus) == MemAttribute::Char; }
-    bool IsOctal(addr_t addr, int bus = BusCode) { return GetDisplay(addr, bus) == MemAttribute::Octal; }
-    bool IsDecimal(addr_t addr, int bus = BusCode) { return GetDisplay(addr, bus) == MemAttribute::Decimal; }
-    bool IsHex(addr_t addr, int bus = BusCode) { MemAttribute::Display disp = GetDisplay(addr, bus); return disp == MemAttribute::DefaultDisplay || disp == MemAttribute::Hex; }
-    bool IsSigned(addr_t addr, int bus = BusCode) { return GetCellType(addr, bus) == MemAttribute::SignedInt; }
-    bool IsUnsigned(addr_t addr, int bus = BusCode) { return GetCellType(addr, bus) == MemAttribute::UnsignedInt; }
-    bool IsFloat(addr_t addr, int bus = BusCode) { return GetCellType(addr, bus) == MemAttribute::Float; }
+    bool IsCode(adr_t addr, int bus = BusCode) { return GetMemType(addr, bus) == Code; }
+    bool IsData(adr_t addr, int bus = BusCode) { return GetMemType(addr, bus) == Data; }
+    bool IsConst(adr_t addr, int bus = BusCode) { return GetMemType(addr, bus) == Const; }
+    bool IsBss(adr_t addr, int bus = BusCode) { return GetMemType(addr, bus) == Bss; }
+    bool IsBinary(adr_t addr, int bus = BusCode) { return GetDisplay(addr, bus) == MemAttribute::Binary; }
+    bool IsChar(adr_t addr, int bus = BusCode) { return GetDisplay(addr, bus) == MemAttribute::Char; }
+    bool IsOctal(adr_t addr, int bus = BusCode) { return GetDisplay(addr, bus) == MemAttribute::Octal; }
+    bool IsDecimal(adr_t addr, int bus = BusCode) { return GetDisplay(addr, bus) == MemAttribute::Decimal; }
+    bool IsHex(adr_t addr, int bus = BusCode) { MemAttribute::Display disp = GetDisplay(addr, bus); return disp == MemAttribute::DefaultDisplay || disp == MemAttribute::Hex; }
+    bool IsSigned(adr_t addr, int bus = BusCode) { return GetCellType(addr, bus) == MemAttribute::SignedInt; }
+    bool IsUnsigned(adr_t addr, int bus = BusCode) { return GetCellType(addr, bus) == MemAttribute::UnsignedInt; }
+    bool IsFloat(adr_t addr, int bus = BusCode) { return GetCellType(addr, bus) == MemAttribute::Float; }
 
   // Relative handling
   public:
-    bool AddRelative(addr_t addr, addr_t relsize = 1,  addr_t *contents = NULL, int bus = BusCode)
+    bool AddRelative(adr_t addr, adr_t relsize = 1,  adr_t *contents = NULL, int bus = BusCode)
       { return Relatives[bus].AddMemory(addr, relsize, 0, contents); }
-    addr_t GetRelative(addr_t addr, int bus = BusCode)
-      { addr_t *paddr = Relatives[bus].getat(addr); return paddr ? *paddr : 0; }
-    void SetRelative(addr_t addr, addr_t rel, int bus = BusCode)
-      { addr_t *paddr = Relatives[bus].getat(addr); if (paddr) *paddr = rel; }
+    adr_t GetRelative(adr_t addr, int bus = BusCode)
+      { adr_t *paddr = Relatives[bus].getat(addr); return paddr ? *paddr : 0; }
+    void SetRelative(adr_t addr, adr_t rel, int bus = BusCode)
+      { adr_t *paddr = Relatives[bus].getat(addr); if (paddr) *paddr = rel; }
 
   // Phase handling
   public:
-    bool AddPhase(addr_t addr, addr_t phaseSize = 1, addr_t phase = 0, int bus = BusCode)
+    bool AddPhase(adr_t addr, adr_t phaseSize = 1, adr_t phase = 0, int bus = BusCode)
       { return Phases[bus].AddMemory(addr, phaseSize, phase); }
-    TMemory<addr_t, addr_t> *FindPhase(addr_t addr, int bus = BusCode)
+    TMemory<adr_t, adr_t> *FindPhase(adr_t addr, int bus = BusCode)
       { return Phases[bus].FindMem(addr); }
-    addr_t GetPhase(addr_t addr, int bus = BusCode)
-      { TMemory<addr_t, addr_t> *pArea = FindPhase(addr, bus); return pArea ? pArea->GetType() : NO_ADDRESS; }
-    void SetPhase(addr_t addr, addr_t phase = NO_ADDRESS, int bus = BusCode)
-      { addr_t *paddr = Phases[bus].getat(addr); if (paddr) *paddr = phase; }
+    adr_t GetPhase(adr_t addr, int bus = BusCode)
+      { TMemory<adr_t, adr_t> *pArea = FindPhase(addr, bus); return pArea ? pArea->GetType() : NO_ADDRESS; }
+    void SetPhase(adr_t addr, adr_t phase = NO_ADDRESS, int bus = BusCode)
+      { adr_t *paddr = Phases[bus].getat(addr); if (paddr) *paddr = phase; }
     protected:
-      addr_t PhaseInner(addr_t value, addr_t addr, int bus = BusCode)
+      adr_t PhaseInner(adr_t value, adr_t addr, int bus = BusCode)
         {
         // "phase" an address if it's inside the current range
-        TMemory<addr_t, addr_t> *pArea = Phases[bus].FindMem(addr);
+        TMemory<adr_t, adr_t> *pArea = Phases[bus].FindMem(addr);
         if (pArea)
           {
-          addr_t phStart = pArea->GetType();
-          addr_t phEnd = phStart + pArea->size() - 1;
-          addr_t offset = pArea->at(addr);
-          if (value >= phStart && value <= phEnd || offset != NO_ADDRESS)
+          adr_t phStart = pArea->GetType();
+          adr_t phEnd = phStart + pArea->size() - 1;
+          adr_t offset = pArea->at(addr);
+          if ((value >= phStart && value <= phEnd) || (offset != NO_ADDRESS))
             {
-            addr_t aStart = pArea->GetStart();
+            adr_t aStart = pArea->GetStart();
             if (offset == NO_ADDRESS)
               offset = phStart - aStart;
             else if (offset == DEFAULT_ADDRESS)
@@ -494,18 +495,18 @@ class Disassembler
           }
         return value;
         }
-      addr_t DephaseOuter(addr_t value, addr_t addr, int bus = BusCode)
+      adr_t DephaseOuter(adr_t value, adr_t addr, int bus = BusCode)
         {
         // "de-phase" an address if it's outside the current range
-        TMemory<addr_t, addr_t> *pArea = Phases[bus].FindMem(addr);
+        TMemory<adr_t, adr_t> *pArea = Phases[bus].FindMem(addr);
         if (pArea)
           {
-          addr_t aStart = pArea->GetStart();
-          addr_t aEnd = pArea->GetEnd();
-          addr_t offset = pArea->at(addr);
+          adr_t aStart = pArea->GetStart();
+          adr_t aEnd = pArea->GetEnd();
+          adr_t offset = pArea->at(addr);
           if (value < aStart || value > aEnd || offset != NO_ADDRESS)
             {
-            addr_t phStart = pArea->GetType();
+            adr_t phStart = pArea->GetType();
             if (offset == NO_ADDRESS)
               offset = aStart - phStart;
             else if (offset == DEFAULT_ADDRESS)
@@ -520,15 +521,15 @@ class Disassembler
 
   // Label handling
   public:
-    bool AddLabel(addr_t addr, MemoryType memType = Code, string sLabel = "", bool bUsed = false, int bus = BusCode);
-    bool AddRelativeLabel(addr_t addr, addr_t at, MemoryType memType = Code, bool bUsed = false, int bus = BusCode, addr_t craddr = NO_ADDRESS, int crbus = BusCode);
-    Label *GetFirstLabel(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, int bus = BusCode)
+    bool AddLabel(adr_t addr, MemoryType memType = Code, string sLabel = "", bool bUsed = false, int bus = BusCode);
+    bool AddRelativeLabel(adr_t addr, adr_t at, MemoryType memType = Code, bool bUsed = false, int bus = BusCode, adr_t craddr = NO_ADDRESS, int crbus = BusCode);
+    Label *GetFirstLabel(adr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, int bus = BusCode)
       { return Labels[bus].GetFirst(addr, it, memType); }
-    Label *GetNextLabel(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, int bus = BusCode)
+    Label *GetNextLabel(adr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped, int bus = BusCode)
       { return Labels[bus].GetNext(addr, it, memType); }
-    Label *FindLabel(addr_t addr, MemoryType memType = Untyped, int bus = BusCode);
-    Label *FindPrevNamedLabel(addr_t addr, MemoryType memType = Untyped, int bus = BusCode);
-    void RemoveLabel(addr_t addr, MemoryType memType = Untyped, int bus = BusCode)
+    Label *FindLabel(adr_t addr, MemoryType memType = Untyped, int bus = BusCode);
+    Label *FindPrevNamedLabel(adr_t addr, MemoryType memType = Untyped, int bus = BusCode);
+    void RemoveLabel(adr_t addr, MemoryType memType = Untyped, int bus = BusCode)
       {
       LabelArray::iterator p = Labels[bus].find(addr, memType);
       if (p != Labels[bus].end()) Labels[bus].erase(p);
@@ -538,18 +539,18 @@ class Disassembler
     void RemoveLabelAt(int index, int bus = BusCode) { Labels[bus].erase(Labels[bus].begin() + index); }
     virtual bool ResolveLabels(int bus = BusCode);
     // convenience functionality for the above
-    string GetLabel(addr_t addr, MemoryType memType = Untyped, int bus = BusCode)
+    string GetLabel(adr_t addr, MemoryType memType = Untyped, int bus = BusCode)
       {
       // NB: this returns the LAST label for this address and type!
       Label *p = FindLabel(addr, memType, bus);
       return p ? p->GetText() : "";
       }
-    bool IsLabel(addr_t addr, int bus = BusCode)
+    bool IsLabel(adr_t addr, int bus = BusCode)
       {
       // returns whether ANY kind of label is set here
       return !!FindLabel(addr, Untyped, bus);
       }
-    bool IsCLabel(addr_t addr, int bus = BusCode)
+    bool IsCLabel(adr_t addr, int bus = BusCode)
       {
       LabelArray::iterator it;
       Label *pLabel = GetFirstLabel(addr, it, Untyped, bus);
@@ -560,7 +561,7 @@ class Disassembler
         }
       return false;
       }
-    bool IsDLabel(addr_t addr, int bus = BusCode)
+    bool IsDLabel(adr_t addr, int bus = BusCode)
       {
       LabelArray::iterator it;
       Label *pLabel = GetFirstLabel(addr, it, Untyped, bus);
@@ -571,7 +572,7 @@ class Disassembler
         }
       return false;
       }
-    bool IsDefLabel(addr_t addr, int bus = BusCode)
+    bool IsDefLabel(adr_t addr, int bus = BusCode)
       {
       LabelArray::iterator it;
       Label *pLabel = GetFirstLabel(addr, it, Untyped, bus);
@@ -582,7 +583,7 @@ class Disassembler
         }
       return false;
       }
-    bool IsIOLabel(addr_t addr, int bus = BusCode)
+    bool IsIOLabel(adr_t addr, int bus = BusCode)
       {
       LabelArray::iterator it;
       Label *pLabel = GetFirstLabel(addr, it, Untyped, bus);
@@ -593,7 +594,7 @@ class Disassembler
         }
       return false;
       }
-    bool SetLabelUsed(addr_t addr, MemoryType memType = Code, int bus = BusCode, addr_t ref = NO_ADDRESS, int busref = BusCode)
+    bool SetLabelUsed(adr_t addr, MemoryType memType = Code, int bus = BusCode, adr_t ref = NO_ADDRESS, int busref = BusCode)
       {
       bool bDone = false;
       LabelArray::iterator it;
@@ -610,7 +611,7 @@ class Disassembler
         }
       return bDone;
       }
-    Label *SetDefLabelUsed(addr_t addr, int bus = BusCode)
+    Label *SetDefLabelUsed(adr_t addr, int bus = BusCode)
       {
       if (SetLabelUsed(addr, Const, bus))
         return FindLabel(addr, Const, bus);
@@ -619,8 +620,9 @@ class Disassembler
 
   // Definition Label handling
     public:
-      bool AddDefLabel(addr_t addr, string sLabel = "", string sDefinition = "", MemoryType memType = Code, int bus = BusCode)
+      bool AddDefLabel(adr_t addr, string sLabel = "", string sDefinition = "", MemoryType memType = Code, int bus = BusCode)
         {
+        (void)addr;
         if (!DefLabels[bus].Find(sLabel))
           DefLabels[bus].insert(new DefLabel(DefLabels[bus].size(),
                                              memType,
@@ -628,7 +630,7 @@ class Disassembler
                                              sDefinition));
         return true;
         }
-      DefLabel *FindDefLabel(addr_t addr, int bus = BusCode)
+      DefLabel *FindDefLabel(adr_t addr, int bus = BusCode)
         { return DefLabels[bus].Find(addr); }
     int GetDefLabelCount(int bus = BusCode) { return DefLabels[bus].size(); }
     DefLabel *DefLabelAt(int index, int bus = BusCode) { return (DefLabel *)DefLabels[bus].at(index); }
@@ -638,18 +640,20 @@ class Disassembler
     // load a code file; interleave can be >1 for interleaved Low/High EPROM pairs, for example
     bool Load(string filename, string &sLoadType, int interleave = 1, int bus = BusCode);
     // process an info file line
-    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, addr_t &step, vector<TMemoryArray<addr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode) { return false; }
+    virtual bool ProcessInfo(string key, string value, adr_t &from, adr_t &to, adr_t &step, vector<TMemoryArray<adr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode)
+      { (void)key; (void)value; (void)from; (void)to; (void)step; (void)remaps;
+        (void)bProcInfo; (void)bus; (void)tgtbus; return false; }
 
   // the real disassembler activities
   protected:
     // parse data area for labels
-    virtual addr_t ParseData(addr_t addr, int bus = BusCode) = 0;
+    virtual adr_t ParseData(adr_t addr, int bus = BusCode) = 0;
     // parse instruction at given memory address for labels
-    virtual addr_t ParseCode(addr_t addr, int bus = BusCode) = 0;
+    virtual adr_t ParseCode(adr_t addr, int bus = BusCode) = 0;
     // disassemble data area at given memory address
-    virtual addr_t DisassembleData(addr_t addr, addr_t end, uint32_t flags, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode) = 0;
+    virtual adr_t DisassembleData(adr_t addr, adr_t end, uint32_t flags, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode) = 0;
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, string &smnemo, string &sparm, int bus = BusCode) = 0;
+    virtual adr_t DisassembleCode(adr_t addr, string &smnemo, string &sparm, int bus = BusCode) = 0;
   // globally accessible dispatchers for the above
   public:
     // Initialize parsing
@@ -660,22 +664,24 @@ class Disassembler
       return true;
       }
     // Parse memory area for labels
-    addr_t Parse(addr_t addr, int bus = BusCode)
+    adr_t Parse(adr_t addr, int bus = BusCode)
       { return IsCode(addr, bus) ? ParseCode(addr, bus) : ParseData(addr, bus); }
     // Disassemble a line in the memory area
-    addr_t Disassemble(addr_t addr, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode)
+    adr_t Disassemble(adr_t addr, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode)
       {
       if (IsCode(addr, bus)) return DisassembleCode(addr, smnemo, sparm, bus);
       uint32_t flags = 0;
-      addr_t end = GetConsecutiveData(addr, flags, maxparmlen, bus);
+      adr_t end = GetConsecutiveData(addr, flags, maxparmlen, bus);
       return DisassembleData(addr, end, flags, smnemo, sparm, maxparmlen, bus);
       }
     // pass back correct mnemonic and parameters for a label
     virtual bool DisassembleLabel(Label *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode)
-      { return false; } // no changes in base implementation
+      { (void)label; (void)slabel; (void)smnemo; (void)sparm; (void)bus;
+        return false; } // no changes in base implementation
     // pass back correct mnemonic and parameters for a DefLabel
     virtual bool DisassembleDefLabel(DefLabel *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode)
-      { return false; } // no changes in base implementation
+      { (void)label; (void)slabel; (void)smnemo; (void)sparm; (void)bus;
+        return false; } // no changes in base implementation
     // pass back disassembler-specific state changes before/after a disassembly line
     struct LineChange
       {
@@ -683,13 +689,14 @@ class Disassembler
       string oper;
       string opnds;
       };
-    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode)
-      { return changes.size() != 0; } // no additional changes in base implementation
+    virtual bool DisassembleChanges(adr_t addr, adr_t prevaddr, adr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode)
+      { (void)addr; (void)prevaddr; (void)prevsz; (void)bAfterLine; (void)changes; (void)bus;
+        return changes.size() != 0; } // no additional changes in base implementation
     // create hex / ASCII representation of the current area
-    virtual bool DisassembleHexAsc(addr_t addr, addr_t len, addr_t max, string &sHex, string &sAsc, int bus = BusCode)
+    virtual bool DisassembleHexAsc(adr_t addr, adr_t len, adr_t max, string &sHex, string &sAsc, int bus = BusCode)
       {
       sAsc = "\'";
-      addr_t i;
+      adr_t i;
       for (i = 0; i < len; i++)
         {
         uint8_t c = GetUByte(addr + i, bus);
@@ -709,19 +716,19 @@ class Disassembler
     // must not be called from constructor!
     virtual MemAttributeHandler *CreateAttributeHandler() { return new BasicMemAttributeHandler; }
     //
-    TMemory<uint8_t, MemoryType> *FindMem(addr_t addr, int bus = BusCode)
+    TMemory<uint8_t, MemoryType> *FindMem(adr_t addr, int bus = BusCode)
       { return memory[bus].FindMem(addr); }
     // fetch byte at a given address
-    uint8_t *getat(addr_t addr, int bus = BusCode)
+    uint8_t *getat(adr_t addr, int bus = BusCode)
       { return memory[bus].getat(addr); }
     // fetch multiple bytes with endianness correction
-    bool getat(addr_t addr, uint8_t *val, addr_t len, int bus = BusCode) 
+    bool getat(adr_t addr, uint8_t *val, adr_t len, int bus = BusCode) 
       { return memory[bus].getat(addr, val, len, (GetEndianness() != prgEndian)); }
     // write byte at a given address
-    bool setat(addr_t addr, uint8_t val, int bus = BusCode) 
+    bool setat(adr_t addr, uint8_t val, int bus = BusCode) 
       { return memory[bus].setat(addr, val); }
     // write multiple bytes with endianness correction
-    bool setat(addr_t addr, uint8_t *val, addr_t len, int bus = BusCode) 
+    bool setat(adr_t addr, uint8_t *val, adr_t len, int bus = BusCode) 
       { return memory[bus].setat(addr, val, len, (GetEndianness() != prgEndian)); }
 
     // load opened file (overridable for specific file types)
@@ -731,7 +738,7 @@ class Disassembler
     bool LoadBinary(string filename, FILE *f, string &sLoadType, int interleave = 1, int bus = BusCode);
 
     // calculate bits needed for an address
-    int CalcBitsForHighestAddr(addr_t addr)
+    int CalcBitsForHighestAddr(adr_t addr)
       {
       int bits = sizeof(addr) * 8;
       // this relies on a layout where the highest address
@@ -748,13 +755,13 @@ class Disassembler
     virtual void RecalcBusBits(int bus = BusCode)
       { busbits[bus] = CalcBitsForHighestAddr(GetHighestBusAddr(bus)); }
     // calculate consecutive data range (i.e., same type for all)
-    addr_t GetConsecutiveData(addr_t addr, uint32_t &flags, int maxparmlen, int bus = BusCode);
+    adr_t GetConsecutiveData(adr_t addr, uint32_t &flags, int maxparmlen, int bus = BusCode);
 
   public:
     // return address bits for a specific bus
     int BusAddressBits(int bus = BusCode) { return busbits[bus]; }
     // convert a string to an integer number, (dis)assembler-specific
-    virtual bool String2Number(string s, addr_t &value)
+    virtual bool String2Number(string s, adr_t &value)
       {
       int base = pbase;
       s = trim(s);
@@ -779,7 +786,7 @@ class Disassembler
       // return end && !*end;
 #endif
       }
-    virtual int String2Range(string s, addr_t &from, addr_t &to, addr_t &step)
+    virtual int String2Range(string s, adr_t &from, adr_t &to, adr_t &step)
       {
       from = to = NO_ADDRESS;
       step = 1;
@@ -816,9 +823,11 @@ class Disassembler
       return (sscanf(s.c_str(), "%lf", &value) == 1);
       }
     // convert a number to a string
-    virtual string Number2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode)
+    virtual string Number2String(adr_t value, int nDigits, adr_t addr, int bus = BusCode)
       {
-#if 0
+#if 1
+      (void)nDigits;
+#else
       MemoryType memType = GetMemType(addr);
       MemAttribute::Display disp;
       bool bSigned = false;
@@ -835,7 +844,7 @@ class Disassembler
       // Only thing that should always work...
       return sformat(IsSigned(addr, bus) ? "%d" : "%u", value);
       }
-    virtual string SignedNumber2String(saddr_t value, int nDigits, addr_t addr, int bus = BusCode)
+    virtual string SignedNumber2String(sadr_t value, int nDigits, adr_t addr, int bus = BusCode)
       {
       string s;
       // specialization for things that have to be signed in any case
@@ -844,15 +853,15 @@ class Disassembler
         s = "-";
         value = -value;
         }
-      return s + Number2String((addr_t)value, nDigits, addr, bus);
+      return s + Number2String((adr_t)value, nDigits, addr, bus);
       }
-    virtual string Address2String(addr_t addr, int bus = BusCode)
-      { return sformat("%d", addr); }
-    virtual string Label2String(addr_t value, int nDigits, bool bUseLabel, addr_t addr, int bus = BusCode);
-    virtual string DefLabel2String(addr_t value, int nDigits, addr_t addr, int bus = BusCode);
-    virtual string AutoLabel2String(addr_t addr, bool bCode, int bus = BusCode);
+    virtual string Address2String(adr_t addr, int bus = BusCode)
+      { (void)bus; return sformat("%d", addr); }
+    virtual string Label2String(adr_t value, int nDigits, bool bUseLabel, adr_t addr, int bus = BusCode);
+    virtual string DefLabel2String(adr_t value, int nDigits, adr_t addr, int bus = BusCode);
+    virtual string AutoLabel2String(adr_t addr, bool bCode, int bus = BusCode);
     // generate text for an unnamed label
-    virtual string UnnamedLabel(addr_t addr, bool bCode, int bus = BusCode)
+    virtual string UnnamedLabel(adr_t addr, bool bCode, int bus = BusCode)
       {
       if (bAutoLabel)
         {
@@ -866,7 +875,7 @@ class Disassembler
       int bits = busbits[bus];
       return sformat("%s%0*X", cType, (bits + 3) / 4, addr);
       }
-    virtual bool IsForwardRef(addr_t value, bool bUseLabel, addr_t addr, int bus = BusCode);
+    virtual bool IsForwardRef(adr_t value, bool bUseLabel, adr_t addr, int bus = BusCode);
 
   protected:
     static const Endian prgEndian;
@@ -877,13 +886,13 @@ class Disassembler
     vector<MemAttributeHandler *> memattr;
     vector<LabelArray> Labels;
     vector<DefLabelArray> DefLabels;
-    vector<TMemoryArray<addr_t>> Relatives;
-    vector<TMemoryArray<addr_t, addr_t>> Phases;
+    vector<TMemoryArray<adr_t>> Relatives;
+    vector<TMemoryArray<adr_t, adr_t>> Phases;
     vector<int> busorder;
     vector<int> busbits;
 
     // begin / end / load (i.e., entry point) address
-    addr_t begin, end, load, offset;
+    adr_t begin, end, load, offset;
     // flag whether to honor load address
     bool bLoadLabel;
     // flag whether to set system vector labels
@@ -906,6 +915,6 @@ class Disassembler
 
   };
 
-addr_t GetHex(FILE *f, int nChars, uint8_t *pchks = NULL);
+adr_t GetHex(FILE *f, int nChars, uint8_t *pchks = NULL);
 
 #endif // __Disassembler_h_defined__

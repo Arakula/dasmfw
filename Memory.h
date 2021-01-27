@@ -45,22 +45,22 @@ e) if not code (or data reference / constant in code),
 template<class T, class TType = uint8_t> class TMemory : public vector<T>
   {
   public:
-    TMemory(addr_t addrStart = 0, addr_t memSize = 0, TType newType = (TType)0)
+    TMemory(adr_t addrStart = 0, adr_t memSize = 0, TType newType = (TType)0)
       : memType(newType)
       {
       label.SetAddress(addrStart);
       if (memSize)
-        resize(memSize);
+        this->resize(static_cast<typename vector<T>::size_type>(memSize));
       }
-    TMemory(TMemory const &org)
+    TMemory(TMemory const &org) : vector<T>(org)
       { DoCopy(org); }
     TMemory &operator=(TMemory const &org)
       { return DoCopy(org); }
 
     // Getters / Setters
-    void SetStart(addr_t addrStart = 0) { label.SetAddress(addrStart); }
-    addr_t GetStart() const { return label.GetAddress(); }
-    addr_t GetEnd() const { return GetStart() + size() - 1; }
+    void SetStart(adr_t addrStart = 0) { label.SetAddress(addrStart); }
+    adr_t GetStart() const { return label.GetAddress(); }
+    adr_t GetEnd() const { return GetStart() + vector<T>::size() - 1; }
     string GetLabel() { return label.GetText(); }
     bool SetLabel(string sNewText = "") { return label.SetText(sNewText); }
     TType GetType() { return memType; }
@@ -68,10 +68,10 @@ template<class T, class TType = uint8_t> class TMemory : public vector<T>
     bool TypeMatches(TType chkType) { return memType == chkType; }
 
     // vector specializations
-    const_reference at(size_type _Pos) const { return vector<T>::at(_Pos - GetStart()); }
-    reference at(size_type _Pos) { return vector<T>::at(_Pos - GetStart()); }
-	const_reference operator[](size_type _Pos) const { return at(_Pos); }
-	reference operator[](size_type _Pos) { return at(_Pos); }
+    typename vector<T>::const_reference at(typename vector<T>::size_type _Pos) const { return vector<T>::at(_Pos - GetStart()); }
+    typename vector<T>::reference at(typename vector<T>::size_type _Pos) { return vector<T>::at(_Pos - GetStart()); }
+	typename vector<T>::const_reference operator[](typename vector<T>::size_type _Pos) const { return at(_Pos); }
+	typename vector<T>::reference operator[](typename vector<T>::size_type _Pos) { return at(_Pos); }
 
   protected:
     Label label;
@@ -81,7 +81,7 @@ template<class T, class TType = uint8_t> class TMemory : public vector<T>
       {
       label = org.label;
       memType = org.memType;
-      assign(org.begin(), org.end());
+      this->assign(org.begin(), org.end());
       return *this;
       }
   };
@@ -96,55 +96,55 @@ template<class T, class TType = uint8_t>
   {
   public:
     TMemoryArray() { ResetLast(); }
-    bool AddMemory(addr_t addrStart = 0, addr_t memSize = 0, TType memType = (TType)0, T *contents = NULL)
+    bool AddMemory(adr_t addrStart = 0, adr_t memSize = 0, TType memType = (TType)0, T *contents = NULL)
       {
-      vector<TMemory<T, TType>>::iterator i;
+      typename vector<TMemory<T, TType>>::iterator i;
       if (memSize)
         {
-        addr_t addrEnd = addrStart + memSize - 1;
+        adr_t addrEnd = addrStart + memSize - 1;
         // append to existing array, if possible
-        for (i = begin(); i != end(); i++)
+        for (i = vector<TMemory<T, TType>>::begin(); i != vector<TMemory<T, TType>>::end(); i++)
           {
           if (i->TypeMatches(memType))
             {
-            addr_t curStart = i->GetStart();
-            addr_t curEnd = i->GetEnd();
-            addr_t curSize = i->size();
+            adr_t curStart = i->GetStart();
+            adr_t curEnd = i->GetEnd();
+            adr_t curSize = i->size();
 
             // adjacent or overlapping existing memory block
             if (addrStart <= curEnd + 1 && addrEnd + 1 >= curStart)
               {
-              addr_t newStart = (curStart < addrStart) ? curStart : addrStart;
-              addr_t newEnd = (curEnd < addrEnd) ? addrEnd : curEnd;
-              addr_t newSize = newEnd - newStart + 1;
+              adr_t newStart = (curStart < addrStart) ? curStart : addrStart;
+              adr_t newEnd = (curEnd < addrEnd) ? addrEnd : curEnd;
+              adr_t newSize = newEnd - newStart + 1;
               i->resize(newSize);
               // if resized overlaps the next one, swallow next one
-              while (i + 1 != end() &&
+              while (i + 1 != vector<TMemory<T, TType>>::end() &&
                      newEnd + 1 >= (i + 1)->GetStart())
                 {
-                addr_t nextStart = (i + 1)->GetStart();
-                addr_t nextEnd = (i + 1)->GetEnd();
+                adr_t nextStart = (i + 1)->GetStart();
+                adr_t nextEnd = (i + 1)->GetEnd();
                 if (nextEnd > newEnd)
                   {
                   newEnd = nextEnd;
                   newSize = newEnd - newStart + 1;
                   i->resize(newSize);
                   }
-                for (addr_t j = nextStart; j <= nextEnd; j++)
+                for (adr_t j = nextStart; j <= nextEnd; j++)
                   i->at(j) = (i + 1)->at(j);
-                erase(i + 1);
+                vector<TMemory<T, TType>>::erase(i + 1);
                 }
               // if inserted before current start, some shuffling is needed
               if (newStart != curStart)
                 {
                 i->SetStart(newStart);
-                addr_t diff = curStart - newStart;
-                for (addr_t j = curSize; j > 0; j--)
+                adr_t diff = curStart - newStart;
+                for (adr_t j = curSize; j > 0; j--)
                   i->at(newStart + j - 1 + diff) = i->at(newStart + j - 1);
                 }
               if (contents)
                 {
-                for (addr_t j = 0; j < memSize; j++)
+                for (adr_t j = 0; j < memSize; j++)
                   i->at(addrStart + j) = contents[j];
                 }
               return true;
@@ -154,11 +154,11 @@ template<class T, class TType = uint8_t>
         }
       // obviously not adjacent to another area
       // do a simple insertion sort - shouldn't be too many areas
-      for (i = begin(); i != end(); i++)
+      for (i = vector<TMemory<T, TType>>::begin(); i != vector<TMemory<T, TType>>::end(); i++)
         if (addrStart < i->GetStart())
           break;
       TMemory<T, TType> &t =
-          *insert(i,
+          *this->insert(i,
                   TMemory<T, TType>(addrStart, 0, memType));
       if (memSize)
         t.resize(memSize);
@@ -166,20 +166,20 @@ template<class T, class TType = uint8_t>
       // done this way to avoid creating a potentially large temporary object
       if (contents && memSize)
         {
-        for (addr_t j = 0; j < memSize; j++)
+        for (adr_t j = 0; j < memSize; j++)
           t.at(addrStart + j) = contents[j];
         }
       return true;
       }
     // find memory area index for a given address
-    addr_t GetMemIndex(addr_t addr)
+    adr_t GetMemIndex(adr_t addr)
       {
       // little speedup for multiple accesses in scattered environments
       if (addr >= last.start && addr <= last.end) return last.idx;
-      for (TMemoryArray<T, TType>::size_type i = 0; i < size(); i++)
+      for (typename TMemoryArray<T, TType>::size_type i = 0; i < vector<TMemory<T, TType>>::size(); i++)
         {
-        TMemory<T, TType> &mem = at(i);
-        if (mem.GetStart() <= addr && (addr_t)(mem.GetStart() + mem.size()) > addr)
+        TMemory<T, TType> &mem = this->at(i);
+        if (mem.GetStart() <= addr && (adr_t)(mem.GetStart() + mem.size()) > addr)
           {
           last.start = mem.GetStart();
           last.end = mem.GetEnd();
@@ -189,23 +189,23 @@ template<class T, class TType = uint8_t>
         }
       return NO_ADDRESS;
       }
-    TMemory<T, TType> *FindMem(addr_t addr)
+    TMemory<T, TType> *FindMem(adr_t addr)
       {
-      addr_t idx = GetMemIndex(addr);
+      adr_t idx = GetMemIndex(addr);
       if (idx != NO_ADDRESS)
-        return &at(idx);
+        return &vector<TMemory<T, TType>>::at(static_cast<typename TMemory<T, TType>::size_type>(idx));
       return NULL;
       }
     // get item at a given address
-    T *getat(addr_t addr)
+    T *getat(adr_t addr)
       {
       TMemory<T, TType> *pmem = FindMem(addr);
       return (pmem) ? &pmem->at(addr) : NULL;
       }
     // get multiple bytes with(out) byte reversal
-    bool getat(addr_t addr, T *val, addr_t len, bool bReverse = false) 
+    bool getat(adr_t addr, T *val, adr_t len, bool bReverse = false) 
       {
-      addr_t i;
+      adr_t i;
       if (bReverse)
         for (i = 0; i < len; i++)
           {
@@ -227,7 +227,7 @@ template<class T, class TType = uint8_t>
       return true;
       }
     // write item at a given address
-    bool setat(addr_t addr, T val)
+    bool setat(adr_t addr, T val)
       {
       TMemory<T, TType> *pmem = FindMem(addr);
       if (!pmem) return false;
@@ -235,9 +235,9 @@ template<class T, class TType = uint8_t>
       return true;
       }
     // write multiple bytes with(out) byte reversal
-    bool setat(addr_t addr, T *val, addr_t len, bool bReverse = false) 
+    bool setat(adr_t addr, T *val, adr_t len, bool bReverse = false) 
       {
-      addr_t i;
+      adr_t i;
       if (bReverse)
         {
         for (i = 0; i < len; i++)
@@ -255,9 +255,9 @@ template<class T, class TType = uint8_t>
     protected:
       struct
         {
-        addr_t start;
-        addr_t end;
-        addr_t idx;
+        adr_t start;
+        adr_t end;
+        adr_t idx;
         } last;
       void ResetLast() { last.start = last.end = last.idx = NO_ADDRESS; }
   };
@@ -305,8 +305,8 @@ struct MemAttribute
       bool breakBefore = false,
       bool forcedAddr = false
       )
-    : memType(memType), used(used), cellSize(cellSize - 1),
-      cellType(cellType), display(display), breakBefore(breakBefore),
+    : cellSize(cellSize - 1), memType(memType), cellType(cellType),
+      display(display), used(used), breakBefore(breakBefore),
       forcedAddr(forcedAddr)
     { }
 

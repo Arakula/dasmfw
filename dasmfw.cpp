@@ -305,7 +305,7 @@ defnfo[0] = pHomePath ?
 #endif
 defnfo[1] = sDasmName + ".nfo";
 
-int i;
+size_t i;
 int bus;
                                         /* first, just search for "dasm"     */
 for (i = 0; i < _countof(defnfo); i++)
@@ -340,19 +340,19 @@ LoadFiles();                            /* load all data files               */
 LoadInfoFiles();                        /* load all info files               */
 
 // parse labels in 2 passes
-for (i = 0; i < pDasm->GetBusCount(); i++)
+for (i = 0; i < (size_t)pDasm->GetBusCount(); i++)
   {
   bus = pDasm->GetBus(i);
   if (pDasm->GetMemoryArrayCount(bus)) Parse(0, bus);
   }
-for (i = 0; i < pDasm->GetBusCount(); i++)
+for (i = 0; i < (size_t)pDasm->GetBusCount(); i++)
   {
   bus = pDasm->GetBus(i);
   if (pDasm->GetMemoryArrayCount(bus)) Parse(1, bus);
   }
 
 // resolve all XXXXXXXX+/-nnnn labels and DefLabels
-for (i = 0; i < pDasm->GetBusCount(); i++)
+for (i = 0; i < (size_t)pDasm->GetBusCount(); i++)
   {
   bus = pDasm->GetBus(i);
   pDasm->ResolveLabels(bus);
@@ -376,12 +376,12 @@ if (out != stdout && showLogo)          /* if output goes to file            */
             sformat(" %s: Disassembler Framework V" DASMFW_VERSION,
                     sDasmName.c_str()));
   for (i = 0;                           /* print loaded files                */
-       i < (int)saFNames.size();
+       i < saFNames.size();
        i++)
     if (saFNames[i].substr(0, 1) != "-")
       PrintLine(sComDel + " " + saFNames[i]);
   for (i = 0;                           /* print loaded info files           */
-       i < (int)saINames.size();
+       i < saINames.size();
        i++)
   PrintLine(sComDel + " " + saINames[i]);
   PrintLine();
@@ -399,7 +399,7 @@ for (i = 0; i < pDasm->GetBusCount(); i++)
   DumpMem(i);
 #endif
                                         /* show comments that go in front    */
-for (i = 0; i < pDasm->GetBusCount(); i++)
+for (i = 0; i < (size_t)pDasm->GetBusCount(); i++)
   {
   bus = pDasm->GetBus(i);
   DisassembleComments(NO_ADDRESS, false, sComDel, bus);
@@ -409,7 +409,7 @@ for (i = 0; i < pDasm->GetBusCount(); i++)
 DisassembleChanges(NO_ADDRESS, NO_ADDRESS, 0, false, 0);
 
 // output of (def)labels without data
-for (i = 0; i < pDasm->GetBusCount(); i++)
+for (i = 0; i < (size_t)pDasm->GetBusCount(); i++)
   {
   bus = pDasm->GetBus(i);
   DisassembleLabels(sComDel, sComHdr, bus);
@@ -417,14 +417,14 @@ for (i = 0; i < pDasm->GetBusCount(); i++)
   }
 
 // disassemble all memory areas for the busses
-for (i = 0; i < pDasm->GetBusCount(); i++)
+for (i = 0; i < (size_t)pDasm->GetBusCount(); i++)
   {
   bus = pDasm->GetBus(i);
   if (!pDasm->GetMemoryArrayCount(bus))
     continue;
 
-  addr_t prevaddr = NO_ADDRESS, prevsz = 0;
-  addr_t addr = pDasm->GetMemoryArray(0, bus).GetStart();
+  adr_t prevaddr = NO_ADDRESS, prevsz = 0;
+  adr_t addr = pDasm->GetMemoryArray(0, bus).GetStart();
   if (!pDasm->IsCellUsed(addr, bus))
     addr = pDasm->GetNextAddr(addr, bus);
   bool bBusHdrOut = false;
@@ -445,7 +445,7 @@ for (i = 0; i < pDasm->GetBusCount(); i++)
 
     DisassembleChanges(addr, prevaddr, prevsz, false, bus);
 
-    addr_t sz = DisassembleLine(addr, sComDel, sComHdr, labelDelim, bus);
+    adr_t sz = DisassembleLine(addr, sComDel, sComHdr, labelDelim, bus);
 
     DisassembleChanges(addr, prevaddr, prevsz, true, bus);
 
@@ -556,15 +556,15 @@ if (!nPass &&
 if (!pDasm->GetMemoryArrayCount(bus))
   return true;
 
-addr_t prevaddr = NO_ADDRESS;
-addr_t addr = pDasm->GetMemoryArray(0, bus).GetStart();
+adr_t prevaddr = NO_ADDRESS;
+adr_t addr = pDasm->GetMemoryArray(0, bus).GetStart();
 if (!pDasm->IsCellUsed(addr, bus))
   addr = pDasm->GetNextAddr(addr, bus);
 
 while (addr != NO_ADDRESS)
   {
   MemAttribute::Type oct = pDasm->GetCellType(addr, bus);
-  addr_t sz = pDasm->Parse(addr, bus);
+  adr_t sz = pDasm->Parse(addr, bus);
   MemAttribute::Type nct = pDasm->GetCellType(addr, bus);
   // cell type has been changed by parser?
   if (oct != nct)
@@ -580,6 +580,7 @@ while (addr != NO_ADDRESS)
   addr = pDasm->GetNextAddr(addr + sz - 1, bus);
   }
 
+(void)prevaddr;  // not used ... yet. Maybe later.
 return true;
 }
 
@@ -589,7 +590,7 @@ return true;
 
 bool Application::DisassembleComments
     (
-    addr_t addr,
+    adr_t addr,
     bool bAfterLine,
     string sComDel,
     int bus
@@ -653,9 +654,9 @@ return true;
 
 bool Application::DisassembleChanges
     (
-    addr_t addr,
-    addr_t prevaddr,
-    addr_t prevsz,
+    adr_t addr,
+    adr_t prevaddr,
+    adr_t prevsz,
     bool bAfterLine,
     int bus
     )
@@ -691,11 +692,11 @@ string sComBlk(sComDel + " ");
 CommentArray::iterator it;
 Comment *pComment;
 static bool bULHOut = false;
-addr_t paddr = NO_ADDRESS;
+adr_t paddr = NO_ADDRESS;
 for (int l = 0; l < pDasm->GetLabelCount(bus); l++)
   {
   Label *pLbl = pDasm->LabelAt(l, bus);
-  addr_t laddr = pLbl->GetAddress();
+  adr_t laddr = pLbl->GetAddress();
   bool bShow = showUnused || pLbl->IsUsed();
   // if (!pLbl->IsConst())
   MemoryType memType = pDasm->GetMemType(laddr, bus);
@@ -791,15 +792,16 @@ return true;
 /* DisassembleLine : create a line of disassembler output (+comments)        */
 /*****************************************************************************/
 
-addr_t Application::DisassembleLine
+adr_t Application::DisassembleLine
     (
-    addr_t addr,
+    adr_t addr,
     string sComDel,
     string sComHdr,
     string labelDelim,
     int bus
     )
 {
+(void)sComHdr;  // unused at the moment
 string sLabel, sMnemo, sParms, sComBlk(sComDel + " ");
 CommentArray::iterator it;
 Comment *pComment;
@@ -835,7 +837,7 @@ if (p && p->IsUsed() && !p->IsConst())
            labelDelim;
 pComment = showComments ? GetFirstLComment(addr, it, bus) : NULL;
 int maxparmlen = (bWithComments || pComment) ? (cparmLen - 1) : uparmLen;
-addr_t sz = pDasm->Disassemble(addr, sMnemo, sParms, maxparmlen, bus);
+adr_t sz = pDasm->Disassemble(addr, sMnemo, sParms, maxparmlen, bus);
 
 string scomment;
 if (showAddr)
@@ -847,11 +849,11 @@ if ((showHex || showAsc) && !pDasm->IsBss(addr, bus))
   string sHex, sAsc;
   if (showHex || showAsc)
     {
-    pDasm->DisassembleHexAsc(addr, sz, (addr_t)dbCount, sHex, sAsc, bus);
+    pDasm->DisassembleHexAsc(addr, sz, (adr_t)dbCount, sHex, sAsc, bus);
     if (!pComment)
       sAsc = trim(sAsc);
 #if 0
-    for (addr_t i = sz; i < (addr_t)dbCount; i++)
+    for (adr_t i = sz; i < (adr_t)dbCount; i++)
       {
       if (showHex && showAsc)
         sHex += "   ";
@@ -902,7 +904,7 @@ bool Application::PrintLine
 if (labelLen < 0) labelLen = this->labelLen;
 int nLen = 0;
 int nMinLen = labelLen;
-bool bLastBlank = false;
+
 if (sLabel.size())
   {
   nLen += fprintf(out, "%s", sLabel.c_str());
@@ -942,9 +944,9 @@ return nLen > 0;
 int Application::ParseInfoRange
     (
     string value,
-    addr_t &from,
-    addr_t &to,
-    addr_t &step,
+    adr_t &from,
+    adr_t &to,
+    adr_t &step,
     bool remapped
     )
 {
@@ -953,7 +955,7 @@ if (n < 1)
   from = NO_ADDRESS;
 if (from != NO_ADDRESS)
   {
-  addr_t *pmap = remaps[infoBus].getat(from);
+  adr_t *pmap = remaps[infoBus].getat(from);
   if (pmap && remapped) from += *pmap;
   if (from < pDasm->GetLowestBusAddr(infoBus) ||
       from > pDasm->GetHighestBusAddr(infoBus))
@@ -966,7 +968,7 @@ if (n < 2)
   to = from;
 else if (to != NO_ADDRESS)
   {
-  addr_t *pmap = remaps[infoBus].getat(to);
+  adr_t *pmap = remaps[infoBus].getat(to);
   if (pmap && remapped) to += *pmap;
   if (to < from ||
       to < pDasm->GetLowestBusAddr(infoBus) ||
@@ -1264,7 +1266,7 @@ do
     value = trim(line.substr(idx));
 
     InfoCmd cmdType = infoUnknown;
-    for (int i = 0; i < _countof(sKey); i++)
+    for (size_t i = 0; i < _countof(sKey); i++)
       if (key == sKey[i].name)
         {
         cmdType = sKey[i].cmdType;
@@ -1293,7 +1295,7 @@ do
 
     if (pDasm && !bSetDasm)             /* let disassembler have a go at it  */
       {
-      addr_t from, to, step;            /* address range has to be first!    */
+      adr_t from, to, step;            /* address range has to be first!    */
       ParseInfoRange(value, from, to, step);
       if (pDasm->ProcessInfo(key, value,
                              from, to, step,
@@ -1359,10 +1361,15 @@ do
           value = trim(value.substr(i + 1));
         else
           value.clear();
-        addr_t offs, ign;
+        adr_t offs, ign;
         ParseInfoRange(value, offs, ign, ign);
         if (offs != NO_ADDRESS)
+          {
+          // offset implies that the whole file is to be read, so reset begin/end
+          saFNames.push_back("-begin:0");
+          saFNames.push_back("-end:0");
           saFNames.push_back(sformat("-offset:0x%x", offs));
+          }
         saFNames.push_back(fn);
         }
         break;
@@ -1384,13 +1391,13 @@ do
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
         value = trim(value.substr(idx));
-        addr_t from, to, step, off;
+        adr_t from, to, step, off;
         // allow remapped remaps - but don't remap the remap range :-)
         if (ParseInfoRange(range, from, to, step, false) >= 1 &&
             (cmdType == infoUnRemap || pDasm->String2Number(value, off)))
           {
           remaps[infoBus].AddMemory(from, to + 1 - from);
-          for (addr_t scanned = from;
+          for (adr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned += step)
             {
@@ -1436,13 +1443,13 @@ do
       case infoForceAddr :              /* FORCEADDR addr[-addr]             */
       case infoUnForceAddr :            /* UNFORCEADDR addr[-addr]           */
         {
-        addr_t from, to, step, tgtaddr;
+        adr_t from, to, step, tgtaddr;
         if (ParseInfoRange(value, from, to, step) >= 1)
           {
           // if forcing an area into use, allocate untyped memory for it
           if (cmdType == infoUsed)
             pDasm->AddMemory(from, to - from + 1, Untyped, NULL, infoBus);
-          for (addr_t scanned = from;
+          for (adr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned += step)
             {
@@ -1492,10 +1499,10 @@ do
                   pDasm->SetCellUsed(scanned, true, infoBus);
                   break;
                 case infoUnused :
-                  {
                   pDasm->SetMemType(scanned, Untyped, infoBus);
                   pDasm->SetCellUsed(scanned, false, infoBus);
-                  }
+                  pDasm->SetCellSize(scanned, 1, infoBus);
+                  break;
                 case infoByte :
                   pDasm->SetCellSize(scanned, 1, infoBus);
                   break;
@@ -1598,6 +1605,8 @@ do
                                   true, tgtBus);
                   scanned += sz - 1;
                   break;
+                default :               /* keep gcc happy                    */
+                  break;
                 }
               }
             }
@@ -1611,12 +1620,12 @@ do
         if (idx == value.npos) idx = value.size();
         range = value.substr(0, idx);
         value = trim(value.substr(idx));
-        addr_t from, to, step, rel;
+        adr_t from, to, step, rel;
         if (ParseInfoRange(range, from, to, step) >= 1 &&
             pDasm->String2Number(value, rel))
           {
           pDasm->AddRelative(from, to - from + 1, NULL, infoBus);
-          for (addr_t scanned = from;
+          for (adr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned += step)
            pDasm->SetRelative(scanned, rel, infoBus);
@@ -1625,10 +1634,10 @@ do
         break;
       case infoUnRelative :             /* UNRELATIVE addr[-addr]            */
         {
-        addr_t from, to, step;
+        adr_t from, to, step;
         if (ParseInfoRange(value, from, to, step) >= 1)
           {
-          for (addr_t scanned = from;
+          for (adr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned += step)
            pDasm->SetRelative(scanned, 0, infoBus);
@@ -1639,7 +1648,7 @@ do
       case infoDefLabel :               /* DEFLABEL addr[-addr] label        */
       case infoUsedLabel :              /* USEDLABEL addr[-addr] [label]     */
         {
-        addr_t from, to, step;
+        adr_t from, to, step;
         string range;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
@@ -1656,7 +1665,7 @@ do
         if (ParseInfoRange(range, from, to, step) >= 1 && bTextOk)
           {
           bool bNoDelta = cmdType == infoUsedLabel && value.empty();
-          for (addr_t scanned = from;
+          for (adr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned += step)
             {
@@ -1673,12 +1682,12 @@ do
         break;
       case infoUnlabel :                /* UNLABEL addr[-addr]               */
         {
-        addr_t from, to, ign;
+        adr_t from, to, ign;
         if (ParseInfoRange(value, from, to, ign) >= 1)
           {
           for (int i = pDasm->GetLabelCount(infoBus) - 1; i >= 0; i--)
             {
-            addr_t laddr = pDasm->LabelAt(i, infoBus)->GetAddress();
+            adr_t laddr = pDasm->LabelAt(i, infoBus)->GetAddress();
             if (laddr < from) break;
             if (laddr >= from && laddr <= to)
               pDasm->RemoveLabelAt(i, infoBus);
@@ -1695,7 +1704,7 @@ do
         value = trim(value.substr(idx));
         char sign = value.size() ? value[0] : 0;
         bool bSigned = (sign == '+' || sign == '-');
-        addr_t from, to, ign, phase;
+        adr_t from, to, ign, phase;
         if (ParseInfoRange(range, from, to, ign) >= 1 &&
             pDasm->String2Number(value, phase))
           {
@@ -1703,8 +1712,8 @@ do
           // different phase are specified. Well, so be it. Don't do it.
           // The alternative would be to reallocate the phase area for each
           // and every byte.
-          TMemory<addr_t, addr_t> *pFrom = pDasm->FindPhase(from, infoBus);
-          TMemory<addr_t, addr_t> *pTo = pDasm->FindPhase(to, infoBus);
+          TMemory<adr_t, adr_t> *pFrom = pDasm->FindPhase(from, infoBus);
+          TMemory<adr_t, adr_t> *pTo = pDasm->FindPhase(to, infoBus);
           if (!pFrom || !pTo)
             {
             // presumably, it's the same phase as others, so make sure
@@ -1713,11 +1722,11 @@ do
             pFrom = pDasm->FindPhase(from, infoBus);
             pFrom->SetType(phase);
             }
-          for (addr_t scanned = from;
+          for (adr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned++)
             {
-            TMemory<addr_t, addr_t> *pArea = pDasm->FindPhase(scanned, infoBus);
+            TMemory<adr_t, adr_t> *pArea = pDasm->FindPhase(scanned, infoBus);
             if (pArea)
               {
               if (pArea->GetType() == phase)
@@ -1733,10 +1742,10 @@ do
         break;
       case infoUnphase :                /* UNPHASE addr[-addr]               */
         {
-        addr_t from, to, ign;
+        adr_t from, to, ign;
         if (ParseInfoRange(value, from, to, ign) >= 1)
           {
-          for (addr_t scanned = from;
+          for (adr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned++)
             pDasm->SetPhase(scanned, DEFAULT_ADDRESS, infoBus);
@@ -1765,7 +1774,7 @@ do
           bAfter = true;
           value = (idx < value.size()) ? trim(value.substr(idx)) : "";
           }
-        addr_t from, to, step;
+        adr_t from, to, step;
         string range;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
@@ -1776,7 +1785,7 @@ do
           idx = 0;
         value = (idx >= value.size()) ? "" :
           triminfo(value.substr(idx), true, true, true);
-        for (addr_t scanned = from;
+        for (adr_t scanned = from;
              scanned >= from && scanned <= to;
              scanned += step)
           {
@@ -1795,6 +1804,8 @@ do
               if (scanned != NO_ADDRESS)
                 AddLComment(scanned, value, bPrepend, infoBus);
               break;
+            default :                   /* keep gcc happy                    */
+              break;
             }
           }
         }
@@ -1812,7 +1823,7 @@ do
           bAfter = true;
           value = (idx < value.size()) ? trim(value.substr(idx)) : "";
           }
-        addr_t from, to, ign;
+        adr_t from, to, ign;
         if (ParseInfoRange(value, from, to, ign) >= 1)
           {
           int i;
@@ -1821,7 +1832,7 @@ do
             for (i = GetCommentCount(bAfter, infoBus) - 1; i >= 0; i--)
               {
               AddrText *c = CommentAt(bAfter, i, infoBus);
-              addr_t caddr = c->GetAddress();
+              adr_t caddr = c->GetAddress();
               if (caddr < from) break;
               if (caddr >= from && caddr <= to)
                 RemoveCommentAt(bAfter, i, infoBus);
@@ -1832,7 +1843,7 @@ do
             for (i = GetLCommentCount(infoBus) - 1; i >= 0; i--)
               {
               AddrText *c = LCommentAt(i, infoBus);
-              addr_t caddr = c->GetAddress();
+              adr_t caddr = c->GetAddress();
               if (caddr < from) break;
               if (caddr >= from && caddr <= to)
                 RemoveLCommentAt(i, infoBus);
@@ -1846,7 +1857,7 @@ do
       case infoPatchDWord :             /* PATCHDW addr [dword]*             */
       case infoPatchFloat :             /* PATCHF addr [float]*              */
         {
-        addr_t from, to, step;
+        adr_t from, to, step;
         string range;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
@@ -1923,11 +1934,13 @@ do
                   else
                     from = NO_ADDRESS;
                   if (from != NO_ADDRESS)
-                    from += (step > (addr_t)sz) ? step : (addr_t)sz;
+                    from += (step > (adr_t)sz) ? step : (adr_t)sz;
                   }
                 else
                   from = NO_ADDRESS;
                 }
+                break;
+              default :                 /* keep gcc happy                    */
                 break;
               }
 
@@ -1938,11 +1951,15 @@ do
       case infoEnd :
         bEnd = true;
         break;
+      default :                         /* keep gcc happy                    */
+        break;
       }
     }
   line.clear();
   bMod = false;
   } while (fc != EOF && !bEnd);
+
+(void)bMod;  // unused ATM, but might become useful
 
 fclose(fp);
 return true;

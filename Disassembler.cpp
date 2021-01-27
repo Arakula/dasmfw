@@ -26,9 +26,9 @@
 /* GetHex : retrieves a hex value in given length from file                  */
 /*****************************************************************************/
 
-addr_t GetHex(FILE *f, int nChars, uint8_t *pchks)
+adr_t GetHex(FILE *f, int nChars, uint8_t *pchks)
 {
-addr_t out = 0;
+adr_t out = 0;
 
 for (int i = 0; i < nChars; i++)
   {
@@ -98,7 +98,7 @@ if (plbl && plbl->IsUsed())
   {
   // labels containing '+' or '-' are no real labels; they are
   // references to another label (e.g., "OLBL+4")
-  string &s = plbl->GetText();
+  string const &s = plbl->GetText();
   if (s.find('-') == s.npos && s.find('+') == s.npos)
     wf |= SHMF_BREAK;
   }
@@ -354,8 +354,8 @@ int Disassembler::DisassemblerSetOption(string lname, string value)
 {
 // this could be expanded ... "0x" or "$" header come to mind...
 string lvalue(lowercase(value));
-addr_t ivalue = (addr_t)strtoul(value.c_str(), NULL, 10);
-addr_t avalue;
+adr_t ivalue = (adr_t)strtoul(value.c_str(), NULL, 10);
+adr_t avalue;
 String2Number(value, avalue);
 bool bnValue = true;                    /* default to "on"                   */
 bool bIsBool = ParseBool(value, bnValue);
@@ -438,7 +438,9 @@ AddOption("defdisp", "{bin|char|dec|oct|hex|}\tdefault number output format",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
 #endif
+#ifdef _DEBUG
   MemAttribute::Display disp = GetDisplay();
+#endif
   switch (GetDisplay())
     {
     case MemAttribute::Binary :  oval = "bin"; break;
@@ -446,6 +448,7 @@ AddOption("defdisp", "{bin|char|dec|oct|hex|}\tdefault number output format",
     case MemAttribute::Octal :   oval = "oct"; break;
     case MemAttribute::Decimal : oval = "dec"; break;
     case MemAttribute::Hex :     oval = "hex"; break;
+    default : break;  // keep gcc happy
     }
   }
 else if (lname == "begin") oval = (begin == NO_ADDRESS) ? "-1" : sformat("0x%lx", begin);
@@ -466,9 +469,9 @@ return oval;
 
 bool Disassembler::IsForwardRef
     (
-    addr_t value,
+    adr_t value,
     bool bUseLabel,
-    addr_t addr,
+    adr_t addr,
     int bus
     )
 {
@@ -478,7 +481,7 @@ if (!bUseLabel)
   return false;
 
 bool bForwardRef = false;
-addr_t relative = GetRelative(addr, bus);
+adr_t relative = GetRelative(addr, bus);
 Label *pLbl;
 MemoryType lblType;
 if (relative)
@@ -489,9 +492,9 @@ if (relative)
     ((lblType == Code || lblType == Data || lblType == Bss) &&
      relative >= addr);
   }
-addr_t Wrel = (value + relative);
-addr_t hiaddr = GetHighestBusAddr(bus) + 1;
-addr_t WrelMod = (hiaddr) ? Wrel % hiaddr : Wrel;
+adr_t Wrel = (value + relative);
+adr_t hiaddr = GetHighestBusAddr(bus) + 1;
+adr_t WrelMod = (hiaddr) ? Wrel % hiaddr : Wrel;
 pLbl = FindLabel(Wrel, Untyped, bus);
 lblType = pLbl ? pLbl->GetType() : Untyped;
 bForwardRef |= 
@@ -515,18 +518,18 @@ return bForwardRef;
 
 string Disassembler::Label2String
     (
-    addr_t value,
+    adr_t value,
     int nDigits,
     bool bUseLabel,
-    addr_t addr,
+    adr_t addr,
     int bus
     )
 {
 string sOut;
-addr_t relative = GetRelative(addr, bus);
-addr_t Wrel = (value + relative);
-addr_t hiaddr = GetHighestBusAddr(bus) + 1;
-addr_t WrelMod = (hiaddr) ? Wrel % hiaddr : Wrel;
+adr_t relative = GetRelative(addr, bus);
+adr_t Wrel = (value + relative);
+adr_t hiaddr = GetHighestBusAddr(bus) + 1;
+adr_t WrelMod = (hiaddr) ? Wrel % hiaddr : Wrel;
 // % might not be the best choice under all circumstances, but works for me...
 
 // NB: this always uses the LAST found label for this address.
@@ -563,7 +566,7 @@ else if (bUseLabel && memType == Code)
 else if (bUseLabel && memType == Data)
   sOut = UnnamedLabel(WrelMod, false, bus);
 else  // no label - use ORIGINAL value
-  sOut = Number2String(value, nDigits, addr, bus).c_str();
+  sOut = Number2String(WrelMod, nDigits, addr, bus);
 
 if (relative)                           /* if it's relative addressing       */
   {
@@ -590,7 +593,7 @@ if (relative)                           /* if it's relative addressing       */
       sAdd = "+";                       /* negative*negative is positive...  */
       bInvert = false;                  /* so invert the sign                */
                                         /* and make the number positive      */
-      relative = (addr_t) (-((int32_t)relative));
+      relative = (adr_t) (-((int32_t)relative));
       }
     sAdd += Number2String(relative, nDigits, addr, bus);
     }
@@ -620,7 +623,7 @@ return sOut;
 
 bool Disassembler::AddLabel
     (
-    addr_t addr,
+    adr_t addr,
     MemoryType memType,
     string sLabel,
     bool bUsed,
@@ -634,7 +637,9 @@ Label *pLbl = GetFirstLabel(addr, it, Untyped, bus);
 if (pLbl)
   {
   bool bHasTxt = !!sLabel.size();
+#if 0
   bool bMulti = Labels[bus].HasMultipleDefs();
+#endif
   bool bInsert = true /*!bMulti*/;
   do
     {
@@ -691,26 +696,40 @@ return true;
 // TODO: is that enough? Or does it need 2 busses (for addr and for at)?
 bool Disassembler::AddRelativeLabel
     (
-    addr_t addr,
-    addr_t at,
+    adr_t addr,
+    adr_t at,
     MemoryType memType,
     bool bUsed,
     int bus,
-    addr_t craddr,                      /* cref address                      */
+    adr_t craddr,                       /* cref address                      */
     int crbus                           /* cref bus                          */
     )
 {
-addr_t relative = GetRelative(at, bus);
-addr_t addrRel = addr + relative;
-addr_t hiaddr = GetHighestBusAddr(bus) + 1;
-addr_t addrRelMod = (hiaddr) ? addrRel % hiaddr : addrRel;
+(void)bUsed;
+adr_t relative = GetRelative(at, bus);
+adr_t addrRel = addr + relative;
+adr_t hiaddr = GetHighestBusAddr(bus) + 1;
+adr_t addrRelMod = (hiaddr) ? addrRel % hiaddr : addrRel;
 bool rc;
 if (addrRelMod != addr)
   {
+#if 0
+  // add relative if it is not defined.
   if (AddLabel(relative, memType, "", true, bus) &&
+#else
+  // don't add relative if it is not defined. If not, it's a constant.
+  if (FindLabel(relative, Untyped, bus) &&
+#endif
       craddr != NO_ADDRESS)
     SetLabelUsed(relative, memType, bus, craddr, crbus);
+#if 0
+  // add label in any case
   rc = AddLabel(addrRelMod, memType, "", true, bus);
+#else
+  // don't add relative if it is not defined. If not, it's a constant.
+  // If rel is set but neither label is there, outputs a funny addition...
+  rc = !!FindLabel(addrRelMod, Untyped, bus);
+#endif
   if (rc && craddr != NO_ADDRESS)
     SetLabelUsed(addrRelMod, memType, bus, craddr, crbus);
   }
@@ -729,7 +748,7 @@ return rc;
 
 Label *Disassembler::FindLabel
     (
-    addr_t addr,
+    adr_t addr,
     MemoryType memType,
     int bus
     )
@@ -783,7 +802,7 @@ return found;
 
 Label *Disassembler::FindPrevNamedLabel
     (
-    addr_t addr,
+    adr_t addr,
     MemoryType memType,
     int bus
     )
@@ -848,14 +867,14 @@ for (int i = GetLabelCount(bus) - 1; i >= 0; i--)
   if (!pLbl->IsUsed())
     continue;
   // first, check for +/-nnnn offset
-  addr_t offs;
+  adr_t offs;
   if (p != s.npos &&
 //    String2Number(s.substr(p + 1), offs))
       sscanf(s.substr(p + 1).c_str(), "%d", &offs) == 1)
     {
-    if (s[p] == '+') offs = (addr_t)(-(int32_t)offs);
+    if (s[p] == '+') offs = (adr_t)(-(int32_t)offs);
     pLbl->SetUsed(false);
-    addr_t addaddr = pLbl->GetAddress() + offs;
+    adr_t addaddr = pLbl->GetAddress() + offs;
     AddLabel(addaddr, pLbl->GetType(),
              s.substr(0, p), true, bus);
     // copy all references to the base label
@@ -876,14 +895,14 @@ for (int i = GetLabelCount(bus) - 1; i >= 0; i--)
   // then, resolve DefLabels without value
   if (pLbl->IsConst())
     {
-    addr_t addr = pLbl->GetAddress();
+    adr_t addr = pLbl->GetAddress();
     MemoryType memType = GetMemType(addr, bus);
     int sz = GetCellSize(addr, bus);
     if (memType != Untyped && memType != Bss && !IsFloat(addr, bus))
       {
       if (s.size() > 0)
         {
-        addr_t value = GetTypedInt(addr, bus);
+        adr_t value = GetTypedInt(addr, bus);
         // insert with last found value
         AddDefLabel(addr,
                     s,
@@ -903,9 +922,9 @@ return true;
 
 string Disassembler::DefLabel2String
     (
-    addr_t value,
+    adr_t value,
     int nDigits,
-    addr_t addr,
+    adr_t addr,
     int bus
     )
 {
@@ -926,12 +945,13 @@ return svalue;
 /* AutoLabel2String : automatic label generation based on previous label     */
 /*****************************************************************************/
 
-string Disassembler::AutoLabel2String(addr_t addr, bool bCode, int bus)
+string Disassembler::AutoLabel2String(adr_t addr, bool bCode, int bus)
 {
+(void)bCode;  // unused ATM
 Label *pLabel = FindPrevNamedLabel(addr, Untyped /* Const */, bus);
 if (pLabel)
   {
-  addr_t off = addr - pLabel->GetAddress();
+  adr_t off = addr - pLabel->GetAddress();
   return sformat("O%x_%s", off, pLabel->GetText().c_str());
   }
 return "";
@@ -941,7 +961,7 @@ return "";
 /* GetTypedInt : get memory from given address defined by cell type/size     */
 /*****************************************************************************/
 
-addr_t Disassembler::GetTypedInt(addr_t addr, int bus)
+adr_t Disassembler::GetTypedInt(adr_t addr, int bus)
 {
 MemoryType memType = GetMemType(addr, bus);
 int sz = GetCellSize(addr, bus);
@@ -952,7 +972,7 @@ switch (sz)
   case 1 : return bSigned ? GetSByte(addr, bus) : GetUByte(addr, bus);
   case 2 : return bSigned ? GetSWord(addr, bus) : GetUWord(addr, bus);
   case 4 : return bSigned ? GetSDWord(addr, bus) : GetUDWord(addr, bus);
-#if (ADDR_T_SIZE >= 8)
+#if (ADR_T_SIZE >= 8)
   case 8 : return bSigned ? GetSQWord(addr, bus) : GetUQWord(addr, bus);
 #endif
   default :
@@ -964,7 +984,7 @@ switch (sz)
 /* GetTypedInt : set memory at given address defined by cell type/size       */
 /*****************************************************************************/
 
-void Disassembler::SetTypedInt(addr_t value, addr_t addr, int bus)
+void Disassembler::SetTypedInt(adr_t value, adr_t addr, int bus)
 {
 MemoryType memType = GetMemType(addr, bus);
 int sz = GetCellSize(addr, bus);
@@ -991,7 +1011,7 @@ switch (sz)
     else
       SetUDWord(addr, (uint32_t)value, bus);
     break;
-#if (ADDR_T_SIZE >= 8)
+#if (ADR_T_SIZE >= 8)
   case 8 :
     if (bSigned)
       SetSQWord(addr, (int64_t)value, bus);
@@ -1015,6 +1035,7 @@ bool Disassembler::LoadIntelHex
     int bus
     )
 {
+(void)filename;
 int nCurPos = ftell(f);
 int c = 0;
 
@@ -1029,14 +1050,14 @@ if (c != ':')
 int rectype;
 bool done = false;
 int nBytes = 0;
-addr_t fbegin = GetHighestBusAddr(bus);
-addr_t fend = GetLowestBusAddr(bus);
+adr_t fbegin = GetHighestBusAddr(bus);
+adr_t fend = GetLowestBusAddr(bus);
 int segment = 0;                        /* segment address                   */
 MemoryType memType = GetDefaultMemoryType(bus);
 
 while (!done && (nBytes >= 0))          /* while there are lines             */
   {
-  addr_t nAddr;
+  adr_t nAddr;
   int nBytesOnLine, i;
   uint8_t chks = 0;
   if (c != ':')
@@ -1070,7 +1091,7 @@ while (!done && (nBytes >= 0))          /* while there are lines             */
     case 0 :                            /* data record                       */
       for (i = 0; i<nBytesOnLine; i++)  /* now get the bytes                 */
         {
-        addr_t tgtaddr = nAddr + (i * interleave);
+        adr_t tgtaddr = nAddr + (i * interleave);
         c = GetHex(f, 2, &chks);        /* retrieve a byte                   */
         if ((c < 0) || (c > 0xff))      /* if illegal byte                   */
           { nBytes = -1; break; }       /* return with error                 */
@@ -1155,6 +1176,7 @@ bool Disassembler::LoadMotorolaHex
     int bus
     )
 {
+(void)filename;
 int nCurPos = ftell(f);
 int c = 0;
 
@@ -1168,18 +1190,19 @@ if (c != 'S')
 
 bool done = false;
 int nBytes = 0;
-addr_t fbegin = GetHighestBusAddr(bus);
-addr_t fend = GetLowestBusAddr(bus);
+adr_t fbegin = GetHighestBusAddr(bus);
+adr_t fend = GetLowestBusAddr(bus);
 MemoryType memType = GetDefaultMemoryType(bus);
 
 while ((!done) && (nBytes >= 0))        /* while there are lines             */
   {
   int nLineType = 0, nBytesOnLine, i;
-  addr_t nAddr;
+  adr_t nAddr;
   uint8_t chks = 0;
   if (c != 'S')
     break;
-  fread(&nLineType, 1, 1, f);           /* retrieve line type                */
+  if (fread(&nLineType, 1, 1, f) != 1)  /* retrieve line type                */
+    { nBytes = -1; break; }             /* return with error                 */
   nBytesOnLine = GetHex(f, 2, &chks);   /* retrieve # bytes on line          */
   if (nBytesOnLine < 0)                 /* if error                          */
     { nBytes = -1; break; }             /* return with error                 */
@@ -1218,7 +1241,7 @@ while ((!done) && (nBytes >= 0))        /* while there are lines             */
                                         /* now get the bytes                 */
       for (i = 0; i < nBytesOnLine; i++)
         {
-        addr_t tgtaddr = nAddr + (i * interleave);
+        adr_t tgtaddr = nAddr + (i * interleave);
         c = GetHex(f, 2, &chks);        /* retrieve a byte                   */
         if ((c < 0) || (c > 0xff))      /* if illegal byte                   */
           { nBytes = -1; break; }       /* return with error                 */
@@ -1309,19 +1332,20 @@ bool Disassembler::LoadBinary
     int bus
     )
 {
+(void)filename;
 int nCurPos = ftell(f);
 // this logic is required, since reads for other file types might have ended
 // with an ungetc() call, which could be ruined by the fseek()/ftell() below
 // if the file is unseekable
 int c = fgetc(f);                       /* read first byte from the file     */
-addr_t i, off;
+adr_t i, off;
 MemoryType memType = GetDefaultMemoryType(bus);
 
 fseek(f, 0, SEEK_END);                  /* get file length                   */
 off = ftell(f) - nCurPos;
 fseek(f, nCurPos + 1, SEEK_SET);
 
-if (off > 0 &&                          /* restrict to maximum code size     */ 
+if ((sadr_t)off > 0 &&                  /* restrict to maximum code size     */ 
     offset + (off * interleave) > GetHighestBusAddr(bus) + 1)
   off = ((GetHighestBusAddr(bus) + 1) / interleave) - offset;
 
@@ -1330,32 +1354,32 @@ if (begin == NO_ADDRESS ||              /* set begin if not specified        */
 // if (begin < 0 || offset < begin)  // we allow begin > offset !
   begin = offset;
 
-if (off > 0)                            /* if file size can be determined    */
+if ((sadr_t)off > 0)                    /* if file size can be determined    */
   {
-  if (end == 0)                         /* set end if not specified          */
+  if (end == 0 || end < begin)          /* set end if not specified          */
 //  if (end < offset + (off * interleave) - 1)
-    end = offset + (off * interleave) -1;
+    end = offset + (off * interleave) - 1;
   if (end > offset && end < offset + (off * interleave) -1)
     off = (end + 1 - offset + interleave - 1) / interleave;
   // account for begin > offset scenarios
-  addr_t memoff = begin > offset ? begin - offset : 0;
+  adr_t memoff = begin > offset ? begin - offset : 0;
   AddMemory(begin,                      /* make sure memory is there         */
             (off - 1) * interleave + 1 - memoff, memType, 0, bus);
   }
-
-for (i = 0; off < 0 || i < off; i++)    /* mark area as used                 */
+                                        /* mark area as used                 */
+for (i = 0; (sadr_t)off < 0 || i < off; i++)
   {
   if (c == EOF)                         /* if error, abort reading           */
     {
     if (off > 0)
       fseek(f, nCurPos, SEEK_SET);
-    return off < 0;
+    return (sadr_t)off < 0;
     }
-  addr_t tgtaddr = offset + (i * interleave);
+  adr_t tgtaddr = offset + (i * interleave);
   if (tgtaddr >= begin &&
       tgtaddr <= end)
     {
-    if (off < 0)                      /* if reading an unseekable stream   */
+    if ((sadr_t)off < 0)              /* if reading an unseekable stream   */
       AddMemory(tgtaddr, interleave,  /* assure memory                     */
                 memType, 0, bus);
     setat(tgtaddr, (uint8_t)c, bus);  /* put byte                          */
@@ -1416,16 +1440,16 @@ return bOK;
 /*                      (i.e., same type for all)                            */
 /*****************************************************************************/
 
-addr_t Disassembler::GetConsecutiveData
+adr_t Disassembler::GetConsecutiveData
     (
-    addr_t addr,
+    adr_t addr,
     uint32_t &flags,
     int maxparmlen,
     int bus
     )
 {
-addr_t end;
-addr_t maxaddr = GetHighestBusAddr(bus);
+adr_t end;
+adr_t maxaddr = GetHighestBusAddr(bus);
                                         /* get flags for current byte        */
 flags = GetDisassemblyFlags(addr, bus) &
         (~(SHMF_BREAK |                 /* without break flag                */
@@ -1434,9 +1458,9 @@ flags = GetDisassemblyFlags(addr, bus) &
 // safety fuse - process no more than maxparmlen at a time unless it's
 // RMB. This may still be too much, but should not be too far off.
 if (!(flags & SHMF_RMB) &&
-    addr + (addr_t)maxparmlen > addr &&
-    addr + (addr_t)maxparmlen <= maxaddr)
-  maxaddr = addr + (addr_t)maxparmlen - 1;
+    addr + (adr_t)maxparmlen > addr &&
+    addr + (adr_t)maxparmlen <= maxaddr)
+  maxaddr = addr + (adr_t)maxparmlen - 1;
 
 for (end = addr + 1;                    /* find end of block                 */
      end > addr && end <= maxaddr;
@@ -1451,7 +1475,7 @@ for (end = addr + 1;                    /* find end of block                 */
 if (flags & 0xff)                       /* if not 1-sized,                   */
   {
   int dsz = (int)(flags & 0xff) + 1;
-  addr_t rest = (end - addr) % dsz;
+  adr_t rest = (end - addr) % dsz;
   if (rest)                             /* don't use incomplete last item    */
     end -= rest;
   if (end == addr)                      /* if there's nothing left           */

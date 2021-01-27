@@ -424,7 +424,7 @@ if (bus == BusCode)
       "CMOF",                           /* fffc                              */
       "RST",                            /* fffe                              */
       };
-    for (addr_t addr = 0xffd6; addr <= GetHighestCodeAddr(); addr += 2)
+    for (adr_t addr = 0xffd6; addr <= GetHighestCodeAddr(); addr += 2)
       {
       MemoryType memType = GetMemType(addr);
       if (memType != Untyped &&         /* if system vector loaded           */
@@ -434,7 +434,7 @@ if (bus == BusCode)
         SetMemType(addr, Data);         /* that's a data word                */
         SetCellSize(addr, 2);
                                         /* look whether it points to loaded  */
-        addr_t tgtaddr = GetUWord(addr);
+        adr_t tgtaddr = GetUWord(addr);
         if (GetMemType(tgtaddr) != Untyped)
           {                             /* if so,                            */
           SetMemType(tgtaddr, Code);    /* that's code there                 */
@@ -454,9 +454,9 @@ return Disassembler::InitParse(bus);
 /* FetchInstructionDetails : fetch details about current instruction         */
 /*****************************************************************************/
 
-addr_t Dasm68HC11::FetchInstructionDetails
+adr_t Dasm68HC11::FetchInstructionDetails
     (
-    addr_t PC,
+    adr_t PC,
     uint8_t &O,
     uint8_t &T,
     uint8_t &M,
@@ -519,9 +519,9 @@ return ",X";
 /* ParseCode : parse instruction at given memory address for labels          */
 /*****************************************************************************/
 
-addr_t Dasm68HC11::ParseCode
+adr_t Dasm68HC11::ParseCode
     (
-    addr_t addr,
+    adr_t addr,
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
@@ -530,7 +530,7 @@ uint16_t W;
 int MI;
 const char *I;
 bool bSetLabel;
-addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
 
 switch (M)                              /* which mode is this ?              */
   {
@@ -622,9 +622,9 @@ return PC - addr;                       /* pass back # processed bytes       */
 /* DisassembleCode : disassemble code instruction at given memory address    */
 /*****************************************************************************/
 
-addr_t Dasm68HC11::DisassembleCode
+adr_t Dasm68HC11::DisassembleCode
     (
-    addr_t addr,
+    adr_t addr,
     string &smnemo,
     string &sparm,
     int bus                             /* ignored for 6800 and derivates    */
@@ -632,12 +632,12 @@ addr_t Dasm68HC11::DisassembleCode
 {
 uint8_t O, T, M;
 uint16_t W;
-addr_t Wrel;
+adr_t Wrel;
 int MI;
 const char *I;
 bool bGetLabel;
 Label *lbl;
-addr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
+adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
 
 switch (M)                              /* which mode is this?               */
   {
@@ -669,7 +669,7 @@ switch (M)                              /* which mode is this?               */
     if (Wrel)
       {
       W = (int)((unsigned char)T) + (uint16_t)Wrel;
-      slbl = Label2String((addr_t)((int)((unsigned char)T)), 4,
+      slbl = Label2String((adr_t)((int)((unsigned char)T)), 4,
                           bGetLabel, PC) + GetIx8IndexReg(O);
       }
     else if (lbl)
@@ -739,7 +739,7 @@ switch (M)                              /* which mode is this?               */
     if (Wrel)
       {
       W = (int)((unsigned char)T) + (uint16_t)Wrel;
-      slbl = Label2String((addr_t)((int)((unsigned char)T)), 4,
+      slbl = Label2String((adr_t)((int)((unsigned char)T)), 4,
                           bGetLabel, PC) + GetIx8IndexReg(O);
       }
     else if (lbl)

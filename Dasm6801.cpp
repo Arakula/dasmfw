@@ -181,12 +181,12 @@ if (bus == BusCode)
       "IRQ_ICF",                        /* fff6                              */
       "IRQ_EXT",                        /* fff8                              */
       };
-    for (addr_t addr = 0xfff0; addr <= 0xfff8; addr += 2)
+    for (adr_t addr = 0xfff0; addr <= 0xfff8; addr += 2)
       {
       if (addr == 0xfff8 &&             /* override IRQ with IRQ_EXT         */
           GetLabel(addr) == "IRQ")
         {
-        addr_t tgtaddr = GetUWord(addr);
+        adr_t tgtaddr = GetUWord(addr);
         Label *pLbl = FindLabel(tgtaddr);
         if (pLbl && pLbl->GetText() == "vec_IRQ")
           RemoveLabel(addr);
@@ -199,7 +199,7 @@ if (bus == BusCode)
         SetMemType(addr, Data);         /* that's a data word                */
         SetCellSize(addr, 2);
                                         /* look whether it points to loaded  */
-        addr_t tgtaddr = GetUWord(addr);
+        adr_t tgtaddr = GetUWord(addr);
         if (GetMemType(tgtaddr) != Untyped)
           {                             /* if so,                            */
           SetMemType(tgtaddr, Code);    /* that's code there                 */

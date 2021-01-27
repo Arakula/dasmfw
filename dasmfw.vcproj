@@ -279,6 +279,10 @@
 			RelativePath=".\history.txt"
 			>
 		</File>
+		<File
+			RelativePath=".\Makefile"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

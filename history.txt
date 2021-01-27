@@ -49,3 +49,5 @@ v0.15 2020-12-28 dplabel directive added to 6800-based disassemblers
 v0.16 2021-01-15 FORCEADDR and NOFORCEADDR directive added
 v0.17 2021-01-25 step size added to a bunch of range specifications
                  added documentation
+v0.18 2021-01-27 added Makefile for Linux builds plus small fixes
+                 (oh boy, that was a cleanup session...)

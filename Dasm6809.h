@@ -38,13 +38,13 @@ struct MemAttribute6809 : public MemAttribute
        Type cellType = UnsignedInt,
        Display display = DefaultDisplay,
        bool breakBefore = false,
-       addr_t dirpage = DEFAULT_ADDRESS)
+       adr_t dirpage = DEFAULT_ADDRESS)
        : MemAttribute(memType, cellSize, bUsed, cellType, display, breakBefore)
     {
     SetDirectPage(dirpage);
     }
-  addr_t GetDirectPage() { return (dirpage == (int16_t)-1) ? NO_ADDRESS : (dirpage == (int16_t)-2) ? DEFAULT_ADDRESS : (addr_t)dirpage << 8; }
-  void SetDirectPage(addr_t dp) { dirpage = (int16_t)((dp & 0xff) ? dp : dp >> 8); }
+  adr_t GetDirectPage() { return (dirpage == (int16_t)-1) ? NO_ADDRESS : (dirpage == (int16_t)-2) ? DEFAULT_ADDRESS : (adr_t)dirpage << 8; }
+  void SetDirectPage(adr_t dp) { dirpage = (int16_t)((dp & 0xff) ? dp : dp >> 8); }
   };
 
 /*****************************************************************************/
@@ -57,46 +57,46 @@ class MemAttribute6809Handler : public MemAttributeHandler
     MemAttribute6809Handler() { }
     virtual ~MemAttribute6809Handler() { }
 
-    virtual bool AddMemory(addr_t addrStart = 0, addr_t memSize = 0, MemoryType memType = Code)
+    virtual bool AddMemory(adr_t addrStart = 0, adr_t memSize = 0, MemoryType memType = Code)
       { return attr.AddMemory(addrStart, memSize, memType); }
-    virtual MemoryType GetMemType(addr_t addr)
+    virtual MemoryType GetMemType(adr_t addr)
       { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetMemType() : Untyped; }
-    virtual void SetMemType(addr_t addr, MemoryType newType = Code)
+    virtual void SetMemType(adr_t addr, MemoryType newType = Code)
       { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetMemType(newType); }
-    virtual bool IsCellUsed(addr_t addr)
+    virtual bool IsCellUsed(adr_t addr)
       { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->IsUsed() : false; }
-    virtual void SetCellUsed(addr_t addr, bool bUsed = true)
+    virtual void SetCellUsed(adr_t addr, bool bUsed = true)
       { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetUsed(bUsed); }
-    virtual MemAttribute::Type GetCellType(addr_t addr)
+    virtual MemAttribute::Type GetCellType(adr_t addr)
       { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetCellType() : MemAttribute6809::CellUntyped; }
-    virtual void SetCellType(addr_t addr, MemAttribute::Type newType)
+    virtual void SetCellType(adr_t addr, MemAttribute::Type newType)
       { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetCellType(newType); }
-    virtual int GetCellSize(addr_t addr)
+    virtual int GetCellSize(adr_t addr)
       { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetSize() : 0; }
-    virtual void SetCellSize(addr_t addr, int newSize = 1)
+    virtual void SetCellSize(adr_t addr, int newSize = 1)
       { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetSize(newSize); }
-    virtual MemAttribute::Display GetDisplay(addr_t addr)
+    virtual MemAttribute::Display GetDisplay(adr_t addr)
       { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetDisplay() : MemAttribute6809::CellUndisplayable; }
-    virtual void SetDisplay(addr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay)
+    virtual void SetDisplay(adr_t addr, MemAttribute::Display newDisp = MemAttribute::DefaultDisplay)
       { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetDisplay(newDisp); }
-    virtual bool GetBreakBefore(addr_t addr)
+    virtual bool GetBreakBefore(adr_t addr)
       { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetBreakBefore() : false; }
-    virtual void SetBreakBefore(addr_t addr, bool bOn = true)
+    virtual void SetBreakBefore(adr_t addr, bool bOn = true)
       { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetBreakBefore(bOn); }
-    virtual bool GetForcedAddr(addr_t addr)
+    virtual bool GetForcedAddr(adr_t addr)
       { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetForcedAddr() : false; }
-    virtual void SetForcedAddr(addr_t addr, bool bOn = true)
+    virtual void SetForcedAddr(adr_t addr, bool bOn = true)
       { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetForcedAddr(bOn); }
-    virtual uint32_t GetDisassemblyFlags(addr_t addr, uint8_t mem, Label *plbl)
+    virtual uint32_t GetDisassemblyFlags(adr_t addr, uint8_t mem, Label *plbl)
       { return GetBasicDisassemblyFlags(attr.getat(addr), mem, plbl); }
     // basic access
     virtual size_t size() { return (size_t)attr.size(); }
-    virtual addr_t GetStart(int index) { return attr[index].GetStart(); }
+    virtual adr_t GetStart(int index) { return attr[index].GetStart(); }
     virtual size_t size(int index) { return attr[index].size(); }
     // additional attributes for 6809
-    virtual addr_t GetDirectPage(addr_t addr)
+    virtual adr_t GetDirectPage(adr_t addr)
       { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetDirectPage() : DEFAULT_ADDRESS; }
-    virtual void SetDirectPage(addr_t addr, addr_t dp)
+    virtual void SetDirectPage(adr_t addr, adr_t dp)
       { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetDirectPage(dp); }
   protected:
     TMemoryArray <MemAttribute6809, MemoryType> attr;
@@ -128,27 +128,27 @@ class Dasm6809 : public Dasm6800
     string Get6809Option(string name);
 
     // Get/Set additional cell information
-    virtual addr_t GetDirectPage(addr_t addr, int bus = BusCode)
+    virtual adr_t GetDirectPage(adr_t addr, int bus = BusCode)
       {
-      addr_t dp = memattr[bus] ? ((MemAttribute6809Handler *)memattr[bus])->GetDirectPage(addr) : DEFAULT_ADDRESS;
+      adr_t dp = memattr[bus] ? ((MemAttribute6809Handler *)memattr[bus])->GetDirectPage(addr) : DEFAULT_ADDRESS;
       if (dp == DEFAULT_ADDRESS)
         dp = dirpage;
       return dp;
       }
-    virtual void SetDirectPage(addr_t addr, addr_t dp, int bus = BusCode)
+    virtual void SetDirectPage(adr_t addr, adr_t dp, int bus = BusCode)
       { if (memattr[bus]) ((MemAttribute6809Handler *)memattr[bus])->SetDirectPage(addr, dp); }
 
-    virtual bool ProcessInfo(string key, string value, addr_t &from, addr_t &to, addr_t &step, vector<TMemoryArray<addr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode);
+    virtual bool ProcessInfo(string key, string value, adr_t &from, adr_t &to, adr_t &step, vector<TMemoryArray<adr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode);
 
   protected:
     // parse instruction at given memory address for labels
-    virtual addr_t ParseCode(addr_t addr, int bus = BusCode);
+    virtual adr_t ParseCode(adr_t addr, int bus = BusCode);
     // disassemble instruction at given memory address
-    virtual addr_t DisassembleCode(addr_t addr, string &smnemo, string &sparm, int bus = BusCode);
+    virtual adr_t DisassembleCode(adr_t addr, string &smnemo, string &sparm, int bus = BusCode);
   public:
     virtual bool InitParse(int bus = BusCode);
     // pass back disassembler-specific state changes before/after a disassembly line
-    virtual bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode);
+    virtual bool DisassembleChanges(adr_t addr, adr_t prevaddr, adr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode);
 
   protected:
 
@@ -237,12 +237,12 @@ class Dasm6809 : public Dasm6800
     static uint8_t m6809_codes10[512];
     static uint8_t m6809_codes11[512];
     static OpCode opcodes[mnemo6809_count - mnemo6800_count];
-    static char *os9_codes[0x100];
+    static const char *os9_codes[0x100];
 
     uint8_t *codes10;
     uint8_t *codes11;
-    char **exg_tfr;
-    static char reg[];
+    const char **exg_tfr;
+    static const char reg[];
 
     bool os9Patch;
     bool useFlex;
@@ -251,9 +251,9 @@ class Dasm6809 : public Dasm6800
     // must not be called from constructor!
     virtual MemAttributeHandler *CreateAttributeHandler() { return new MemAttribute6809Handler; }
 
-    virtual addr_t FetchInstructionDetails(addr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, string *smnemo = NULL);
-    virtual addr_t IndexParse(int MI, addr_t pc);
-    virtual string IndexString(addr_t &pc);
+    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, string *smnemo = NULL);
+    virtual adr_t IndexParse(int MI, adr_t pc, adr_t instaddr = NO_ADDRESS);
+    virtual string IndexString(adr_t &pc);
     void AddFlexLabels();
 
   };

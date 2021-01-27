@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#include <cstring>
 #include <string>
 #include <vector>
 #include <memory>
@@ -57,17 +58,17 @@ using namespace std;
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.17"
+#define DASMFW_VERSION  "0.18"
 
 // set these to int64_t once 64bit processors become part of the framework
-typedef uint32_t caddr_t;               /* container for maximal code address*/
-typedef uint32_t daddr_t;               /* container for maximal data address*/
-typedef uint32_t addr_t;                /* bigger of the 2 above             */
-#define ADDR_T_SIZE 4                   /* sizeof(addr_t)                    */
-typedef int32_t saddr_t;                /* should be same size as addr_t     */
+typedef uint32_t cadr_t;                /* container for maximal code address*/
+typedef uint32_t dadr_t;                /* container for maximal data address*/
+typedef uint32_t adr_t;                 /* bigger of the 2 above             */
+#define ADR_T_SIZE 4                    /* sizeof(adr_t)                     */
+typedef int32_t sadr_t;                 /* should be same size as adr_t      */
 
-#define NO_ADDRESS ((addr_t)-1)
-#define DEFAULT_ADDRESS ((addr_t)-2)
+#define NO_ADDRESS ((adr_t)-1)
+#define DEFAULT_ADDRESS ((adr_t)-2)
 
 /*****************************************************************************/
 /* Default bus type enumeration                                              */
@@ -87,11 +88,11 @@ enum
 class AddrBus
   {
   public:
-    addr_t addr;
+    adr_t addr;
     int bus;
 
   public:
-    AddrBus(addr_t addr = NO_ADDRESS, int bus = BusCode)
+    AddrBus(adr_t addr = NO_ADDRESS, int bus = BusCode)
       : addr(addr), bus(bus) {}
     AddrBus(AddrBus const &org)
       : addr(org.addr), bus(org.bus) {}
@@ -154,7 +155,7 @@ bool RegisterDisassembler(string name, Disassembler * (*CreateDisassembler)());
 class Comment : public AddrText
   {
   public:
-    Comment(addr_t addr = 0, string sline = "", bool bIsComment = true)
+    Comment(adr_t addr = 0, string sline = "", bool bIsComment = true)
       : AddrText(addr, Data, sline), bIsComment(bIsComment)
       { }
     virtual ~Comment() { }
@@ -183,12 +184,12 @@ class CommentArray : public TAddrTypeArray<Comment>
   {
   public:
     CommentArray() : TAddrTypeArray<Comment>(true) { }
-    Comment *GetFirst(addr_t addr, CommentArray::iterator &it)
+    Comment *GetFirst(adr_t addr, CommentArray::iterator &it)
       {
       it = find(addr, Data);
       return it != end() ? (Comment *)(*it) : NULL;
       }
-    Comment *GetNext(addr_t addr, CommentArray::iterator &it)
+    Comment *GetNext(adr_t addr, CommentArray::iterator &it)
       {
       it++;
       return (it != end() && (*it)->GetAddress() == addr) ? (Comment *)(*it) : NULL;
@@ -218,15 +219,15 @@ protected:
   bool LoadFiles();
   bool LoadInfoFiles();
   bool Parse(int nPass, int bus = BusCode);
-  bool DisassembleComments(addr_t addr, bool bAfterLine, string sComDel, int bus = BusCode);
+  bool DisassembleComments(adr_t addr, bool bAfterLine, string sComDel, int bus = BusCode);
   bool DisassembleCref(Label *pLabel, string sComDel, int bus = BusCode);
-  bool DisassembleChanges(addr_t addr, addr_t prevaddr, addr_t prevsz, bool bAfterLine, int bus = BusCode);
+  bool DisassembleChanges(adr_t addr, adr_t prevaddr, adr_t prevsz, bool bAfterLine, int bus = BusCode);
   bool DisassembleLabels(string sComDel, string sComHdr, int bus = BusCode);
   bool DisassembleDefLabels(string sComDel, string sComHdr, int bus = BusCode);
-  addr_t DisassembleLine(addr_t addr, string sComDel, string sComHdr, string labelDelim, int bus = BusCode);
+  adr_t DisassembleLine(adr_t addr, string sComDel, string sComHdr, string labelDelim, int bus = BusCode);
   bool PrintLine(string sLabel = "", string smnemo = "", string sparm = "", string scomment = "", int labelLen = -1);
   bool LoadInfo(string fileName, vector<string> &loadStack, bool bProcInfo = true, bool bSetDasm = false);
-  int ParseInfoRange(string value, addr_t &from, addr_t &to, addr_t &step, bool remapped = true);
+  int ParseInfoRange(string value, adr_t &from, adr_t &to, adr_t &step, bool remapped = true);
   int ParseOption
     (
     string option,                      /* option name                       */
@@ -248,14 +249,14 @@ protected:
 #endif
 
   // Comment / Text line handling
-  bool AddComment(addr_t addr, bool bAfter = false, string sComment = "", bool bPrepend = false, bool bIsComment = true, int bus = BusCode)
+  bool AddComment(adr_t addr, bool bAfter = false, string sComment = "", bool bPrepend = false, bool bIsComment = true, int bus = BusCode)
     {
     comments[bAfter][bus].insert(new Comment(addr, sComment, bIsComment), !bPrepend);
     return true;
     }
-  Comment *GetFirstComment(addr_t addr, CommentArray::iterator &it, bool bAfter = false, int bus = BusCode)
+  Comment *GetFirstComment(adr_t addr, CommentArray::iterator &it, bool bAfter = false, int bus = BusCode)
     { return comments[bAfter][bus].GetFirst(addr, it); }
-  Comment *GetNextComment(addr_t addr, CommentArray::iterator &it, bool bAfter = false, int bus = BusCode)
+  Comment *GetNextComment(adr_t addr, CommentArray::iterator &it, bool bAfter = false, int bus = BusCode)
     { return comments[bAfter][bus].GetNext(addr, it); }
 
   int GetCommentCount(bool bAfter, int bus = BusCode) { return comments[bAfter][bus].size(); }
@@ -263,14 +264,14 @@ protected:
   void RemoveCommentAt(bool bAfter, int index, int bus = BusCode) { comments[bAfter][bus].erase(comments[bAfter][bus].begin() + index); }
 
   // Line Comment handling
-  bool AddLComment(addr_t addr, string sComment = "", bool bPrepend = false, int bus = BusCode)
+  bool AddLComment(adr_t addr, string sComment = "", bool bPrepend = false, int bus = BusCode)
     {
     lcomments[bus].insert(new Comment(addr, sComment), !bPrepend);
     return true;
     }
-  Comment *GetFirstLComment(addr_t addr, CommentArray::iterator &it, int bus = BusCode)
+  Comment *GetFirstLComment(adr_t addr, CommentArray::iterator &it, int bus = BusCode)
     { return lcomments[bus].GetFirst(addr, it); }
-  Comment *GetNextLComment(addr_t addr, CommentArray::iterator &it, int bus = BusCode)
+  Comment *GetNextLComment(adr_t addr, CommentArray::iterator &it, int bus = BusCode)
     { return lcomments[bus].GetNext(addr, it); }
   int GetLCommentCount(int bus = BusCode) { return lcomments[bus].size(); }
   Comment *LCommentAt(int index, int bus = BusCode) { return lcomments[bus].at(index); }
@@ -307,7 +308,7 @@ protected:
   int dbCount;                          /* min bytes for hex/asc dump        */
 
   // remap arrays
-  vector<TMemoryArray<addr_t>> remaps;
+  vector<TMemoryArray<adr_t>> remaps;
   // comment / line text arrays
   vector<CommentArray> comments[2];
   // line comment arrays

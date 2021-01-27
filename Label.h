@@ -46,7 +46,7 @@ enum MemoryType
 class AddrType
   {
   public:
-    AddrType(addr_t addr = 0, MemoryType memType = Code)
+    AddrType(adr_t addr = 0, MemoryType memType = Code)
       : addr(addr), memType(memType)
       { }
     virtual ~AddrType() { }
@@ -84,8 +84,8 @@ class AddrType
 
   // Attributes
   public:
-    addr_t GetAddress() const { return addr; }
-    void SetAddress(addr_t newAddr = 0) { addr = newAddr; }
+    adr_t GetAddress() const { return addr; }
+    void SetAddress(adr_t newAddr = 0) { addr = newAddr; }
     // Label Type
     MemoryType GetType() const { return memType; }
     void SetType(MemoryType newType = Untyped) { memType = newType; }
@@ -107,7 +107,7 @@ class AddrType
       }
 
   protected:
-    addr_t addr;
+    adr_t addr;
     MemoryType memType;
   };
 
@@ -202,7 +202,7 @@ class AddrTypeArray : public vector<AddrType*>
       return (*at(mid) > l) ? end() : begin() + mid;
       }
     // convenience - find code and/or data labels
-    iterator find(addr_t addr, MemoryType memType = Untyped, bool bTypeMatch = false)
+    iterator find(adr_t addr, MemoryType memType = Untyped, bool bTypeMatch = false)
       { return find(AddrType(addr, memType), bTypeMatch); }
     // insert into address/type-sorted array
     iterator insert(AddrType *pNewEl, bool bAfter = true, bool bTypeMatch = false)
@@ -211,7 +211,7 @@ class AddrTypeArray : public vector<AddrType*>
 #if 0
       // Copying pre-existing element's data is done by template below
 #endif
-      int lo, max = size() - 1, hi = max, mid;
+      int lo, max = size() - 1, hi = max, mid = -1;
       if (empty() || *pNewEl < *at(0))
         it = begin();
       else if (*pNewEl > *at(hi))
@@ -341,7 +341,7 @@ template<class T> class TAddrTypeArray : public AddrTypeArray
 class AddrText : public AddrType
   {
   public:
-    AddrText(addr_t addr = 0, MemoryType memType = Code, string stext = "")
+    AddrText(adr_t addr = 0, MemoryType memType = Code, string stext = "")
       : AddrType(addr, memType), stext(stext)
       { }
     virtual ~AddrText() { }
@@ -380,7 +380,7 @@ class Label : public AddrText
   {
   public:
 
-    Label(addr_t addr = 0, MemoryType memType = Code, string sLabel = "", bool bUsed = false)
+    Label(adr_t addr = 0, MemoryType memType = Code, string sLabel = "", bool bUsed = false)
       : AddrText(addr, memType, sLabel), bUsed(bUsed)
       { }
     virtual ~Label() { }
@@ -389,7 +389,7 @@ class Label : public AddrText
   public:
     // Flag whether it is used
     bool IsUsed() { return bUsed; }
-    bool SetUsed(bool bSet = true, addr_t ref = NO_ADDRESS, int bus = BusCode)
+    bool SetUsed(bool bSet = true, adr_t ref = NO_ADDRESS, int bus = BusCode)
       {
       bUsed = bSet;
       if (ref != NO_ADDRESS)
@@ -397,7 +397,7 @@ class Label : public AddrText
       return bSet;
       }
 
-    bool AddRef(addr_t addr, int bus = BusCode)
+    bool AddRef(adr_t addr, int bus = BusCode)
       {
       try
         {
@@ -411,7 +411,7 @@ class Label : public AddrText
       }
     size_t RefCount() { return refs.size(); }
     AddrBus &GetRef(size_t index) { return refs[index]; }
-    addr_t GetRefAddr(size_t index) { return refs[index].addr; }
+    adr_t GetRefAddr(size_t index) { return refs[index].addr; }
     int GetRefBus(size_t index) { return refs[index].bus; }
     void SortRefs()
       {
@@ -441,12 +441,12 @@ class LabelArray : public TAddrTypeArray<Label>
   public:
     LabelArray(bool bMultipleDefs = false) : TAddrTypeArray<Label>(bMultipleDefs) { }
 
-    Label *GetFirst(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped)
+    Label *GetFirst(adr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped)
       {
       it = find(addr, memType);
       return (it != end()) ? (Label *)(*it) : NULL;
       }
-    Label *GetPrevNamed(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped)
+    Label *GetPrevNamed(adr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped)
       {
       // finds the named label of the given  type at this address or before
       if ((it = findimprec(addr)) == end())
@@ -463,7 +463,7 @@ class LabelArray : public TAddrTypeArray<Label>
       return (it != end()) ? (Label *)(*it) : NULL;
       }
     // only makes sense if the label array allows multiples
-    Label *GetNext(addr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped)
+    Label *GetNext(adr_t addr, LabelArray::iterator &it, MemoryType memType = Untyped)
       {
       it++;
       bool bStill = (it != end() && (*it)->GetAddress() == addr);
@@ -472,7 +472,7 @@ class LabelArray : public TAddrTypeArray<Label>
       return bStill ? (Label *)(*it) : NULL;
       }
     // little helper for single label arrays
-    Label *Find(addr_t addr, MemoryType memType = Untyped)
+    Label *Find(adr_t addr, MemoryType memType = Untyped)
       {
       LabelArray::iterator p;
       return GetFirst(addr, p, memType);
@@ -486,7 +486,7 @@ class LabelArray : public TAddrTypeArray<Label>
 class DefLabel : public Label
   {
   public:
-    DefLabel(addr_t addr = 0, MemoryType memType = Const, string sLabel = "", string sDefinition = "")
+    DefLabel(adr_t addr = 0, MemoryType memType = Const, string sLabel = "", string sDefinition = "")
       : Label(addr, memType, sLabel, true), sDefinition(sDefinition)
       { }
 
@@ -507,13 +507,13 @@ class DefLabelArray : public TAddrTypeArray<DefLabel>
   {
   public:
     DefLabelArray(bool caseSensitive = true)
-      : caseSensitive(caseSensitive),  TAddrTypeArray<DefLabel>(false) { }
+      : TAddrTypeArray<DefLabel>(false), caseSensitive(caseSensitive) { }
 
     void SetCaseSensitive(bool bOn = true) { caseSensitive = bOn; }
     bool IsCaseSensitive() { return caseSensitive; }
 
     // this one is definitely one label per address, so no GetFirst()/GetNext()
-    DefLabel *Find(addr_t addr, MemoryType memType = Untyped)
+    DefLabel *Find(adr_t addr, MemoryType memType = Untyped)
       {
       DefLabelArray::iterator p = find(addr, memType);
       return (p != end()) ? (DefLabel *)(*p) : NULL;
