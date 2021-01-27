@@ -1866,13 +1866,14 @@ do
             string item = value.substr(0, idx);
             value = (idx >= value.size()) ? "" : trim(value.substr(idx));
             to = 0;
+            MemoryType memtype = (infoBus == BusCode) ? Code : Data;
             switch (cmdType)
               {
               case infoPatch :          /* PATCH addr [byte]*                */
                 if (sscanf(item.c_str(), "%x", &to) == 1)
                   {
                   if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
-                    pDasm->AddMemory(from, 1, Code, NULL, infoBus);
+                    pDasm->AddMemory(from, 1, memtype, NULL, infoBus);
                   pDasm->SetUByte(from, (uint8_t)to, infoBus);
                   from += step;
                   }
@@ -1883,7 +1884,7 @@ do
                 if (sscanf(item.c_str(), "%x", &to) == 1)
                   {
                   if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
-                    pDasm->AddMemory(from, 2, Data, NULL, infoBus);
+                    pDasm->AddMemory(from, 2, memtype, NULL, infoBus);
                   pDasm->SetUWord(from, (uint16_t)to, infoBus);
                   from += (step > 2) ? step : 2;
                   }
@@ -1894,7 +1895,7 @@ do
                 if (sscanf(item.c_str(), "%x", &to) == 1)
                   {
                   if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
-                    pDasm->AddMemory(from, 4, Data, NULL, infoBus);
+                    pDasm->AddMemory(from, 4, memtype, NULL, infoBus);
                   pDasm->SetUDWord(from, (uint32_t)to, infoBus);
                   from += (step > 4) ? step : 4;
                   }
@@ -1909,7 +1910,7 @@ do
                   int sz;
                   if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
                     {
-                    pDasm->AddMemory(from, 4, Data, NULL, infoBus);
+                    pDasm->AddMemory(from, 4, memtype, NULL, infoBus);
                     sz = 4;
                     }
                   else

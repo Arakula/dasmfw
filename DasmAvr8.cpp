@@ -1274,7 +1274,7 @@ for (i = 0; i < numOperands; i++)
       // if this is relative, make sure a label for the relation is there
       MemAttributeAvr8::RelType rt = GetRelative(addr, rel, relBus, bus);
       if (rt != MemAttributeAvr8::RelUntyped)
-        AddLabel(rel, relBus ? Data : Code, "", true, relBus);
+        AddRelativeLabel(rel, addr, relBus ? Data : Code, true, relBus, addr);
 
       Label *lbl = SetDefLabelUsed(addr, bus);
       if (lbl)
@@ -1288,15 +1288,13 @@ for (i = 0; i < numOperands; i++)
     case OpndLongAbsAddrData:
       bus = (mnemo[ii->mnemonic].memType != Code) ? BusData : BusCode;
       if (!IsConst(addr, BusData /*bus*/))
-        AddLabel(operand, mnemo[ii->mnemonic].memType, "", true,
-                 bus);
+        AddRelativeLabel(operand, addr, mnemo[ii->mnemonic].memType, true, bus, addr);
       break;
     case OpndBranchAddr:
     case OpndRelAddr:
       bus = (mnemo[ii->mnemonic].memType != Code) ? BusData : BusCode;
       if (!IsConst(addr, bus))
-        AddLabel(operand + addr + 2, mnemo[ii->mnemonic].memType, "", true,
-                 bus);
+        AddRelativeLabel(operand + addr + 2, addr, mnemo[ii->mnemonic].memType, true, bus, addr);
       break;
     default:
       break;

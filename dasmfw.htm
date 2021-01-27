@@ -346,6 +346,17 @@ definition (in fact, currently the AVR8 disassembler is the only one that <i>doe
 <pre>from[-to[/step]]</pre>
 <p>where not all instructions need each part. The step size, if needed and not given, defaults to 1.
 </p>
+<p><i><b>Note:</b></i> wherever <i><b>text</b></i> requires leading blanks or tabs,
+it isn't possible to simply put them into the instruction, as dasmfw would discard them.
+For these cases, simply prepend a '\' (backslash) to the text, like, for example, in<br />
+<b>insert 0 \&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OPT H63</b><br />
+so that dasmfw knows where <i><b>text</b></i> really starts.
+Despite the similarity, dasmfw doesn't know the range of "C" escape characters; a '\'
+simply means "Ignore this backslash, but make sure the next character is part of the text".
+If you need to have a <b>*</b> as part of the text, it is mandatory to write it as <b>\*</b>;
+dasmfw would otherwise assume the line ends at the <b>*</b>, which starts the comment part.
+</p>
+
 <h3>Global Info File Instructions</h3>
 
 <dl>
@@ -472,12 +483,14 @@ definition (in fact, currently the AVR8 disassembler is the only one that <i>doe
   <dd>Removes the <b>forceaddr</b> (see above) flag for the given range.</dd>
 </dl>
 <dl>
-  <dt><b>label <i>addr name</i></b></dt>
+  <dt><b>label <i>addr[-addr] name</i></b></dt>
   <dd>sets a label at the given address.<br />
       Note that dasmfw doesn't restrict the length of the label, nor does it enforce
 	  a given range of characters (except for * and zero bytes - these terminate
 	  the name). This may conflict with the assembler of your choice, so choose
-	  the labels with caution.</dd>
+	  the labels with caution.<br />
+	  If a range is given, dasmfw automatically appends "+1","+2",&hellip; for the
+	  successive positions.</dd>
 	  
   <dt><b>used[label] <i>addr [name]</i></b></dt>
   <dd>forces the given address used.<br />
@@ -656,6 +669,10 @@ Some of the disassemblers add their own instructions.
       removes <i>setdp</i> effects from the given range or, if no range is given,
       sets the global direct page back to the default.</dd>
 </dl>
+<p>The Atmel AVR8 codeset and the underlying philosophy has some peculiarities. One of these is
+that addresses of data have to be loaded into registers in two steps: one for the high byte of
+the address, one for the low byte. The various <b>high</b> and <b>low</b>
+statements described below reflect that fact.</p>
 <dl>      
   <dt><b>reglabel <i>addr Rxx [text]</i></b></dt>
   <dd>AVR8 only<br />
@@ -665,36 +682,53 @@ Some of the disassemblers add their own instructions.
   <dt><b>unreglabel <i>addr Rxx</i></b></dt>
   <dd>AVR8 only<br />
       Cancels the previous reglabel definition for the passed register.</dd>    
-  <dt><b>high <i>[bus tgtbus] addr[-addr] addr</i></b></dt>
+  <dt><b>high <i>[bus tgtbus] addr[-addr] reladdr</i></b><br />
+      <b>low <i>[bus tgtbus] addr[-addr] reladdr</i></b></dt>
   <dd>AVR8 only<br />
-      TODO (... I should document things like that immediately, not years later! :-)</dd>    
-  <dt><b>low <i>[bus tgtbus] addr[-addr] addr</i></b></dt>
+      These statements innstruct dasmfw to treat the value in the instruction as the low
+      or high part of the address given in reladdr. As an example, if you come across a
+      code passage like
+<pre>        ldi     R26,0x00                ; 000634: A0 E0          '..'
+        ldi     R27,0x01                ; 000636: B1 E0</pre> and you know that R26:27 is
+      a pointer to a data item, it's easy to determine that this sets up the pointer to
+      0x0100. In this case, adding the statements
+<pre>low  bus data 0634 0100
+high bus data 0636 0100</pre>
+      would lead to the following, much more readable output:
+<pre>        ldi     R26,LOW(MD0100)
+        ldi     R27,HIGH(MD0100)</pre>
+      </dd>
+  <dt><b>mhigh <i>[bus tgtbus] addr[-addr] reladdr</i></b><br />
+      <b>mlow <i>[bus tgtbus] addr[-addr] reladdr</i></b></dt>
   <dd>AVR8 only<br />
-      TODO</dd>    
-  <dt><b>mhigh <i>[bus tgtbus] addr[-addr] addr</i></b></dt>
+      avr-gcc has a tendency to produce code like the following:
+      <pre>        subi    R30,0xae                ; 001764: EE 5A
+        sbci    R31,0xfe                ; 001766: FE 4F</pre>
+      That means: it subtracts the negated address parts from the registers.
+      Why ... I don't know. Someone decided that optimizing code this way was
+      a good idea. Now, this would require the use of a calculator (or mental artistry
+      for hex wizards) to find out what address is hidden behind the constant 0xfeae
+      that's subtracted from the pointer. dasmfw makes that a bit easier; adding the
+      statements <pre>mlow  bus data 1764 feae
+mhigh bus data 1766 feae</pre> leads to the much more pleasing output <pre>
+        subi    R30,LOW(-MD0152)
+        sbci    R31,HIGH(-MD0152)</pre></dd>    
+  <dt><b>high2 <i>[bus tgtbus] addr[-addr] reladdr</i></b><br />
+      <b>low2 <i>[bus tgtbus] addr[-addr] reladdr</i></b></dt>
   <dd>AVR8 only<br />
-      TODO</dd>    
-  <dt><b>mlow <i>[bus tgtbus] addr[-addr] addr</i></b></dt>
-  <dd>AVR8 only<br />
-      TODO</dd>    
-  <dt><b>high2 <i>[bus tgtbus] addr[-addr] addr</i></b></dt>
-  <dd>AVR8 only<br />
-      TODO</dd>    
-  <dt><b>low2 <i>[bus tgtbus] addr[-addr] addr</i></b></dt>
-  <dd>AVR8 only<br />
-      TODO</dd>    
+      Works like low/high, but for pointers into the <i>code</i> area - the AVR8 instruction
+      set addresses the code area in words, so pointers have to be set to half the real value.
+      So, if you come across something like that:
+      <pre>        ldi     R16,0xaf                ; 0006D0: 0F EA
+        ldi     R17,0x03                ; 0006D2: 13 E0</pre>
+      and you know that R16:17 is used as a pointer into the code area, adding the statements
+      <pre>low2  06d0 03af
+high2 06d2 03af</pre> would lead to the output
+      <pre>        ldi     R16,LOW(Z00075E>>1)
+        ldi     R17,HIGH(Z00075E>>1)</pre>
+      which shows the <i>real</i> address pointed to.
+      </dd>    
 </dl>
-
-<p><i><b>Note:</b></i> wherever <i><b>text</b></i> requires leading blanks or tabs,
-it isn't possible to simply put them into the instruction, as dasmfw would discard them.
-For these cases, simply prepend a '\' (backslash) to the text, like, for example, in<br />
-<b>insert 0 \&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OPT H63</b><br />
-so that dasmfw knows where <i><b>text</b></i> really starts.
-Despite the similarity, dasmfw doesn't know the range of "C" escape characters; a '\'
-simply means "Ignore this backslash, but make sure the next character is part of the text".
-If you need to have a <b>*</b> as part of the text, it is mandatory to write it as <b>\*</b>;
-dasmfw would otherwise assume the line ends at the <b>*</b>, which starts the comment part.
-</p>
 
 </body>
 </html>
