@@ -1,10 +1,10 @@
 # dasmfw
 The DisASseMbler FrameWork
 
-Copyright (c) 2015-2021 Hermann Seib
-&#13;&#10;Parts Copyright (c) 2000 Arto Salmi  
-&#13;&#10;Parts Copyright (c) 2013 Colin Bourassa  
-&#13;&#10;Parts Copyright (c) 2014-2015 Rainer Buchty
+Copyright (c) 2015-2021 Hermann Seib\
+Parts Copyright (c) 2000 Arto Salmi\
+Parts Copyright (c) 2013 Colin Bourassa\
+Parts Copyright (c) 2014-2015 Rainer Buchty
 
 Currently contains disassemblers for the following processor families:
 6800,6801,6809,68HC11,6301,6309,AVR8,68000
