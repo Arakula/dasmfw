@@ -1364,12 +1364,7 @@ do
         adr_t offs, ign;
         ParseInfoRange(value, offs, ign, ign);
         if (offs != NO_ADDRESS)
-          {
-          // offset implies that the whole file is to be read, so reset begin/end
-          saFNames.push_back("-begin:0");
-          saFNames.push_back("-end:0");
           saFNames.push_back(sformat("-offset:0x%x", offs));
-          }
         saFNames.push_back(fn);
         }
         break;
