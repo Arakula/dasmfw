@@ -1139,7 +1139,7 @@ Dasm6501::Dasm6501(void) : Dasm650X()
 codes = m6501_codes;
 mnemo.resize(mnemo6501_count);          /* expand mnemonics table            */
 for (int i = mnemo6500_count; i < mnemo6501_count; i++)
-  mnemo[i] = m6501_opcodes[i];
+  mnemo[i] = m6501_opcodes[i - mnemo6500_count];
 useUndefined = false;
 AddOption("undef", "{off|on}\tdisassemble unique undefined opcodes",
           static_cast<PSetter>(&Dasm6501::Set6501Option),
