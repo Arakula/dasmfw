@@ -58,19 +58,31 @@ return pDasm;
 }
 
 /*****************************************************************************/
+/* Create65C02 : create an 65C02 processor handler                           */
+/*****************************************************************************/
+
+static Disassembler *Create65C02()
+{
+Disassembler *pDasm = new Dasm65C02;
+if (pDasm) pDasm->Setup();
+return pDasm;
+}
+
+/*****************************************************************************/
 /* Auto-registration                                                         */
 /*****************************************************************************/
 
 static bool bRegistered[] =
   {
-  RegisterDisassembler("6501", Create6501),
-  RegisterDisassembler("7501", Create6501),
-  RegisterDisassembler("6502", Create6501),
-  RegisterDisassembler("6503", Create6503),
-  RegisterDisassembler("6504", Create6504),
-  RegisterDisassembler("6505", Create6503),
-  RegisterDisassembler("6506", Create6503),
-  RegisterDisassembler("6507", Create6504),
+  RegisterDisassembler("6501",  Create6501),
+  RegisterDisassembler("7501",  Create6501),
+  RegisterDisassembler("6502",  Create6501),
+  RegisterDisassembler("6503",  Create6503),
+  RegisterDisassembler("6504",  Create6504),
+  RegisterDisassembler("6505",  Create6503),
+  RegisterDisassembler("6506",  Create6503),
+  RegisterDisassembler("6507",  Create6504),
+  RegisterDisassembler("65c02", Create65C02),
   };
 
 
@@ -636,7 +648,7 @@ switch (M)                              /* which mode is this ?              */
     if (bSetLabel)
       {
       W = (uint16_t)DephaseOuter(W, PC - 1);
-      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
+      AddRelativeLabel(W, PC - 1, mnemo[MI].memType, true, BusCode, addr);
       }
     break;
     
@@ -1240,3 +1252,300 @@ Dasm6503::Dasm6503(void) : Dasm6501()
 Dasm6504::Dasm6504(void) : Dasm6501()
 {
 }
+
+
+/*===========================================================================*/
+/* Dasm65C02 class members                                                   */
+/*===========================================================================*/
+
+/*****************************************************************************/
+/* m65c02_codes : table of all 65C02 instruction bytes and types             */
+/*****************************************************************************/
+
+uint8_t Dasm65C02::m65c02_codes[512] =
+  {
+  _brk  ,_imp,   _ora  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 00..03 */
+  _tsb  ,_zpg,   _ora  ,_zpg,   _asl  ,_zpg,   _rmb  ,_zpb,     /* 04..07 */
+  _php  ,_imp,   _ora  ,_imm,   _asl  ,_acc,   _ill  ,_nom,     /* 08..0B */
+  _tsb  ,_abs,   _ora  ,_abs,   _asl  ,_abs,   _bbr  ,_bbt,     /* 0C..0F */
+  _bpl  ,_rel,   _ora  ,_idy,   _ora  ,_zpi,   _ill  ,_nom,     /* 10..13 */
+  _trb  ,_zpg,   _ora  ,_zpx,   _asl  ,_zpx,   _rmb  ,_zpb,     /* 14..17 */
+  _clc  ,_imp,   _ora  ,_aby,   _inc  ,_imp,   _ill  ,_nom,     /* 18..1B */
+  _trb  ,_abs,   _ora  ,_abx,   _asl  ,_abx,   _bbr  ,_bbt,     /* 1C..1F */
+  _jsr  ,_abs,   _and  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 20..23 */
+  _bit  ,_zpg,   _and  ,_zpg,   _rol  ,_zpg,   _rmb  ,_zpb,     /* 24..27 */
+  _plp  ,_imp,   _and  ,_imm,   _rol  ,_acc,   _ill  ,_nom,     /* 28..2B */
+  _bit  ,_abs,   _and  ,_abs,   _rol  ,_abs,   _bbr  ,_bbt,     /* 2C..2F */
+  _bmi  ,_rel,   _and  ,_idy,   _and  ,_zpi,   _ill  ,_nom,     /* 30..33 */
+  _bit  ,_zpx,   _and  ,_zpx,   _rol  ,_zpx,   _rmb  ,_zpb,     /* 34..37 */
+  _sec  ,_imp,   _and  ,_aby,   _dec  ,_imp,   _ill  ,_nom,     /* 38..3B */
+  _bit  ,_abx,   _and  ,_abx,   _rol  ,_abx,   _bbr  ,_bbt,     /* 3C..3F */
+  _rti  ,_acc,   _eor  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 40..43 */
+  _ill  ,_nom,   _eor  ,_zpg,   _lsr  ,_zpg,   _rmb  ,_zpb,     /* 44..47 */
+  _pha  ,_imp,   _eor  ,_imm,   _lsr  ,_acc,   _ill  ,_nom,     /* 48..4B */
+  _jmp  ,_abs,   _eor  ,_abs,   _lsr  ,_abs,   _bbr  ,_bbt,     /* 4C..4F */
+  _bvc  ,_rel,   _eor  ,_idy,   _eor  ,_zpi,   _ill  ,_nom,     /* 50..53 */
+  _ill  ,_nom,   _eor  ,_zpx,   _lsr  ,_zpx,   _rmb  ,_zpb,     /* 54..57 */
+  _cli  ,_imp,   _eor  ,_aby,   _phy  ,_imp,   _ill  ,_nom,     /* 58..5B */
+  _ill  ,_nom,   _eor  ,_abx,   _lsr  ,_abx,   _bbr  ,_bbt,     /* 5C..5F */
+  _rts  ,_imp,   _adc  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 60..63 */
+  _stz  ,_zpg,   _adc  ,_zpg,   _ror  ,_zpg,   _rmb  ,_zpb,     /* 64..67 */
+  _pla  ,_imp,   _adc  ,_imm,   _ror  ,_acc,   _ill  ,_nom,     /* 68..6B */
+  _jmp  ,_ind,   _adc  ,_abs,   _ror  ,_abs,   _bbr  ,_bbt,     /* 6C..6F */
+  _bvs  ,_rel,   _adc  ,_idy,   _adc  ,_zpi,   _ill  ,_nom,     /* 70..73 */
+  _stz  ,_zpx,   _adc  ,_zpx,   _ror  ,_zpx,   _rmb  ,_zpb,     /* 74..77 */
+  _sei  ,_imp,   _adc  ,_aby,   _ply  ,_imp,   _ill  ,_nom,     /* 78..7B */
+  _jmp  ,_abx,   _adc  ,_abx,   _ror  ,_abx,   _bbr  ,_bbt,     /* 7C..7F */
+  _bra  ,_rel,   _sta  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 80..83 */
+  _sty  ,_zpg,   _sta  ,_zpg,   _stx  ,_zpg,   _smb  ,_zpb,     /* 84..87 */
+  _dey  ,_imp,   _bit  ,_imm,   _txa  ,_imp,   _ill  ,_nom,     /* 88..8B */
+  _sty  ,_abs,   _sta  ,_abs,   _stx  ,_abs,   _bbs  ,_bbt,     /* 8C..8F */
+  _bcc  ,_rel,   _sta  ,_idy,   _sta  ,_zpi,   _ill  ,_nom,     /* 90..93 */
+  _sty  ,_zpx,   _sta  ,_zpx,   _stx  ,_zpy,   _smb  ,_zpb,     /* 94..97 */
+  _tya  ,_imp,   _sta  ,_aby,   _txs  ,_imp,   _ill  ,_nom,     /* 98..9B */
+  _stz  ,_abs,   _sta  ,_abx,   _stz  ,_abx,   _bbs  ,_bbt,     /* 9C..9F */
+  _ldy  ,_imm,   _lda  ,_idx,   _ldx  ,_imm,   _ill  ,_nom,     /* A0..A3 */
+  _ldy  ,_zpg,   _lda  ,_zpg,   _ldx  ,_zpg,   _smb  ,_zpb,     /* A4..A7 */
+  _tay  ,_imp,   _lda  ,_imm,   _tax  ,_imp,   _ill  ,_nom,     /* A8..AB */
+  _ldy  ,_abs,   _lda  ,_abs,   _ldx  ,_abs,   _bbs  ,_bbt,     /* AC..AF */
+  _bcs  ,_rel,   _lda  ,_idy,   _lda  ,_zpi,   _ill  ,_nom,     /* B0..B3 */
+  _ldy  ,_zpx,   _lda  ,_zpx,   _ldx  ,_zpy,   _smb  ,_zpb,     /* B4..B7 */
+  _clv  ,_imp,   _lda  ,_aby,   _tsx  ,_imp,   _ill  ,_nom,     /* B8..BB */
+  _ldy  ,_abx,   _lda  ,_abx,   _ldx  ,_aby,   _bbs  ,_bbt,     /* BC..BF */
+  _cpy  ,_imm,   _cmp  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* C0..C3 */
+  _cpy  ,_zpg,   _cmp  ,_zpg,   _dec  ,_zpg,   _smb  ,_zpb,     /* C4..C7 */
+  _iny  ,_imp,   _cmp  ,_imm,   _dex  ,_imp,   _wai  ,_imp,     /* C8..CB */
+  _cpy  ,_abs,   _cmp  ,_abs,   _dec  ,_abs,   _bbs  ,_bbt,     /* CC..CF */
+  _bne  ,_rel,   _cmp  ,_idy,   _cmp  ,_zpi,   _ill  ,_nom,     /* D0..D3 */
+  _ill  ,_nom,   _cmp  ,_zpx,   _dec  ,_zpx,   _smb  ,_zpb,     /* D4..D7 */
+  _cld  ,_imp,   _cmp  ,_aby,   _phx  ,_imp,   _stp  ,_imp,     /* D8..DB */
+  _ill  ,_nom,   _cmp  ,_abx,   _dec  ,_abx,   _bbs  ,_bbt,     /* DC..DF */
+  _cpx  ,_imm,   _sbc  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* E0..E3 */
+  _cpx  ,_zpg,   _sbc  ,_zpg,   _inc  ,_zpg,   _smb  ,_zpb,     /* E4..E7 */
+  _inx  ,_imp,   _sbc  ,_imm,   _nop  ,_imp,   _ill  ,_nom,     /* E8..EB */
+  _cpx  ,_abs,   _sbc  ,_abs,   _inc  ,_abs,   _bbs  ,_bbt,     /* EC..EF */
+  _beq  ,_rel,   _sbc  ,_idy,   _sbc  ,_zpi,   _ill  ,_nom,     /* F0..F3 */
+  _ill  ,_nom,   _sbc  ,_zpx,   _inc  ,_zpx,   _smb  ,_zpb,     /* F4..F7 */
+  _sed  ,_imp,   _sbc  ,_aby,   _plx  ,_imp,   _ill  ,_nom,     /* F8..FB */
+  _ill  ,_nom,   _sbc  ,_abx,   _inc  ,_abx,   _bbs  ,_bbt,     /* FC..FF */
+  };
+
+/*****************************************************************************/
+/* opcodes : 65C02 opcodes array for initialization                          */
+/*****************************************************************************/
+
+OpCode Dasm65C02::m65c02_opcodes[mnemo65C02_count - mnemo6500_count] =
+  {
+    { "BRA",   Code },                  /* _bra                              */
+    { "PHX",   Data },                  /* _phx                              */
+    { "PHY",   Data },                  /* _phy                              */
+    { "PLX",   Data },                  /* _plx                              */
+    { "PLY",   Data },                  /* _ply                              */
+    { "STZ",   Data },                  /* _stz                              */
+    { "TRB",   Data },                  /* _trb                              */
+    { "TSB",   Data },                  /* _tsb                              */
+    { "BBR",   Data },                  /* _bbr                              */
+    { "BBS",   Data },                  /* _bbs                              */
+    { "RMB",   Data },                  /* _rmb                              */
+    { "SMB",   Data },                  /* _smb                              */
+    { "STP",   Data },                  /* _stp                              */
+    { "WAI",   Data },                  /* _wai                              */
+  };
+
+/*****************************************************************************/
+/* Dasm65C02 : constructor                                                   */
+/*****************************************************************************/
+
+Dasm65C02::Dasm65C02(void) : Dasm650X()
+{
+codes = m65c02_codes;
+mnemo.resize(mnemo65C02_count);         /* expand mnemonics table            */
+for (int i = mnemo6500_count; i < mnemo65C02_count; i++)
+  mnemo[i] = m65c02_opcodes[i - mnemo6500_count];
+}
+
+/*****************************************************************************/
+/* ParseCode : parse instruction at given memory address for labels          */
+/*****************************************************************************/
+
+adr_t Dasm65C02::ParseCode
+    (
+    adr_t addr,
+    int bus                             /* ignored for 6500 and derivates    */
+    )
+{
+uint8_t O, T, M;
+uint16_t W;
+int MI;
+const char *I;
+bool bSetLabel;
+adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+
+switch (M)                              /* which mode is this ?              */
+  {
+  case _zpi:                            /* (zero-page)                       */
+  case _zpb:                            /* zero-page bit                     */
+    bSetLabel = !IsConst(PC);
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);
+    if (bSetLabel)
+      {
+      // this isn't really necessary for 6500, but maybe for derived classes
+      adr_t dp = GetDirectPage(PC);
+      if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
+        dp = GetDirectPage(addr);
+      if (dp == DEFAULT_ADDRESS)
+        dp = 0;
+      if (dp != NO_ADDRESS)
+        {
+        T = GetUByte(PC);
+        W = (uint16_t)dp | T;
+        W = (uint16_t)PhaseInner(W, PC);
+        AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
+        }
+      }
+    PC++;
+    break;
+  case _bbt :                           /* branch on bit                     */
+    bSetLabel = !IsConst(PC);           /* process the zero-page part        */
+    if (!bSetLabel)
+      SetDefLabelUsed(PC, bus);
+    if (bSetLabel)
+      {
+      // this isn't really necessary for 6500, but maybe for derived classes
+      adr_t dp = GetDirectPage(PC);
+      if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
+        dp = GetDirectPage(addr);
+      if (dp == DEFAULT_ADDRESS)
+        dp = 0;
+      if (dp != NO_ADDRESS)
+        {
+        T = GetUByte(PC);
+        W = (uint16_t)dp | T;
+        W = (uint16_t)PhaseInner(W, PC);
+        AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
+        }
+      }
+    PC++;
+                                        /* process the rel part              */
+    bSetLabel = !IsConst(PC);
+    // lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
+    T = GetUByte(PC); PC++;
+    W = (uint16_t)(PC + (signed char)T);
+    if (bSetLabel)
+      {
+      W = (uint16_t)DephaseOuter(W, PC - 1);
+      AddRelativeLabel(W, PC - 1, mnemo[MI].memType, true, BusCode, addr);
+      }
+    break;
+
+  default:
+    return Dasm650X::ParseCode(addr, bus);
+  }
+
+return PC - addr;                       /* pass back # processed bytes       */
+}
+
+/*****************************************************************************/
+/* DisassembleCode : disassemble code instruction at given memory address    */
+/*****************************************************************************/
+
+adr_t Dasm65C02::DisassembleCode
+    (
+    adr_t addr,
+    string &smnemo,
+    string &sparm,
+    int bus                             /* ignored for 6500 and derivates    */
+    )
+{
+uint8_t O, T, M;
+uint16_t W;
+int MI;
+const char *I;
+adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
+bool bGetLabel;
+Label *lbl;
+char bitnum;
+
+switch (M)                              /* which mode is this?               */
+  {
+  case _zpi:                            /* (zero page)                       */
+    {
+    bGetLabel = !IsConst(PC);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
+    T = GetUByte(PC);
+    adr_t dp = GetDirectPage(PC);
+    if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
+      dp = GetDirectPage(addr);
+    if (dp == DEFAULT_ADDRESS)
+      dp = 0;
+    if (dp != NO_ADDRESS)
+      {
+      W = (uint16_t)dp | T;
+      if (bGetLabel)
+        W = (uint16_t)PhaseInner(W, PC);
+      sparm = GetForcedAddr(PC) ? "<" : "";
+      sparm += lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+      }
+    else // if no direct page, this can't be interpreted as a label
+      sparm = (lbl ? lbl->GetText() : Number2String(T, 2, PC));
+    sparm = "(" + sparm + ")";
+    PC++;
+    }
+    break;
+  case _bbt :                           /* branch on bit                     */
+    {
+    bitnum = (O & 0x70) >> 4;           /* get number to add to mnemonic     */
+    smnemo += '0' + bitnum;
+                                        /* process the zpg part              */
+    bGetLabel = !IsConst(PC);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
+    T = GetUByte(PC);
+    adr_t dp = GetDirectPage(PC);
+    if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
+      dp = GetDirectPage(addr);
+    if (dp == DEFAULT_ADDRESS)
+      dp = 0;
+    if (dp != NO_ADDRESS)
+      {
+      W = (uint16_t)dp | T;
+      if (bGetLabel)
+        W = (uint16_t)PhaseInner(W, PC);
+      sparm = GetForcedAddr(PC) ? "<" : "";
+      sparm += lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+      }
+    else // if no direct page, this can't be interpreted as a label
+      sparm = (lbl ? lbl->GetText() : Number2String(T, 2, PC));
+    sparm += ",";
+    PC++;
+
+    bGetLabel = !IsConst(PC);           /* process the rel part              */
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
+    T = GetUByte(PC++);
+    if (bGetLabel)
+      {
+      W = (uint16_t)(PC + (int8_t)T);
+      W = (uint16_t)DephaseOuter(W, PC - 1);
+      sparm = Label2String(W, 4, bGetLabel, PC - 1);
+      }
+    else
+      {
+      int nDiff = (int)(int8_t)T;
+      sparm += "*";
+      if (nDiff >= 0 || lbl)
+        sparm += "+";
+      sparm += lbl ? lbl->GetText() : SignedNumber2String(nDiff + 2, 2, PC - 1);
+      }
+    }
+    break;
+  case _zpb:                            /* zero-page bit                     */
+    bitnum = (O & 0x70) >> 4;           /* get number to add to mnemonic     */
+    smnemo += '0' + bitnum;
+    M = _zpg;                           /* otherwise, it's zero-page         */
+    return Dasm650X::DisassembleCode(addr, smnemo, sparm, bus);
+  default :
+    return Dasm650X::DisassembleCode(addr, smnemo, sparm, bus);
+  }
+return PC - addr;                       /* pass back # processed bytes       */
+}
+

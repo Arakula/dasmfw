@@ -299,5 +299,60 @@ class Dasm6504 :
   };
 
 
+/*****************************************************************************/
+/* Dasm65C02 : class for a 65C02 processor                                   */
+/*****************************************************************************/
+
+class Dasm65C02 :
+  public Dasm650X
+  {
+  public:
+    Dasm65C02(void);
+    // return processor long name
+    virtual string GetName() { return "MOS 65C02"; }
+
+  protected:
+    // parse instruction at given memory address for labels
+    virtual adr_t ParseCode(adr_t addr, int bus = BusCode);
+    // disassemble instruction at given memory address
+    virtual adr_t DisassembleCode(adr_t addr, string &smnemo, string &sparm, int bus = BusCode);
+
+  protected:
+    // 65C02 addressing modes
+    enum AddrMode65C02
+      {
+      _zpi = addrmodes6500_count,       /* zero-page indexed                 */
+      _bbt,                             /* branch on bit (Rockwell/WDC)      */
+      _zpb,                             /* zero-page bit (Rockwell/WDC)      */
+      };
+
+    // 65C02 additional mnemonics
+    enum Mnemonics65C02
+      {
+      _bra = mnemo6500_count,
+      _phx,
+      _phy,
+      _plx,
+      _ply,
+      _stz,
+      _trb,
+      _tsb,
+      _bbr,                             /* Rockwell / WDC                    */
+      _bbs,
+      _rmb,
+      _smb,
+      _stp,
+      _wai,
+
+      mnemo65C02_count
+      };
+
+    static uint8_t m65c02_codes[512];
+    static OpCode m65c02_opcodes[mnemo65C02_count - mnemo6500_count];
+    bool useUndefined;
+  };
+
+
+
 
 #endif // __Dasm6500_h_defined__
