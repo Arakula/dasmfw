@@ -8,6 +8,7 @@ OBJS=dasmfw.o \
 		Dasm6309.o \
 		Dasm68HC11.o \
 		Dasm68000.o \
+		Dasm6500.o \
 		DasmAvr8.o
 
 CPPFLAGS=-O2 -Wall -Wextra
