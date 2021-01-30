@@ -16,24 +16,43 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.               *
  ***************************************************************************/
 /*                          Copyright (C) Hermann Seib                     *
- * The 6800 disassembler engine is based on dasm09, last found at          *
- * http://koti.mbnet.fi/~atjs/mc6809/Disassembler/dasm09.TGZ , so          *
- *                    Parts Copyright (C) 2000  Arto Salmi                 *
  ***************************************************************************/
 
 /*****************************************************************************/
-/* Dasm6800.cpp : 6800 disassembler implementation                           */
+/* Dasm650X.cpp : 650X disassembler implementation                           */
 /*****************************************************************************/
 
-#include "Dasm6800.h"
+#include "Dasm6500.h"
 
 /*****************************************************************************/
-/* Create6800 : create an 6800 processor handler                             */
+/* Create6501 : create an 6501 processor handler                             */
 /*****************************************************************************/
 
-static Disassembler *Create6800()
+static Disassembler *Create6501()
 {
-Disassembler *pDasm = new Dasm6800;
+Disassembler *pDasm = new Dasm6501;
+if (pDasm) pDasm->Setup();
+return pDasm;
+}
+
+/*****************************************************************************/
+/* Create6503 : create an 6503 processor handler                             */
+/*****************************************************************************/
+
+static Disassembler *Create6503()
+{
+Disassembler *pDasm = new Dasm6503;
+if (pDasm) pDasm->Setup();
+return pDasm;
+}
+
+/*****************************************************************************/
+/* Create6504 : create an 6504 processor handler                             */
+/*****************************************************************************/
+
+static Disassembler *Create6504()
+{
+Disassembler *pDasm = new Dasm6504;
 if (pDasm) pDasm->Setup();
 return pDasm;
 }
@@ -44,275 +63,213 @@ return pDasm;
 
 static bool bRegistered[] =
   {
-  RegisterDisassembler("6800", Create6800),
-  RegisterDisassembler("6802", Create6800),
-  RegisterDisassembler("6808", Create6800),
+  RegisterDisassembler("6501", Create6501),
+  RegisterDisassembler("7501", Create6501),
+  RegisterDisassembler("6502", Create6501),
+  RegisterDisassembler("6503", Create6503),
+  RegisterDisassembler("6504", Create6504),
+  RegisterDisassembler("6505", Create6503),
+  RegisterDisassembler("6506", Create6503),
+  RegisterDisassembler("6507", Create6504),
   };
 
 
 /*===========================================================================*/
-/* Dasm6800 class members                                                    */
+/* Dasm650X class members                                                    */
 /*===========================================================================*/
 
 /*****************************************************************************/
-/* m6800_codes : table of all 6800 instruction bytes and types               */
+/* m6500_codes : table of all 6500 instruction bytes and types               */
 /*****************************************************************************/
 
-uint8_t Dasm6800::m6800_codes[512] =
+uint8_t Dasm650X::m6500_codes[512] =
   {
-  _ill  ,_nom,   _nop  ,_imp,   _ill  ,_nom,   _ill  ,_nom,     /* 00..03 */
-  _ill  ,_nom,   _ill  ,_nom,   _tap  ,_imp,   _tpa  ,_imp,     /* 04..07 */
-  _inx  ,_imp,   _dex  ,_imp,   _clv  ,_imp,   _sev  ,_imp,     /* 08..0B */
-  _clc  ,_imp,   _sec  ,_imp,   _cli  ,_imp,   _sei  ,_imp,     /* 0C..0F */
-  _sba  ,_imp,   _cba  ,_imp,   _ill  ,_nom,   _ill  ,_nom,     /* 10..13 */
-  _ill  ,_nom,   _ill  ,_nom,   _tab  ,_imp,   _tba  ,_imp,     /* 14..17 */
-  _ill  ,_nom,   _daa  ,_imp,   _ill  ,_nom,   _aba  ,_imp,     /* 18..1B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 1C..1F */
-  _bra  ,_reb,   _ill  ,_nom,   _bhi  ,_reb,   _bls  ,_reb,     /* 20..23 */
-  _bcc  ,_reb,   _bcs  ,_reb,   _bne  ,_reb,   _beq  ,_reb,     /* 24..27 */
-  _bvc  ,_reb,   _bvs  ,_reb,   _bpl  ,_reb,   _bmi  ,_reb,     /* 28..2B */
-  _bge  ,_reb,   _blt  ,_reb,   _bgt  ,_reb,   _ble  ,_reb,     /* 2C..2F */
-  _tsx  ,_imp,   _ins  ,_imp,   _pula ,_imp,   _pulb ,_imp,     /* 30..33 */
-  _des  ,_imp,   _txs  ,_imp,   _psha ,_imp,   _pshb ,_imp,     /* 34..37 */
-  _ill  ,_nom,   _rts  ,_imp,   _ill  ,_nom,   _rti  ,_imp,     /* 38..3B */
-  _ill  ,_nom,   _ill  ,_nom,   _wai  ,_imp,   _swi  ,_imp,     /* 3C..3F */
-  _nega ,_imp,   _ill  ,_nom,   _ill  ,_nom,   _coma ,_imp,     /* 40..43 */
-  _lsra ,_imp,   _ill  ,_nom,   _rora ,_imp,   _asra ,_imp,     /* 44..47 */
-  _asla ,_imp,   _rola ,_imp,   _deca ,_imp,   _ill  ,_nom,     /* 48..4B */
-  _inca ,_imp,   _tsta ,_imp,   _ill  ,_nom,   _clra ,_imp,     /* 4C..4F */
-  _negb ,_imp,   _ill  ,_nom,   _ill  ,_nom,   _comb ,_imp,     /* 50..53 */
-  _lsrb ,_imp,   _ill  ,_nom,   _rorb ,_imp,   _asrb ,_imp,     /* 54..57 */
-  _aslb ,_imp,   _rolb ,_imp,   _decb ,_imp,   _ill  ,_nom,     /* 58..5B */
-  _incb ,_imp,   _tstb ,_imp,   _ill  ,_nom,   _clrb ,_imp,     /* 5C..5F */
-  _neg  ,_ix8,   _ill  ,_nom,   _ill  ,_nom,   _com  ,_ix8,     /* 60..63 */
-  _lsr  ,_ix8,   _ill  ,_nom,   _ror  ,_ix8,   _asr  ,_ix8,     /* 64..67 */
-  _asl  ,_ix8,   _rol  ,_ix8,   _dec  ,_ix8,   _ill  ,_nom,     /* 68..6B */
-  _inc  ,_ix8,   _tst  ,_ix8,   _jmp  ,_ix8,   _clr  ,_ix8,     /* 6C..6F */
-  _neg  ,_ext,   _ill  ,_nom,   _ill  ,_nom,   _com  ,_ext,     /* 70..73 */
-  _lsr  ,_ext,   _ill  ,_nom,   _ror  ,_ext,   _asr  ,_ext,     /* 74..77 */
-  _asl  ,_ext,   _rol  ,_ext,   _dec  ,_ext,   _ill  ,_nom,     /* 78..7B */
-  _inc  ,_ext,   _tst  ,_ext,   _jmp  ,_ext,   _clr  ,_ext,     /* 7C..7F */
-  _suba ,_imb,   _cmpa ,_imb,   _sbca ,_imb,   _ill  ,_nom,     /* 80..83 */
-  _anda ,_imb,   _bita ,_imb,   _lda  ,_imb,   _ill  ,_nom,     /* 84..87 */
-  _eora ,_imb,   _adca ,_imb,   _ora  ,_imb,   _adda ,_imb,     /* 88..8B */
-  _cpx  ,_imw,   _bsr  ,_reb,   _lds  ,_imw,   _ill  ,_nom,     /* 8C..8F */
-  _suba ,_dir,   _cmpa ,_dir,   _sbca ,_dir,   _ill  ,_nom,     /* 90..93 */
-  _anda ,_dir,   _bita ,_dir,   _lda  ,_dir,   _sta  ,_dir,     /* 94..97 */
-  _eora ,_dir,   _adca ,_dir,   _ora  ,_dir,   _adda ,_dir,     /* 98..9B */
-  _cpx  ,_dir,   _ill  ,_nom,   _lds  ,_dir,   _sts  ,_dir,     /* 9C..9F */
-  _suba ,_ix8,   _cmpa ,_ix8,   _sbca ,_ix8,   _ill  ,_nom,     /* A0..A3 */
-  _anda ,_ix8,   _bita ,_ix8,   _lda  ,_ix8,   _sta  ,_ix8,     /* A4..A7 */
-  _eora ,_ix8,   _adca ,_ix8,   _ora  ,_ix8,   _adda ,_ix8,     /* A8..AB */
-  _cpx  ,_ix8,   _jsr  ,_ix8,   _lds  ,_ix8,   _sts  ,_ix8,     /* AC..AF */
-  _suba ,_ext,   _cmpa ,_ext,   _sbca ,_ext,   _ill  ,_nom,     /* B0..B3 */
-  _anda ,_ext,   _bita ,_ext,   _lda  ,_ext,   _sta  ,_ext,     /* B4..B7 */
-  _eora ,_ext,   _adca ,_ext,   _ora  ,_ext,   _adda ,_ext,     /* B8..BB */
-  _cpx  ,_ext,   _jsr  ,_ext,   _lds  ,_ext,   _sts  ,_ext,     /* BC..BF */
-  _subb ,_imb,   _cmpb ,_imb,   _sbcb ,_imb,   _ill  ,_nom,     /* C0..C3 */
-  _andb ,_imb,   _bitb ,_imb,   _ldb  ,_imb,   _ill  ,_nom,     /* C4..C7 */
-  _eorb ,_imb,   _adcb ,_imb,   _orb  ,_imb,   _addb ,_imb,     /* C8..CB */
-  _ill  ,_nom,   _ill  ,_nom,   _ldx  ,_imw,   _ill  ,_nom,     /* CC..CF */
-  _subb ,_dir,   _cmpb ,_dir,   _sbcb ,_dir,   _ill  ,_nom,     /* D0..D3 */
-  _andb ,_dir,   _bitb ,_dir,   _ldb  ,_dir,   _stb  ,_dir,     /* D4..D7 */
-  _eorb ,_dir,   _adcb ,_dir,   _orb  ,_dir,   _addb ,_dir,     /* D8..DB */
-  _ill  ,_nom,   _ill  ,_nom,   _ldx  ,_dir,   _stx  ,_dir,     /* DC..DF */
-  _subb ,_ix8,   _cmpb ,_ix8,   _sbcb ,_ix8,   _ill  ,_nom,     /* E0..E3 */
-  _andb ,_ix8,   _bitb ,_ix8,   _ldb  ,_ix8,   _stb  ,_ix8,     /* E4..E7 */
-  _eorb ,_ix8,   _adcb ,_ix8,   _orb  ,_ix8,   _addb ,_ix8,     /* E8..EB */
-  _ill  ,_nom,   _ill  ,_nom,   _ldx  ,_ix8,   _stx  ,_ix8,     /* EC..EF */
-  _subb ,_ext,   _cmpb ,_ext,   _sbcb ,_ext,   _ill  ,_nom,     /* F0..F3 */
-  _andb ,_ext,   _bitb ,_ext,   _ldb  ,_ext,   _stb  ,_ext,     /* F4..F7 */
-  _eorb ,_ext,   _adcb ,_ext,   _orb  ,_ext,   _addb ,_ext,     /* F8..FB */
-  _ill  ,_nom,   _ill  ,_nom,   _ldx  ,_ext,   _stx  ,_ext,     /* FC..FF */
-  };
-
-const char *Dasm6800::bit_r[] = {"CC","A","B","??"};
-
-const char *Dasm6800::block_r[] =
-  {
-  "D","X","Y","U","S","?","?","?","?","?","?","?","?","?","?","?"
+  _brk  ,_imp,   _ora  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 00..03 */
+  _ill  ,_nom,   _ora  ,_zpg,   _asl  ,_zpg,   _ill  ,_nom,     /* 04..07 */
+  _php  ,_imp,   _ora  ,_imm,   _asl  ,_acc,   _ill  ,_nom,     /* 08..0B */
+  _ill  ,_nom,   _ora  ,_abs,   _asl  ,_abs,   _ill  ,_nom,     /* 0C..0F */
+  _bpl  ,_rel,   _ora  ,_idy,   _ill  ,_nom,   _ill  ,_nom,     /* 10..13 */
+  _ill  ,_nom,   _ora  ,_zpx,   _asl  ,_zpx,   _ill  ,_nom,     /* 14..17 */
+  _clc  ,_imp,   _ora  ,_aby,   _ill  ,_nom,   _ill  ,_nom,     /* 18..1B */
+  _ill  ,_nom,   _ora  ,_abx,   _asl  ,_abx,   _ill  ,_nom,     /* 1C..1F */
+  _jsr  ,_abs,   _and  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 20..23 */
+  _bit  ,_zpg,   _and  ,_zpg,   _rol  ,_zpg,   _ill  ,_nom,     /* 24..27 */
+  _plp  ,_imp,   _and  ,_imm,   _rol  ,_acc,   _ill  ,_nom,     /* 28..2B */
+  _bit  ,_abs,   _and  ,_abs,   _rol  ,_abs,   _ill  ,_nom,     /* 2C..2F */
+  _bmi  ,_rel,   _and  ,_idy,   _ill  ,_nom,   _ill  ,_nom,     /* 30..33 */
+  _ill  ,_nom,   _and  ,_zpx,   _rol  ,_zpx,   _ill  ,_nom,     /* 34..37 */
+  _sec  ,_imp,   _and  ,_aby,   _ill  ,_nom,   _ill  ,_nom,     /* 38..3B */
+  _ill  ,_nom,   _and  ,_abx,   _rol  ,_abx,   _ill  ,_nom,     /* 3C..3F */
+  _rti  ,_acc,   _eor  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 40..43 */
+  _ill  ,_nom,   _eor  ,_zpg,   _lsr  ,_zpg,   _ill  ,_nom,     /* 44..47 */
+  _pha  ,_imp,   _eor  ,_imm,   _lsr  ,_acc,   _ill  ,_nom,     /* 48..4B */
+  _jmp  ,_abs,   _eor  ,_abs,   _lsr  ,_abs,   _ill  ,_nom,     /* 4C..4F */
+  _bvc  ,_rel,   _eor  ,_idy,   _ill  ,_nom,   _ill  ,_nom,     /* 50..53 */
+  _ill  ,_nom,   _eor  ,_zpx,   _lsr  ,_zpx,   _ill  ,_nom,     /* 54..57 */
+  _cli  ,_imp,   _eor  ,_aby,   _ill  ,_nom,   _ill  ,_nom,     /* 58..5B */
+  _ill  ,_nom,   _eor  ,_abx,   _lsr  ,_abx,   _ill  ,_nom,     /* 5C..5F */
+  _rts  ,_imp,   _adc  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 60..63 */
+  _ill  ,_nom,   _adc  ,_zpg,   _ror  ,_zpg,   _ill  ,_nom,     /* 64..67 */
+  _pla  ,_imp,   _adc  ,_imm,   _ror  ,_acc,   _ill  ,_nom,     /* 68..6B */
+  _jmp  ,_ind,   _adc  ,_abs,   _ror  ,_abs,   _ill  ,_nom,     /* 6C..6F */
+  _bvs  ,_rel,   _adc  ,_idy,   _ill  ,_nom,   _ill  ,_nom,     /* 70..73 */
+  _ill  ,_nom,   _adc  ,_zpx,   _ror  ,_zpx,   _ill  ,_nom,     /* 74..77 */
+  _sei  ,_imp,   _adc  ,_aby,   _ill  ,_nom,   _ill  ,_nom,     /* 78..7B */
+  _ill  ,_nom,   _adc  ,_abx,   _ror  ,_abx,   _ill  ,_nom,     /* 7C..7F */
+  _ill  ,_nom,   _sta  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 80..83 */
+  _sty  ,_zpg,   _sta  ,_zpg,   _stx  ,_zpg,   _ill  ,_nom,     /* 84..87 */
+  _dey  ,_imp,   _ill  ,_nom,   _txa  ,_imp,   _ill  ,_nom,     /* 88..8B */
+  _sty  ,_abs,   _sta  ,_abs,   _stx  ,_abs,   _ill  ,_nom,     /* 8C..8F */
+  _bcc  ,_rel,   _sta  ,_idy,   _ill  ,_nom,   _ill  ,_nom,     /* 90..93 */
+  _sty  ,_zpx,   _sta  ,_zpx,   _stx  ,_zpy,   _ill  ,_nom,     /* 94..97 */
+  _tya  ,_imp,   _sta  ,_aby,   _txs  ,_imp,   _ill  ,_nom,     /* 98..9B */
+  _ill  ,_nom,   _sta  ,_abx,   _ill  ,_nom,   _ill  ,_nom,     /* 9C..9F */
+  _ldy  ,_imm,   _lda  ,_idx,   _ldx  ,_imm,   _ill  ,_nom,     /* A0..A3 */
+  _ldy  ,_zpg,   _lda  ,_zpg,   _ldx  ,_zpg,   _ill  ,_nom,     /* A4..A7 */
+  _tay  ,_imp,   _lda  ,_imm,   _tax  ,_imp,   _ill  ,_nom,     /* A8..AB */
+  _ldy  ,_abs,   _lda  ,_abs,   _ldx  ,_abs,   _ill  ,_nom,     /* AC..AF */
+  _bcs  ,_rel,   _lda  ,_idy,   _ill  ,_nom,   _ill  ,_nom,     /* B0..B3 */
+  _ldy  ,_zpx,   _lda  ,_zpx,   _ldx  ,_zpy,   _ill  ,_nom,     /* B4..B7 */
+  _clv  ,_imp,   _lda  ,_aby,   _tsx  ,_imp,   _ill  ,_nom,     /* B8..BB */
+  _ldy  ,_abx,   _lda  ,_abx,   _ldx  ,_aby,   _ill  ,_nom,     /* BC..BF */
+  _cpy  ,_imm,   _cmp  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* C0..C3 */
+  _cpy  ,_zpg,   _cmp  ,_zpg,   _dec  ,_zpg,   _ill  ,_nom,     /* C4..C7 */
+  _iny  ,_imp,   _cmp  ,_imm,   _dex  ,_imp,   _ill  ,_nom,     /* C8..CB */
+  _cpy  ,_abs,   _cmp  ,_abs,   _dec  ,_abs,   _ill  ,_nom,     /* CC..CF */
+  _bne  ,_rel,   _cmp  ,_idy,   _ill  ,_nom,   _ill  ,_nom,     /* D0..D3 */
+  _ill  ,_nom,   _cmp  ,_zpx,   _dec  ,_zpx,   _ill  ,_nom,     /* D4..D7 */
+  _cld  ,_imp,   _cmp  ,_aby,   _ill  ,_nom,   _ill  ,_nom,     /* D8..DB */
+  _ill  ,_nom,   _cmp  ,_abx,   _dec  ,_abx,   _ill  ,_nom,     /* DC..DF */
+  _cpx  ,_imm,   _sbc  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* E0..E3 */
+  _cpx  ,_zpg,   _sbc  ,_zpg,   _inc  ,_zpg,   _ill  ,_nom,     /* E4..E7 */
+  _inx  ,_imp,   _sbc  ,_imm,   _nop  ,_imp,   _ill  ,_nom,     /* E8..EB */
+  _cpx  ,_abs,   _sbc  ,_abs,   _inc  ,_abs,   _ill  ,_nom,     /* EC..EF */
+  _beq  ,_rel,   _sbc  ,_idy,   _ill  ,_nom,   _ill  ,_nom,     /* F0..F3 */
+  _ill  ,_nom,   _sbc  ,_zpx,   _inc  ,_zpx,   _ill  ,_nom,     /* F4..F7 */
+  _sed  ,_imp,   _sbc  ,_aby,   _ill  ,_nom,   _ill  ,_nom,     /* F8..FB */
+  _ill  ,_nom,   _sbc  ,_abx,   _inc  ,_abx,   _ill  ,_nom,     /* FC..FF */
   };
 
 /*****************************************************************************/
-/* opcodes : 6800 opcodes array for initialization                           */
+/* opcodes : 6500 opcodes array for initialization                           */
 /*****************************************************************************/
 
-OpCode Dasm6800::opcodes[mnemo6800_count] =
+OpCode Dasm650X::opcodes[mnemo6500_count] =
   {
     { "???",   Data },                  /* _ill                              */
-    { "ABA",   Data },                  /* _aba                              */
-    { "ADCA",  Data },                  /* _adca                             */
-    { "ADCB",  Data },                  /* _adcb                             */
-    { "ADDA",  Data },                  /* _adda                             */
-    { "ADDB",  Data },                  /* _addb                             */
-    { "ANDA",  Data },                  /* _anda                             */
-    { "ANDB",  Data },                  /* _andb                             */
-    { "ASLA",  Data },                  /* _asla                             */
-    { "ASLB",  Data },                  /* _aslb                             */
+
+    { "ADC",   Data },                  /* _adc                              */
+    { "AND",   Data },                  /* _and                              */
     { "ASL",   Data },                  /* _asl                              */
-    { "ASRA",  Data },                  /* _asra                             */
-    { "ASRB",  Data },                  /* _asrb                             */
-    { "ASR",   Data },                  /* _asr                              */
     { "BCC",   Code },                  /* _bcc                              */
     { "BCS",   Code },                  /* _bcs                              */
     { "BEQ",   Code },                  /* _beq                              */
-    { "BGE",   Code },                  /* _bge                              */
-    { "BGT",   Code },                  /* _bgt                              */
-    { "BHI",   Code },                  /* _bhi                              */
-    { "BITA",  Data },                  /* _bita                             */
-    { "BITB",  Data },                  /* _bitb                             */
-    { "BLE",   Code },                  /* _ble                              */
-    { "BLS",   Code },                  /* _bls                              */
-    { "BLT",   Code },                  /* _blt                              */
+    { "BIT",   Data },                  /* _bit                              */
     { "BMI",   Code },                  /* _bmi                              */
     { "BNE",   Code },                  /* _bne                              */
     { "BPL",   Code },                  /* _bpl                              */
-    { "BRA",   Code },                  /* _bra                              */
-    { "BSR",   Code },                  /* _bsr                              */
+    { "BRK",   Code },                  /* _brk                              */
     { "BVC",   Code },                  /* _bvc                              */
     { "BVS",   Code },                  /* _bvs                              */
-    { "CBA",   Data },                  /* _cba                              */
-    { "CLI",   Data },                  /* _cli                              */
-    { "CLRA",  Data },                  /* _clra                             */
-    { "CLRB",  Data },                  /* _clrb                             */
-    { "CLR",   Data },                  /* _clr                              */
     { "CLC",   Data },                  /* _clc                              */
+    { "CLD",   Data },                  /* _cld                              */
+    { "CLI",   Data },                  /* _cli                              */
     { "CLV",   Data },                  /* _clv                              */
-    { "CMPA",  Data },                  /* _cmpa                             */
-    { "CMPB",  Data },                  /* _cmpb                             */
-    { "COMA",  Data },                  /* _coma                             */
-    { "COMB",  Data },                  /* _comb                             */
-    { "COM",   Data },                  /* _com                              */
+    { "CMP",   Data },                  /* _cmp                              */
     { "CPX",   Data },                  /* _cpx                              */
-    { "DAA",   Data },                  /* _daa                              */
-    { "DECA",  Data },                  /* _deca                             */
-    { "DECB",  Data },                  /* _decb                             */
+    { "CPY",   Data },                  /* _cpy                              */
     { "DEC",   Data },                  /* _dec                              */
-    { "DES",   Data },                  /* _des                              */
     { "DEX",   Data },                  /* _dex                              */
-    { "EORA",  Data },                  /* _eora                             */
-    { "EORB",  Data },                  /* _eorb                             */
-    { "INCA",  Data },                  /* _inca                             */
-    { "INCB",  Data },                  /* _incb                             */
+    { "DEY",   Data },                  /* _dey                              */
+    { "EOR",   Data },                  /* _eor                              */
     { "INC",   Data },                  /* _inc                              */
-    { "INS",   Data },                  /* _ins                              */
     { "INX",   Data },                  /* _inx                              */
+    { "INY",   Data },                  /* _iny                              */
     { "JMP",   Code },                  /* _jmp                              */
-    { "JSR",   Code },                  /* _jsr                              */
-    { "LDAA",  Data },                  /* _lda                              */
-    { "LDAB",  Data },                  /* _ldb                              */
-    { "LDS",   Data },                  /* _lds                              */
+    { "JSR",   Data },                  /* _jsr                              */
+    { "LDA",   Data },                  /* _lda                              */
     { "LDX",   Data },                  /* _ldx                              */
-    { "LSRA",  Data },                  /* _lsra                             */
-    { "LSRB",  Data },                  /* _lsrb                             */
+    { "LDY",   Data },                  /* _ldy                              */
     { "LSR",   Data },                  /* _lsr                              */
-    { "NEGA",  Data },                  /* _nega                             */
-    { "NEGB",  Data },                  /* _negb                             */
-    { "NEG",   Data },                  /* _neg                              */
     { "NOP",   Data },                  /* _nop                              */
-    { "ORAA",  Data },                  /* _ora                              */
-    { "ORAB",  Data },                  /* _orb                              */
-    { "PSHA",  Data },                  /* _psha                             */
-    { "PSHB",  Data },                  /* _pshb                             */
-    { "PULA",  Data },                  /* _pula                             */
-    { "PULB",  Data },                  /* _pulb                             */
-    { "ROLA",  Data },                  /* _rola                             */
-    { "ROLB",  Data },                  /* _rolb                             */
+    { "ORA",   Data },                  /* _ora                              */
+    { "PHA",   Data },                  /* _pha                              */
+    { "PHP",   Data },                  /* _php                              */
+    { "PLA",   Data },                  /* _pla                              */
+    { "PLP",   Data },                  /* _plp                              */
     { "ROL",   Data },                  /* _rol                              */
-    { "RORA",  Data },                  /* _rora                             */
-    { "RORB",  Data },                  /* _rorb                             */
     { "ROR",   Data },                  /* _ror                              */
-    { "RTI",   Data },                  /* _rti                              */
-    { "RTS",   Data },                  /* _rts                              */
-    { "SBA",   Data },                  /* _sba                              */
-    { "SBCA",  Data },                  /* _sbca                             */
-    { "SBCB",  Data },                  /* _sbcb                             */
+    { "RTI",   Code },                  /* _rti                              */
+    { "RTS",   Code },                  /* _rts                              */
+    { "SBC",   Data },                  /* _sbc                              */
     { "SEC",   Data },                  /* _sec                              */
+    { "SED",   Data },                  /* _sed                              */
     { "SEI",   Data },                  /* _sei                              */
-    { "SEV",   Data },                  /* _sev                              */
-    { "STAA",  Data },                  /* _sta                              */
-    { "STAB",  Data },                  /* _stb                              */
-    { "STS",   Data },                  /* _sts                              */
+    { "STA",   Data },                  /* _sta                              */
     { "STX",   Data },                  /* _stx                              */
-    { "SUBA",  Data },                  /* _suba                             */
-    { "SUBB",  Data },                  /* _subb                             */
-    { "SWI",   Data },                  /* _swi                              */
-    { "TAB",   Data },                  /* _tab                              */
-    { "TAP",   Data },                  /* _tap                              */
-    { "TBA",   Data },                  /* _tba                              */
-    { "TPA",   Data },                  /* _tpa                              */
-    { "TSTA",  Data },                  /* _tsta                             */
-    { "TSTB",  Data },                  /* _tstb                             */
-    { "TST",   Data },                  /* _tst                              */
+    { "STY",   Data },                  /* _sty                              */
+    { "TAX",   Data },                  /* _tax                              */
+    { "TAY",   Data },                  /* _tay                              */
     { "TSX",   Data },                  /* _tsx                              */
+    { "TXA",   Data },                  /* _txa                              */
     { "TXS",   Data },                  /* _txs                              */
-    { "WAI",   Data },                  /* _wai                              */
-    // Convenience mnemonics
-    { "ASLD",  Data },                  /* _asld                             */
-    { "LSRD",  Data },                  /* _lsrd                             */
+    { "TYA",   Data },                  /* _tya                              */
   };
 
 /*****************************************************************************/
-/* Dasm6800 : constructor                                                    */
+/* Dasm650X : constructor                                                    */
 /*****************************************************************************/
 
-Dasm6800::Dasm6800(void)
+Dasm650X::Dasm650X(void)
 {
-codes = m6800_codes;
+codes = m6500_codes;
 useConvenience = true;
-showIndexedModeZeroOperand = false;
-dirpage = 0;  // ... and that's all it can be until the 6809
+dirpage = 0;  // ... and that's all it can be for 650X
 useFCC = true;
-#if RB_VARIANT
-forceExtendedAddr = false;
-forceDirectAddr = false;
-closeCC = true;
-#else
 forceExtendedAddr = true;
 forceDirectAddr = true;
 closeCC = false;
-#endif
 useDPLabels = false;
 
-mnemo.resize(mnemo6800_count);          /* set up mnemonics table            */
-for (int i = 0; i < mnemo6800_count; i++)
+mnemo.resize(mnemo6500_count);          /* set up mnemonics table            */
+for (int i = 0; i < mnemo6500_count; i++)
   mnemo[i] = opcodes[i];
 
 // set up options table
 // class uses one generic option setter/getter pair (not mandatory)
+#if 0
+// none yet
 AddOption("conv", "{off|on}\tUse convenience macros",
-          static_cast<PSetter>(&Dasm6800::Set6800Option),
-          static_cast<PGetter>(&Dasm6800::Get6800Option));
-AddOption("showzero", "{off|on}\tdo not omit indexed-mode operands of $00",
-          static_cast<PSetter>(&Dasm6800::Set6800Option),
-          static_cast<PGetter>(&Dasm6800::Get6800Option));
+          static_cast<PSetter>(&Dasm650X::Set6500Option),
+          static_cast<PGetter>(&Dasm650X::Get6500Option));
+#endif
 AddOption("closecc", "{off|on}\tadd closing delimiter to char constants",
-          static_cast<PSetter>(&Dasm6800::Set6800Option),
-          static_cast<PGetter>(&Dasm6800::Get6800Option));
+          static_cast<PSetter>(&Dasm650X::Set6500Option),
+          static_cast<PGetter>(&Dasm650X::Get6500Option));
 AddOption("fcc", "{off|on}\tuse FCC to define data",
-          static_cast<PSetter>(&Dasm6800::Set6800Option),
-          static_cast<PGetter>(&Dasm6800::Get6800Option));
+          static_cast<PSetter>(&Dasm650X::Set6500Option),
+          static_cast<PGetter>(&Dasm650X::Get6500Option));
 AddOption("dplabel", "{off|on}\tinterpret single-byte data as direct page labels",
-          static_cast<PSetter>(&Dasm6800::Set6800Option),
-          static_cast<PGetter>(&Dasm6800::Get6800Option));
+          static_cast<PSetter>(&Dasm650X::Set6500Option),
+          static_cast<PGetter>(&Dasm650X::Get6500Option));
 AddOption("forceaddr", "{off|on}\tuse forced addressing where necessary",
-          static_cast<PSetter>(&Dasm6800::Set6800Option),
-          static_cast<PGetter>(&Dasm6800::Get6800Option));
+          static_cast<PSetter>(&Dasm650X::Set6500Option),
+          static_cast<PGetter>(&Dasm650X::Get6500Option));
 }
 
 /*****************************************************************************/
-/* ~Dasm6800 : destructor                                                    */
+/* ~Dasm650X : destructor                                                    */
 /*****************************************************************************/
 
-Dasm6800::~Dasm6800(void)
+Dasm650X::~Dasm650X(void)
 {
 }
 
 /*****************************************************************************/
-/* Set6800Option : sets a disassembler option                                */
+/* Set6500Option : sets a disassembler option                                */
 /*****************************************************************************/
 
-int Dasm6800::Set6800Option(string lname, string value)
+int Dasm650X::Set6500Option(string lname, string value)
 {
 bool bnValue = true;                    /* default to "on"                   */
 bool bIsBool = ParseBool(value, bnValue);
@@ -320,11 +277,6 @@ bool bIsBool = ParseBool(value, bnValue);
 if (lname == "conv")
   {
   useConvenience = bnValue;
-  return bIsBool ? 1 : 0;
-  }
-else if (lname == "showzero")
-  {
-  showIndexedModeZeroOperand = bnValue;
   return bIsBool ? 1 : 0;
   }
 else if (lname == "closecc")
@@ -355,15 +307,13 @@ return 1;                               /* name and value consumed           */
 }
 
 /*****************************************************************************/
-/* Get6800Option : retrieves a disassembler option                           */
+/* Get6500Option : retrieves a disassembler option                           */
 /*****************************************************************************/
 
-string Dasm6800::Get6800Option(string lname)
+string Dasm650X::Get6500Option(string lname)
 {
 if (lname == "conv")
   return useConvenience ? "on" : "off";
-else if (lname == "showzero")
-  return showIndexedModeZeroOperand ? "on" : "off";
 else if (lname == "closecc")
   return closeCC ? "on" : "off";
 else if (lname == "fcc")
@@ -377,146 +327,10 @@ return "";
 }
 
 /*****************************************************************************/
-/* SFlexRecord : a record in a binary FLEX(9) disk file                      */
-/*****************************************************************************/
-
-#pragma pack(1)
-struct SFlexRecord
-  {
-  uint8_t bSOI;                         /* start of record indicator         */
-  uint8_t bLoadAddress[2];              /* Hi/Lo byte of load address        */
-  uint8_t bDataLen;                     /* length of data record             */
-  uint8_t bData[255];                   /* data record                       */
-
-  int IsTransferAddress() { return (bSOI == 0x16); }
-  int IsRecord()          { return (bSOI == 0x02); }
-  int GetSize()           { return bDataLen; }
-  adr_t GetLoadAddress() { return (((adr_t)(bLoadAddress[0])) << 8) | bLoadAddress[1]; }
-  uint8_t *GetData()      { return bData; }
-  };
-#pragma pack()
-
-/*****************************************************************************/
-/* ReadFlexRecord : read one record of a FLEX9 binary                        */
-/*****************************************************************************/
-
-static bool ReadFlexRecord(FILE *f, SFlexRecord *pRecord)
-{
-int nCurPos = ftell(f);
-uint8_t bCur = 0;
-int i;
-
-while (!bCur)                           /* read 1st byte, skipping 0 bytes   */
-  if (!fread(&bCur, 1, 1, f))
-    return false;
-switch (bCur)                           /* OK, so what's that?               */
-  {
-  case 0x02 :                           /* Start of Record Indicator ?       */
-    {
-    pRecord->bSOI = bCur;
-    if ((!fread(pRecord->bLoadAddress, 2, 1, f)) ||
-        (!fread(&pRecord->bDataLen, 1, 1, f)))
-      return false;
-    for (i = 0; i < pRecord->bDataLen; i++)
-      if (!fread(&pRecord->bData[i], 1, 1, f))
-        return false;
-    }
-    break;
-  case 0x16 :                           /* Transfer Address ?                */
-    pRecord->bSOI = bCur;
-    if (!fread(pRecord->bLoadAddress, 2, 1, f))
-      return false;
-    break;
-  default :
-    fseek(f, nCurPos, SEEK_SET);        /* seek back                         */
-    return false;
-  }
-return true;
-}
-
-/*****************************************************************************/
-/* LoadFlex : loads a FLEX(9) binary executable                              */
-/*****************************************************************************/
-
-bool Dasm6800::LoadFlex(FILE *f, string &sLoadType)
-{
-struct SFlexRecord rec;
-int nCurPos = ftell(f);
-int nRecs = 0;
-bool bExecutable = false;
-adr_t fbegin = GetHighestCodeAddr(), fend = GetLowestCodeAddr();
-adr_t i;
-
-int c = fgetc(f);                       /* fetch first byte to decide        */
-if (c == EOF)                           /* whether it may be a FLEX(9) binary*/
-  return false;
-ungetc(c, f);
-if (c != 0 && c != 0x02 && c != 0x16)
-  return false;
-
-while (ReadFlexRecord(f, &rec))
-  {
-  adr_t nStart = rec.GetLoadAddress();
-  adr_t nEnd = nStart + rec.GetSize() - 1;
-
-  nRecs++;
-  if (nStart < fbegin)
-    fbegin = nStart;
-  if (nEnd > fend)
-    fend = nEnd;
-  if (rec.IsRecord() && rec.GetSize())
-    {
-    AddMemory(nStart, rec.GetSize(), Code, rec.GetData());
-    for (i = nStart; i <= nEnd; i++)    /* mark area as used                 */
-      {
-      SetCellUsed(i);
-      SetDisplay(i, defaultDisplay);
-      }
-    }
-  else if (rec.IsTransferAddress())
-    {
-    bExecutable = true;
-    load = rec.GetLoadAddress();
-    }
-  }
-
-if (fgetc(f) != EOF)                    /* if not read through the whole file*/
-  {
-  for (i = fbegin; i <= fend; i++)      /* mark area as UNused               */
-    SetCellUsed(i, false);
-  nRecs = 0;                            /* this ain't no valid FLEX file     */
-  }
-
-fseek(f, nCurPos, SEEK_SET);            /* reset position for next filetype  */
-if (nRecs > 0)
-  {
-  if (fbegin < begin)
-    begin = fbegin;
-  if (fend > end)
-    end = fend;
-  sLoadType = "FLEX";
-  }
-
-(void)bExecutable;  // unused ATM - "load" is enough
-
-return (nRecs > 0);
-}
-
-/*****************************************************************************/
-/* LoadFile : loads an opened file                                           */
-/*****************************************************************************/
-
-bool Dasm6800::LoadFile(string filename, FILE *f, string &sLoadType, int interleave, int bus)
-{
-return LoadFlex(f, sLoadType) ||  // FLEX9 files need no interleave nor bus
-       Disassembler::LoadFile(filename, f, sLoadType, interleave, bus);
-}
-
-/*****************************************************************************/
 /* String2Number : convert a string to a number in all known formats         */
 /*****************************************************************************/
 
-bool Dasm6800::String2Number(string s, adr_t &value)
+bool Dasm650X::String2Number(string s, adr_t &value)
 {
 /* Standard formats for known 680x assemblers :
    - a character has a leading '
@@ -555,7 +369,7 @@ return Disassembler::String2Number(s, value);
 /* Number2String : converts a number to a string in a variety of formats     */
 /*****************************************************************************/
 
-string Dasm6800::Number2String
+string Dasm650X::Number2String
     (
     adr_t value,
     int nDigits,
@@ -567,7 +381,7 @@ string Dasm6800::Number2String
 
 string s;
 
-/* Standard formats for known 680x assemblers :
+/* Standard formats for known 650x assemblers :
    - a character has a leading '
      and may be followed by a (n unchecked) closing '
    - a binary has a leading %
@@ -644,7 +458,7 @@ return s;                               /* pass back generated string        */
 /* InitParse : initialize parsing                                            */
 /*****************************************************************************/
 
-bool Dasm6800::InitParse(int bus)
+bool Dasm650X::InitParse(int bus)
 {
 if (bus == BusCode)
   {
@@ -653,12 +467,12 @@ if (bus == BusCode)
     // set up IRQ-RST system vectors
     static const char *vectbl[] =
       {
-      "IRQ",                            /* fff8                              */
-      "SWI",                            /* fffa                              */
-      "NMI",                            /* fffc                              */
-      "RST"                             /* fffe                              */
+      "NMI",                            /* fffa                              */
+      "RST",                            /* fffc                              */
+      "IRQ"                             /* fffe                              */
       };
-    for (adr_t addr = 0xfff8; addr <= GetHighestCodeAddr(); addr+= 2)
+    adr_t vecStart = GetHighestCodeAddr() - 5;
+    for (adr_t addr = vecStart; addr <= GetHighestCodeAddr(); addr+= 2)
       {
       MemoryType memType = GetMemType(addr);
       if (memType != Untyped &&         /* if system vector loaded           */
@@ -673,7 +487,7 @@ if (bus == BusCode)
           {                             /* if so,                            */
           SetMemType(tgtaddr, Code);    /* that's code there                 */
           AddLabel(tgtaddr, Code,       /* and it got a predefined label     */
-                   sformat("vec_%s", vectbl[(addr - 0xfff8) / 2]),
+                   sformat("vec_%s", vectbl[(addr - vecStart) / 2]),
                    true);
           }
         }
@@ -687,10 +501,10 @@ return Disassembler::InitParse(bus);
 /* ParseData : parse data at given memory address for labels                 */
 /*****************************************************************************/
 
-adr_t Dasm6800::ParseData
+adr_t Dasm650X::ParseData
     (
     adr_t addr,
-    int bus                             /* ignored for 6800 and derivates    */
+    int bus                             /* ignored for 6500 and derivates    */
     )
 {
 SetLabelUsed(addr, Const);              /* mark DefLabels as used            */
@@ -714,8 +528,8 @@ return csz;
 /*****************************************************************************/
 /* FetchInstructionDetails : fetch details about current instruction         */
 /*****************************************************************************/
-
-adr_t Dasm6800::FetchInstructionDetails
+// direct copy of 6800 code - maybe not all are necessary
+adr_t Dasm650X::FetchInstructionDetails
     (
     adr_t PC,
     uint8_t &O,
@@ -727,11 +541,11 @@ adr_t Dasm6800::FetchInstructionDetails
     string *smnemo
     )
 {
-O = T = GetUByte(PC++);
-W = (uint16_t)(T * 2);
+O = GetUByte(PC++);
+W = (uint16_t)(O * 2);
 MI = T = codes[W++];
-I = mnemo[T].mne;
 M = codes[W];
+I = mnemo[T].mne;
 if (smnemo)
   *smnemo = I;
 return PC;
@@ -741,10 +555,10 @@ return PC;
 /* ParseCode : parse instruction at given memory address for labels          */
 /*****************************************************************************/
 
-adr_t Dasm6800::ParseCode
+adr_t Dasm650X::ParseCode
     (
     adr_t addr,
-    int bus                             /* ignored for 6800 and derivates    */
+    int bus                             /* ignored for 6500 and derivates    */
     )
 {
 uint8_t O, T, M;
@@ -762,34 +576,26 @@ switch (M)                              /* which mode is this ?              */
     break;
 
   case _imp:                            /* inherent/implied                  */
+  case _acc:                            /* accumulator                       */
     break;
 
-  case _imb:                            /* immediate byte                    */
+  case _imm:                            /* immediate                         */
     SetDefLabelUsed(PC, bus);
     PC++;
     break;
 
-  case _imw:                            /* immediate word                    */
-    bSetLabel = !IsConst(PC);
-    if (!bSetLabel)
-      SetDefLabelUsed(PC, bus);
-    SetCellSize(PC, 2);
-    W = GetUWord(PC);
-    if (bSetLabel)
-      {
-      W = (uint16_t)PhaseInner(W, PC);
-      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
-      }
-    PC += 2;
-    break;
-
-  case _dir:                            /* direct                            */
+  case _zpg:                            /* zero-page                         */
+  case _zpx:                            /* zero-page,X                       */
+  case _zpy:                            /* zero-page,Y                       */
+  case _ind:                            /* indirect                          */
+  case _idx:                            /* (indirect,X)                      */
+  case _idy:                            /* (indirect),Y                      */
     bSetLabel = !IsConst(PC);
     if (!bSetLabel)
       SetDefLabelUsed(PC, bus);
     if (bSetLabel)
       {
-      // this isn't really necessary for 6800, but for derived classes
+      // this isn't really necessary for 6500, but maybe for derived classes
       adr_t dp = GetDirectPage(PC);
       if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
         dp = GetDirectPage(addr);
@@ -806,7 +612,9 @@ switch (M)                              /* which mode is this ?              */
     PC++;
     break;
 
-  case _ext:                            /* extended                          */
+  case _abs:                            /* absolute                          */
+  case _abx:                            /* absolute,X                        */
+  case _aby:                            /* absolute,Y                        */
     bSetLabel = !IsConst(PC);
     if (!bSetLabel)
       SetDefLabelUsed(PC, bus);
@@ -819,15 +627,8 @@ switch (M)                              /* which mode is this ?              */
       }
     PC += 2;
     break;
-    
-  case _ix8:                            /* indexed for 6800 (unsigned)       */
-    bSetLabel = !IsConst(PC);
-    if (!bSetLabel && !GetRelative(PC))
-      SetDefLabelUsed(PC, bus);
-    PC++;
-    break;
 
-  case _reb:                            /* relative byte                     */
+  case _rel:                            /* relative byte                     */
     bSetLabel = !IsConst(PC);
     // lbl = bSetLabel ? NULL : FindLabel(PC, Const, bus);
     T = GetUByte(PC); PC++;
@@ -835,7 +636,6 @@ switch (M)                              /* which mode is this ?              */
     if (bSetLabel)
       {
       W = (uint16_t)DephaseOuter(W, PC - 1);
-      // AddLabel(W, mnemo[MI].memType, "", true);
       AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
       }
     break;
@@ -849,7 +649,7 @@ return PC - addr;                       /* pass back # processed bytes       */
 /* DisassembleLabel : disassemble used external labels                       */
 /*****************************************************************************/
 
-bool Dasm6800::DisassembleLabel
+bool Dasm650X::DisassembleLabel
     (
     Label *label,
     string &slabel,
@@ -877,7 +677,7 @@ return false;
 /* DisassembleDefLabel : pass back mnemonic and parameters for a DefLabel    */
 /*****************************************************************************/
 
-bool Dasm6800::DisassembleDefLabel
+bool Dasm650X::DisassembleDefLabel
     (
     DefLabel *label,
     string &slabel,
@@ -897,7 +697,7 @@ return true;
 /* GetDisassemblyFlags : get flags for disassembly of data areas             */
 /*****************************************************************************/
 
-uint32_t Dasm6800::GetDisassemblyFlags(adr_t addr, int bus)
+uint32_t Dasm650X::GetDisassemblyFlags(adr_t addr, int bus)
 {
 uint32_t flags = Disassembler::GetDisassemblyFlags(addr, bus);
 if (flags & SHMF_TXT)
@@ -931,7 +731,7 @@ return flags;
 /* DisassembleData : disassemble data area at given memory address           */
 /*****************************************************************************/
 
-adr_t Dasm6800::DisassembleData
+adr_t Dasm650X::DisassembleData
     (
     adr_t addr,
     adr_t end,
@@ -939,7 +739,7 @@ adr_t Dasm6800::DisassembleData
     string &smnemo,
     string &sparm,
     int maxparmlen,
-    int bus                             /* ignored for 6800 and derivates    */
+    int bus                             /* ignored for 6500 and derivates    */
     )
 {
 adr_t done;
@@ -1012,17 +812,16 @@ return done - addr;
 /* DisassembleCode : disassemble code instruction at given memory address    */
 /*****************************************************************************/
 
-adr_t Dasm6800::DisassembleCode
+adr_t Dasm650X::DisassembleCode
     (
     adr_t addr,
     string &smnemo,
     string &sparm,
-    int bus                             /* ignored for 6800 and derivates    */
+    int bus                             /* ignored for 6500 and derivates    */
     )
 {
 uint8_t O, T, M;
 uint16_t W;
-adr_t Wrel;
 int MI;
 const char *I;
 adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
@@ -1039,39 +838,25 @@ switch (M)                              /* which mode is this?               */
     break;
 
   case _imp:                            /* inherent/implied                  */
-    if (useConvenience &&
-        !IsCLabel(PC))                  /* not if 2nd byte has a code label! */
-      {
-      switch ((uint16_t)(O << 8) | GetUByte(PC))
-        {
-        case 0x4456 :                   /* LSRA + RORB -> LSRD               */
-          smnemo = mnemo[_lsrd].mne; PC++;
-          break;
-        case 0x5849 :                   /* ASLB + ROLA -> ASLD               */
-          smnemo = mnemo[_asld].mne; PC++;
-          break;
-        }
-      }
+    // no need to do anything
+    break;
+  case _acc:                            /* accumulator                       */
+    sparm = "A";
     break;
 
-  case _imb:                            /* immediate byte                    */
+  case _imm:                            /* immediate byte                    */
     lbl = FindLabel(PC, Const, bus);
     T = GetUByte(PC);
     sparm = "#" + (lbl ? lbl->GetText() : Number2String(T, 2, PC));
     PC++;
     break;
 
-  case _imw:                            /* immediate word                    */
-    bGetLabel = !IsConst(PC);
-    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
-    W = GetUWord(PC);
-    if (bGetLabel)
-      W = (uint16_t)PhaseInner(W, PC);
-    sparm = "#" + (lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC));
-    PC += 2;
-    break;
-
-  case _dir:                            /* direct                            */
+  case _zpg:                            /* zero page                         */
+  case _zpx:                            /* zero page,X                       */
+  case _zpy:                            /* zero page,Y                       */
+  case _ind:                            /* indirect                          */
+  case _idx:                            /* (indirect,X)                      */
+  case _idy:                            /* (indirect),Y                      */
     {
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
@@ -1086,17 +871,28 @@ switch (M)                              /* which mode is this?               */
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC);
-      //sparm = Label2String(W, 4, bGetLabel, PC);
       sparm = GetForcedAddr(PC) ? "<" : "";
       sparm += lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
       }
     else // if no direct page, this can't be interpreted as a label
-      sparm = "<" + (lbl ? lbl->GetText() : Number2String(T, 2, PC));
+      sparm = (lbl ? lbl->GetText() : Number2String(T, 2, PC));
+    if (M == _zpx)
+      sparm += ",X";
+    else if (M == _zpy)
+      sparm += ",Y";
+    else if (M == _ind)
+      sparm = "(" + sparm + ")";
+    else if (M == _idx)
+      sparm = "(" + sparm + ",X)";
+    else if (M == _idy)
+      sparm = "(" + sparm + "),Y";
     PC++;
     }
     break;
 
-  case _ext:                            /* extended                          */
+  case _abs:                            /* absolute                          */
+  case _abx:                            /* absolute,X                        */
+  case _aby:                            /* absolute,Y                        */
     {
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
@@ -1112,35 +908,16 @@ switch (M)                              /* which mode is this?               */
     if (forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp)
       sparm = ">" + slbl;
     else
-      {
-      sparm = GetForcedAddr(PC) ? ">" : "";
-      sparm += slbl;
-      }
+      sparm = slbl;
+    if (M == _abx)
+      sparm += ",X";
+    else if (M == _aby)
+      sparm += ",Y";
     PC += 2;
     }
     break;
     
-  case _ix8:                            /* indexed for 6800 (unsigned)       */
-    bGetLabel = !IsConst(PC);
-    Wrel = GetRelative(PC);
-    T = GetUByte(PC);
-    lbl = (bGetLabel || Wrel) ? NULL : FindLabel(PC, Const, bus);
-    if (Wrel)
-      {
-      W = (int)((unsigned char)T) + (uint16_t)Wrel;
-      sparm = Label2String((adr_t)((int)((unsigned char)T)), 4,
-                           bGetLabel, PC) + GetIx8IndexReg(O);
-      }
-    else if (lbl)
-      sparm = lbl->GetText() + GetIx8IndexReg(O);
-    else if (!T && !showIndexedModeZeroOperand)
-      sparm = GetIx8IndexReg(O); /* omit '$00', unless the user has set the 'showzero' option */
-    else
-      sparm = Number2String(T, 2, PC) + GetIx8IndexReg(O);
-    PC++;
-    break;
-
-  case _reb:                            /* relative byte                     */
+  case _rel:                            /* relative                          */
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
     T = GetUByte(PC++);
@@ -1167,7 +944,7 @@ return PC - addr;                       /* pass back # processed bytes       */
 /* DisassembleChanges : report dasm-specific state changes before/after addr */
 /*****************************************************************************/
 
-bool Dasm6800::DisassembleChanges
+bool Dasm650X::DisassembleChanges
     (
     adr_t addr,
     adr_t prevaddr,
@@ -1240,4 +1017,226 @@ else // no bus check necessary, there's only one
   }
 
 return Disassembler::DisassembleChanges(addr, prevaddr, prevsz, bAfterLine, changes, bus);
+}
+
+
+/*===========================================================================*/
+/* Dasm6501 class members                                                    */
+/*===========================================================================*/
+
+/*****************************************************************************/
+/* m6501_codes : table of all 6501 instruction bytes and types               */
+/*****************************************************************************/
+// taken from https://wiki.nesdev.com/w/index.php/CPU_unofficial_opcodes
+uint8_t Dasm6501::m6501_codes[512] =
+  {
+  _brk  ,_imp,   _ora  ,_idx,   _ill  ,_nom,   _slo,_idx|_und,  /* 00..03 */
+  _ill  ,_nom,   _ora  ,_zpg,   _asl  ,_zpg,   _slo,_zpg|_und,  /* 04..07 */
+  _php  ,_imp,   _ora  ,_imm,   _asl  ,_acc,   _ill  ,_nom,     /* 08..0B */
+  _ill  ,_nom,   _ora  ,_abs,   _asl  ,_abs,   _slo,_abs|_und,  /* 0C..0F */
+  _bpl  ,_rel,   _ora  ,_idy,   _ill  ,_nom,   _slo,_idy|_und,  /* 10..13 */
+  _ill  ,_nom,   _ora  ,_zpx,   _asl  ,_zpx,   _slo,_zpx|_und,  /* 14..17 */
+  _clc  ,_imp,   _ora  ,_aby,   _ill  ,_nom,   _slo,_aby|_und,  /* 18..1B */
+  _ill  ,_nom,   _ora  ,_abx,   _asl  ,_abx,   _slo,_abx|_und,  /* 1C..1F */
+  _jsr  ,_abs,   _and  ,_idx,   _ill  ,_nom,   _rla,_idx|_und,  /* 20..23 */
+  _bit  ,_zpg,   _and  ,_zpg,   _rol  ,_zpg,   _rla,_zpg|_und,  /* 24..27 */
+  _plp  ,_imp,   _and  ,_imm,   _rol  ,_acc,   _anc,_imm|_und,  /* 28..2B */
+  _bit  ,_abs,   _and  ,_abs,   _rol  ,_abs,   _rla,_abs|_und,  /* 2C..2F */
+  _bmi  ,_rel,   _and  ,_idy,   _ill  ,_nom,   _rla,_idy|_und,  /* 30..33 */
+  _ill  ,_nom,   _and  ,_zpx,   _rol  ,_zpx,   _rla,_zpx|_und,  /* 34..37 */
+  _sec  ,_imp,   _and  ,_aby,   _ill  ,_nom,   _rla,_aby|_und,  /* 38..3B */
+  _ill  ,_nom,   _and  ,_abx,   _rol  ,_abx,   _rla,_abx|_und,  /* 3C..3F */
+  _rti  ,_acc,   _eor  ,_idx,   _ill  ,_nom,   _sre,_idx|_und,  /* 40..43 */
+  _ill  ,_nom,   _eor  ,_zpg,   _lsr  ,_zpg,   _sre,_zpg|_und,  /* 44..47 */
+  _pha  ,_imp,   _eor  ,_imm,   _lsr  ,_acc,   _alr,_imm|_und,  /* 48..4B */
+  _jmp  ,_abs,   _eor  ,_abs,   _lsr  ,_abs,   _sre,_abs|_und,  /* 4C..4F */
+  _bvc  ,_rel,   _eor  ,_idy,   _ill  ,_nom,   _sre,_idy|_und,  /* 50..53 */
+  _ill  ,_nom,   _eor  ,_zpx,   _lsr  ,_zpx,   _sre,_zpx|_und,  /* 54..57 */
+  _cli  ,_imp,   _eor  ,_aby,   _ill  ,_nom,   _sre,_aby|_und,  /* 58..5B */
+  _ill  ,_nom,   _eor  ,_abx,   _lsr  ,_abx,   _sre,_abx|_und,  /* 5C..5F */
+  _rts  ,_imp,   _adc  ,_idx,   _ill  ,_nom,   _rra,_idx|_und,  /* 60..63 */
+  _ill  ,_nom,   _adc  ,_zpg,   _ror  ,_zpg,   _rra,_zpg|_und,  /* 64..67 */
+  _pla  ,_imp,   _adc  ,_imm,   _ror  ,_acc,   _arr,_imm|_und,  /* 68..6B */
+  _jmp  ,_ind,   _adc  ,_abs,   _ror  ,_abs,   _rra,_abs|_und,  /* 6C..6F */
+  _bvs  ,_rel,   _adc  ,_idy,   _ill  ,_nom,   _rra,_idy|_und,  /* 70..73 */
+  _ill  ,_nom,   _adc  ,_zpx,   _ror  ,_zpx,   _rra,_zpx|_und,  /* 74..77 */
+  _sei  ,_imp,   _adc  ,_aby,   _ill  ,_nom,   _rra,_aby|_und,  /* 78..7B */
+  _ill  ,_nom,   _adc  ,_abx,   _ror  ,_abx,   _rra,_abx|_und,  /* 7C..7F */
+  _ill  ,_nom,   _sta  ,_idx,   _ill  ,_nom,   _sax,_idx|_und,  /* 80..83 */
+  _sty  ,_zpg,   _sta  ,_zpg,   _stx  ,_zpg,   _sax,_zpg|_und,  /* 84..87 */
+  _dey  ,_imp,   _ill  ,_nom,   _txa  ,_imp,   _xaa,_imm|_und,  /* 88..8B */
+  _sty  ,_abs,   _sta  ,_abs,   _stx  ,_abs,   _sax,_abs|_und,  /* 8C..8F */
+  _bcc  ,_rel,   _sta  ,_idy,   _ill  ,_nom,   _ahx,_idy|_und,  /* 90..93 */
+  _sty  ,_zpx,   _sta  ,_zpx,   _stx  ,_zpy,   _sax,_zpy|_und,  /* 94..97 */
+  _tya  ,_imp,   _sta  ,_aby,   _txs  ,_imp,   _tas,_aby|_und,  /* 98..9B */
+  _shy,_abx|_und,_sta  ,_abx,   _shx,_aby|_und,_ahx,_aby|_und,  /* 9C..9F */
+  _ldy  ,_imm,   _lda  ,_idx,   _ldx  ,_imm,   _lax,_idx|_und,  /* A0..A3 */
+  _ldy  ,_zpg,   _lda  ,_zpg,   _ldx  ,_zpg,   _lax,_zpg|_und,  /* A4..A7 */
+  _tay  ,_imp,   _lda  ,_imm,   _tax  ,_imp,   _lax,_imm|_und,  /* A8..AB */
+  _ldy  ,_abs,   _lda  ,_abs,   _ldx  ,_abs,   _lax,_abs|_und,  /* AC..AF */
+  _bcs  ,_rel,   _lda  ,_idy,   _ill  ,_nom,   _lax,_idy|_und,  /* B0..B3 */
+  _ldy  ,_zpx,   _lda  ,_zpx,   _ldx  ,_zpy,   _lax,_zpy|_und,  /* B4..B7 */
+  _clv  ,_imp,   _lda  ,_aby,   _tsx  ,_imp,   _las,_aby|_und,  /* B8..BB */
+  _ldy  ,_abx,   _lda  ,_abx,   _ldx  ,_aby,   _lax,_aby|_und,  /* BC..BF */
+  _cpy  ,_imm,   _cmp  ,_idx,   _ill  ,_nom,   _dcp,_idx|_und,  /* C0..C3 */
+  _cpy  ,_zpg,   _cmp  ,_zpg,   _dec  ,_zpg,   _dcp,_zpg|_und,  /* C4..C7 */
+  _iny  ,_imp,   _cmp  ,_imm,   _dex  ,_imp,   _axs,_imm|_und,  /* C8..CB */
+  _cpy  ,_abs,   _cmp  ,_abs,   _dec  ,_abs,   _dcp,_abs|_und,  /* CC..CF */
+  _bne  ,_rel,   _cmp  ,_idy,   _ill  ,_nom,   _dcp,_idy|_und,  /* D0..D3 */
+  _ill  ,_nom,   _cmp  ,_zpx,   _dec  ,_zpx,   _dcp,_zpx|_und,  /* D4..D7 */
+  _cld  ,_imp,   _cmp  ,_aby,   _ill  ,_nom,   _dcp,_aby|_und,  /* D8..DB */
+  _ill  ,_nom,   _cmp  ,_abx,   _dec  ,_abx,   _dcp,_abx|_und,  /* DC..DF */
+  _cpx  ,_imm,   _sbc  ,_idx,   _ill  ,_nom,   _isc,_idx|_und,  /* E0..E3 */
+  _cpx  ,_zpg,   _sbc  ,_zpg,   _inc  ,_zpg,   _isc,_zpg|_und,  /* E4..E7 */
+  _inx  ,_imp,   _sbc  ,_imm,   _nop  ,_imp,   _ill  ,_nom,     /* E8..EB */
+  _cpx  ,_abs,   _sbc  ,_abs,   _inc  ,_abs,   _isc,_abs|_und,  /* EC..EF */
+  _beq  ,_rel,   _sbc  ,_idy,   _ill  ,_nom,   _isc,_idy|_und,  /* F0..F3 */
+  _ill  ,_nom,   _sbc  ,_zpx,   _inc  ,_zpx,   _isc,_zpx|_und,  /* F4..F7 */
+  _sed  ,_imp,   _sbc  ,_aby,   _ill  ,_nom,   _isc,_aby|_und,  /* F8..FB */
+  _ill  ,_nom,   _sbc  ,_abx,   _inc  ,_abx,   _isc,_abx|_und,  /* FC..FF */
+  };
+
+// yet to determine what to do:
+// $0B is the same undefined instruction as $2B
+// $EB is the same undefined instruction as $E9 (where it IS defined)
+// VARIOUS instructions would map to NOP or HCF!
+// ... and we can't have that, as it would be impossible to re-assemble
+
+/*****************************************************************************/
+/* opcodes : 6500 opcodes array for initialization                           */
+/*****************************************************************************/
+
+OpCode Dasm6501::m6501_opcodes[mnemo6501_count - mnemo6500_count] =
+  {
+    // undocumented opcodes:
+    { "LAX",   Data },                  /* _lax                              */
+    { "DCP",   Data },                  /* _dcp                              */
+    { "ISC",   Data },                  /* _isc - asmx uses "ISB" mnemo      */
+    { "RLA",   Data },                  /* _rla                              */
+    { "RRA",   Data },                  /* _rra                              */
+    { "SAX",   Data },                  /* _sax                              */
+    { "SLO",   Data },                  /* _slo                              */
+    { "SRE",   Data },                  /* _sre                              */
+    { "ANC",   Data },                  /* _anc                              */
+    { "ARR",   Data },                  /* _arr                              */
+    { "ALR",   Data },                  /* _asr - asmb uses "ASR" mnemo      */
+    { "AXS",   Data },                  /* _axs - asmb uses "SBX" mnemo      */
+    { "XAA",   Data },                  /* _xaa - asmb doesn't have that!    */
+    { "TAS",   Data },                  /* _tas - asmb doesn't have that!    */
+    { "AHX",   Data },                  /* _ahx - asmb doesn't have that!    */
+    { "LAS",   Data },                  /* _las - asmb doesn't have that!    */
+    { "SHX",   Data },                  /* _shx - asmb doesn't have that!    */
+    { "SHY",   Data },                  /* _shy - asmb doesn't have that!    */
+
+  };
+
+/*****************************************************************************/
+/* Dasm6501 : constructor                                                    */
+/*****************************************************************************/
+
+Dasm6501::Dasm6501(void) : Dasm650X()
+{
+codes = m6501_codes;
+mnemo.resize(mnemo6501_count);          /* expand mnemonics table            */
+for (int i = mnemo6500_count; i < mnemo6501_count; i++)
+  mnemo[i] = m6501_opcodes[i];
+useUndefined = false;
+AddOption("undef", "{off|on}\tdisassemble unique undefined opcodes",
+          static_cast<PSetter>(&Dasm6501::Set6501Option),
+          static_cast<PGetter>(&Dasm6501::Get6501Option));
+}
+
+/*****************************************************************************/
+/* Set65001ption : sets a disassembler option                                */
+/*****************************************************************************/
+
+int Dasm6501::Set6501Option(string lname, string value)
+{
+bool bnValue = true;                    /* default to "on"                   */
+bool bIsBool = ParseBool(value, bnValue);
+
+if (lname == "undef")
+  {
+  useUndefined = bnValue;
+  return bIsBool ? 1 : 0;
+  }
+else
+  return 0;                             /* only name consumed                */
+
+// should never happen ... but better safe than sorry
+return 1;                               /* name and value consumed           */
+}
+
+/*****************************************************************************/
+/* Get6501Option : retrieves a disassembler option                           */
+/*****************************************************************************/
+
+string Dasm6501::Get6501Option(string lname)
+{
+if (lname == "undef")
+  return useUndefined ? "on" : "off";
+
+return "";
+}
+
+/*****************************************************************************/
+/* FetchInstructionDetails : fetch details about current instruction         */
+/*****************************************************************************/
+
+adr_t Dasm6501::FetchInstructionDetails
+    (
+    adr_t PC,
+    uint8_t &O,
+    uint8_t &T,
+    uint8_t &M,
+    uint16_t &W,
+    int &MI,
+    const char *&I,
+    string *smnemo
+    )
+{
+O = GetUByte(PC++);
+W = (uint16_t)(O * 2);
+MI = T = codes[W++];
+M = codes[W];
+bool und = !!(M & _und);
+M &= ~_und;
+if (und && !useUndefined)               /* if unwanted undefined opcode      */
+  {
+  MI = T = _ill;
+  M = _nom;
+  }
+I = mnemo[T].mne;
+if (smnemo)
+  *smnemo = I;
+return PC;
+}
+
+
+
+/*===========================================================================*/
+/* Dasm6503 class members                                                    */
+/*===========================================================================*/
+// since that's just a 6501 with a smaller bus, not much to do
+
+/*****************************************************************************/
+/* Dasm6503 : constructor                                                    */
+/*****************************************************************************/
+
+Dasm6503::Dasm6503(void) : Dasm6501()
+{
+}
+
+
+/*===========================================================================*/
+/* Dasm6504 class members                                                    */
+/*===========================================================================*/
+// since that's just a 6501 with a smaller bus, not much to do
+
+/*****************************************************************************/
+/* Dasm6504 : constructor                                                    */
+/*****************************************************************************/
+
+Dasm6504::Dasm6504(void) : Dasm6501()
+{
 }

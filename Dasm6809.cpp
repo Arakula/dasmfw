@@ -858,6 +858,7 @@ if (T & 0x80)
   }
 else
   {
+  // lowest 5 bits are a signed offset in range [-16..+15]
   char c = T & 0x1F;
   if (c & 0x10)
     c |= 0xf0;

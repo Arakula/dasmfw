@@ -276,6 +276,17 @@ These are the universal options:</p>
       by default; using a <b>const</b> info file statement can be used for specific addresses where
       this is definitely wrong.<br />
       Since this is a bit hairy, default is off.</dd>
+  <dt><b>forceaddr <i>on|off</i></b></dt>
+  <dd>If the targeted processor (and assembler, if available) can handle
+      <i>forced direct / extended addressing</i>, dasmfw tries its best to determine
+      whether adding the required &lt; and &gt; marks is necessary; in very rare
+      occasions, this may fail. If you build the "RB" variant, it isn't done by default;
+      normally, it is. This option can be used to change the behavior.</dd>
+  <dt><b>undef <i>on|off</i><br />noundef</b></dt>
+  <dd>Some processors (currently 6501 and 6502-based) support additional, but pretty well
+      understood officially undefined opcodes. These can be made available; however,
+      since using these instructions can lead to quite problematic program behavior,
+      it's normally turned off.</dd>
   <dt><b>flex <i>on|off</i><br />noflex</b></dt>
   <dd>For 6809-based disassemblers only.<br />
       If the file in question is known to be a binary for the FLEX9 operating system, dasmfw can

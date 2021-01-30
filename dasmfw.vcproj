@@ -180,6 +180,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Dasm6500.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\Dasm6800.cpp"
 				>
 			</File>
@@ -227,6 +231,10 @@
 			</File>
 			<File
 				RelativePath=".\Dasm6309.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Dasm6500.h"
 				>
 			</File>
 			<File

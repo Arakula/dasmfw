@@ -51,3 +51,5 @@ v0.17 2021-01-25 step size added to a bunch of range specifications
                  added documentation
 v0.18 2021-01-27 added Makefile for Linux builds plus small fixes
                  (oh boy, that was a cleanup session...)
+v0.19 2021-01-30 forceaddr option added
+                 added 650X-based range of disassemblers
