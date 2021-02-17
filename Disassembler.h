@@ -847,13 +847,20 @@ class Disassembler
     virtual string SignedNumber2String(sadr_t value, int nDigits, adr_t addr, int bus = BusCode)
       {
       string s;
+
       // specialization for things that have to be signed in any case
       if (value < 0)
         {
         s = "-";
         value = -value;
         }
-      return s + Number2String((adr_t)value, nDigits, addr, bus);
+      string snum = Number2String((adr_t)value, nDigits, addr, bus);
+      // fringe case (-128 for 8 bit, -32768 for 16 bit, ...) leads to a
+      // situation where -value == value and Number2String() may detect
+      // the negative number as well, leading to a double-minus
+      if (snum.size() && snum[0] == '-')
+        return snum;
+      return s + snum;
       }
     virtual string Address2String(adr_t addr, int bus = BusCode)
       { (void)bus; return sformat("%d", addr); }
