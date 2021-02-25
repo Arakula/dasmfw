@@ -1104,11 +1104,18 @@ switch (M)                              /* which mode is this?               */
     if (bGetLabel)
       W = (uint16_t)PhaseInner(W, PC);
     string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-    adr_t dp = GetDirectPage(PC);
-    if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
-      dp = GetDirectPage(addr);
-    if (dp == DEFAULT_ADDRESS)
-      dp = 0;
+    adr_t dp;
+    // various _ext opcodes don't have a _dir counterpart, so no > needed
+    if (O >= 0x70 && O <= 0x7f)
+      dp = W ^ 0xff00;
+    else
+      {
+      dp = GetDirectPage(PC);
+      if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
+        dp = GetDirectPage(addr);
+      if (dp == DEFAULT_ADDRESS)
+        dp = 0;
+      }
     if (forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp)
       sparm = ">" + slbl;
     else

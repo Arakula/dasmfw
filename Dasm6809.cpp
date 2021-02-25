@@ -1247,6 +1247,30 @@ if ((T == _swi2) && os9Patch)
 
 switch (M)                              /* which mode is this?               */
   {
+  case _ext:                            /* extended                          */
+    {
+    bGetLabel = !IsConst(PC);
+    lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
+    W = GetUWord(PC);
+    if (bGetLabel)
+      W = (uint16_t)PhaseInner(W, PC);
+    string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+    adr_t dp = GetDirectPage(PC);
+    if (dp == DEFAULT_ADDRESS || dp == NO_ADDRESS)
+      dp = GetDirectPage(addr);
+    if (dp == DEFAULT_ADDRESS)
+      dp = 0;
+    if (forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp)
+      sparm = ">" + slbl;
+    else
+      {
+      sparm = GetForcedAddr(PC) ? ">" : "";
+      sparm += slbl;
+      }
+    PC += 2;
+    }
+    break;
+
   case _imb:                            /* immediate byte                    */
     T = GetUByte(PC);
     if (useConvenience)
