@@ -31,9 +31,9 @@
 /* Create6309 : create a 6309 processor handler                              */
 /*****************************************************************************/
 
-static Disassembler *Create6309()
+static Disassembler *Create6309(Application *pApp)
 {
-Disassembler *pDasm = new Dasm6309;
+Disassembler *pDasm = new Dasm6309(pApp);
 if (pDasm) pDasm->Setup();
 return pDasm;
 }
@@ -364,7 +364,8 @@ OpCode Dasm6309::opcodes[mnemo6309_count - mnemo6809_count] =
 /* Dasm6309 : constructor                                                    */
 /*****************************************************************************/
 
-Dasm6309::Dasm6309(void)
+Dasm6309::Dasm6309(Application *pApp)
+  : Dasm6809(pApp)
 {
 codes = h6309_codes;
 codes10 = h6309_codes10;

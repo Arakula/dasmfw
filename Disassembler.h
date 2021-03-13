@@ -142,7 +142,7 @@ struct OpCode
 class Disassembler
   {
   public:
-    Disassembler();
+    Disassembler(Application *pApp);
     virtual ~Disassembler();
 
   // Endianness enumeration
@@ -737,6 +737,7 @@ class Disassembler
     bool LoadMotorolaHex(string filename, FILE *f, string &sLoadType, int interleave = 1, int bus = BusCode);
     bool LoadBinary(string filename, FILE *f, string &sLoadType, int interleave = 1, int bus = BusCode);
 
+    Application *GetApp() { return pApp; }
     // calculate bits needed for an address
     int CalcBitsForHighestAddr(adr_t addr)
       {
@@ -755,7 +756,7 @@ class Disassembler
     virtual void RecalcBusBits(int bus = BusCode)
       { busbits[bus] = CalcBitsForHighestAddr(GetHighestBusAddr(bus)); }
     // calculate consecutive data range (i.e., same type for all)
-    adr_t GetConsecutiveData(adr_t addr, uint32_t &flags, int maxparmlen, int bus = BusCode);
+    virtual adr_t GetConsecutiveData(adr_t addr, uint32_t &flags, int maxparmlen, int bus = BusCode);
 
   public:
     // return address bits for a specific bus
@@ -886,6 +887,7 @@ class Disassembler
 
   protected:
     static const Endian prgEndian;
+    Application *pApp;
     // For all [BusTypes] arrays below:
     // [0]: instruction bus; [1]: data bus, if separate; [2]: I/O bus, if separate
     vector<string> busnames;
@@ -908,6 +910,8 @@ class Disassembler
     bool bMultiLabel;
     // flag whether to auto-generate labels based on previous defined label
     bool bAutoLabel;
+    // flag whether to disassemble as position-independent code
+    bool bPIC;
     // default display format
     MemAttribute::Display defaultDisplay;
     // disassembler-specific comment start character

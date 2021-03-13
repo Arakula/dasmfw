@@ -296,8 +296,19 @@ These are the universal options:</p>
       Default is off.</dd>
   <dt><b>os9 <i>on|off</i><br />noos9</b></dt>
   <dd>For 6809-based disassemblers only.<br />
-      If the file in question is known to be a binary for the OS/9 operating system, dasmfw can
+      If the file in question is known to be a binary for the OS9 operating system, dasmfw can
       automatically patch SWI2 instructions to the corresponding OS9 system call.<br />
+      Default is off, unless an OS9 module has been loaded.</dd>
+  <dt><b>os9c <i>on|off</i><br />noos9c</b></dt>
+  <dd>For 6809-based disassemblers only.<br />
+      If the file in question is known to be a binary for the OS9 operating system, dasmfw can
+      automatically add header and checksum comments to the module.<br />
+      Default is off.</dd>
+  <dt><b>os9m <i>on|off</i><br />noos9c</b></dt>
+  <dd>For 6809-based disassemblers only.<br />
+      If the file in question is known to be a binary for the OS9 operating system, dasmfw can
+      automatically add reformatting instructions to the generated assembler source for the OS9
+	  assembler that replace the header and the checksum with the appropriate macros.<br />
       Default is off.</dd>
   <dt><b>asm <i>assembler</i></b></dt>
   <dd>For some processors (currently, 68000-based only), dasmfw can generate output that's

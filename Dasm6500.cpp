@@ -28,9 +28,9 @@
 /* Create6501 : create an 6501 processor handler                             */
 /*****************************************************************************/
 
-static Disassembler *Create6501()
+static Disassembler *Create6501(Application *pApp)
 {
-Disassembler *pDasm = new Dasm6501;
+Disassembler *pDasm = new Dasm6501(pApp);
 if (pDasm) pDasm->Setup();
 return pDasm;
 }
@@ -39,9 +39,9 @@ return pDasm;
 /* Create6503 : create an 6503 processor handler                             */
 /*****************************************************************************/
 
-static Disassembler *Create6503()
+static Disassembler *Create6503(Application *pApp)
 {
-Disassembler *pDasm = new Dasm6503;
+Disassembler *pDasm = new Dasm6503(pApp);
 if (pDasm) pDasm->Setup();
 return pDasm;
 }
@@ -50,9 +50,9 @@ return pDasm;
 /* Create6504 : create an 6504 processor handler                             */
 /*****************************************************************************/
 
-static Disassembler *Create6504()
+static Disassembler *Create6504(Application *pApp)
 {
-Disassembler *pDasm = new Dasm6504;
+Disassembler *pDasm = new Dasm6504(pApp);
 if (pDasm) pDasm->Setup();
 return pDasm;
 }
@@ -61,9 +61,9 @@ return pDasm;
 /* Create65C02 : create an 65C02 processor handler                           */
 /*****************************************************************************/
 
-static Disassembler *Create65C02()
+static Disassembler *Create65C02(Application *pApp)
 {
-Disassembler *pDasm = new Dasm65C02;
+Disassembler *pDasm = new Dasm65C02(pApp);
 if (pDasm) pDasm->Setup();
 return pDasm;
 }
@@ -232,7 +232,8 @@ OpCode Dasm650X::opcodes[mnemo6500_count] =
 /* Dasm650X : constructor                                                    */
 /*****************************************************************************/
 
-Dasm650X::Dasm650X(void)
+Dasm650X::Dasm650X(Application *pApp)
+  : Disassembler(pApp)
 {
 codes = m6500_codes;
 useConvenience = true;
@@ -1009,6 +1010,7 @@ else // no bus check necessary, there's only one
         }
       if (addr != NO_ADDRESS)
         {
+        // TODO: check how that interferes with PIC!
         chg.oper = "ORG";
         chg.opnds = Number2String(addr, 4, NO_ADDRESS);
         changes.push_back(chg);
@@ -1146,7 +1148,7 @@ OpCode Dasm6501::m6501_opcodes[mnemo6501_count - mnemo6500_count] =
 /* Dasm6501 : constructor                                                    */
 /*****************************************************************************/
 
-Dasm6501::Dasm6501(void) : Dasm650X()
+Dasm6501::Dasm6501(Application *pApp) : Dasm650X(pApp)
 {
 codes = m6501_codes;
 mnemo.resize(mnemo6501_count);          /* expand mnemonics table            */
@@ -1235,7 +1237,7 @@ return PC;
 /* Dasm6503 : constructor                                                    */
 /*****************************************************************************/
 
-Dasm6503::Dasm6503(void) : Dasm6501()
+Dasm6503::Dasm6503(Application *pApp) : Dasm6501(pApp)
 {
 }
 
@@ -1249,7 +1251,7 @@ Dasm6503::Dasm6503(void) : Dasm6501()
 /* Dasm6504 : constructor                                                    */
 /*****************************************************************************/
 
-Dasm6504::Dasm6504(void) : Dasm6501()
+Dasm6504::Dasm6504(Application *pApp) : Dasm6501(pApp)
 {
 }
 
@@ -1356,7 +1358,7 @@ OpCode Dasm65C02::m65c02_opcodes[mnemo65C02_count - mnemo6500_count] =
 /* Dasm65C02 : constructor                                                   */
 /*****************************************************************************/
 
-Dasm65C02::Dasm65C02(void) : Dasm650X()
+Dasm65C02::Dasm65C02(Application *pApp) : Dasm650X(pApp)
 {
 codes = m65c02_codes;
 mnemo.resize(mnemo65C02_count);         /* expand mnemonics table            */

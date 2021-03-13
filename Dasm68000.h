@@ -34,7 +34,7 @@ class Dasm68000 :
   public Disassembler
   {
   public:
-    Dasm68000(void);
+    Dasm68000(Application *pApp);
     virtual ~Dasm68000(void);
 
   // Overrides

@@ -31,9 +31,9 @@
 /* Create6800 : create an 6800 processor handler                             */
 /*****************************************************************************/
 
-static Disassembler *Create6800()
+static Disassembler *Create6800(Application *pApp)
 {
-Disassembler *pDasm = new Dasm6800;
+Disassembler *pDasm = new Dasm6800(pApp);
 if (pDasm) pDasm->Setup();
 return pDasm;
 }
@@ -256,7 +256,8 @@ OpCode Dasm6800::opcodes[mnemo6800_count] =
 /* Dasm6800 : constructor                                                    */
 /*****************************************************************************/
 
-Dasm6800::Dasm6800(void)
+Dasm6800::Dasm6800(Application *pApp)
+  : Disassembler(pApp)
 {
 codes = m6800_codes;
 useConvenience = true;
@@ -1227,9 +1228,22 @@ else // no bus check necessary, there's only one
         }
       if (addr != NO_ADDRESS)
         {
-        chg.oper = "ORG";
-        chg.opnds = Number2String(addr, 4, NO_ADDRESS);
-        changes.push_back(chg);
+        // TODO: check how that interferes with PIC!
+        if (bPIC)
+          {
+          if (prevaddr != NO_ADDRESS)
+            {
+            chg.oper = "ORG";
+            chg.opnds = "* + ";
+            chg.opnds += Number2String(addr - (prevaddr + prevsz), 4, NO_ADDRESS);
+            }
+          }
+        else
+          {
+          chg.oper = "ORG";
+          chg.opnds = Number2String(addr, 4, NO_ADDRESS);
+          changes.push_back(chg);
+          }
         if (curphase != NO_ADDRESS &&
             prevphstart != curphstart
 // uncomment this to remove superfluous PHASE statements

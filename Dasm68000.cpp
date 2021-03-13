@@ -30,9 +30,9 @@
 /* Create68000 : create an 68000 processor handler                           */
 /*****************************************************************************/
 
-static Disassembler *Create68000()
+static Disassembler *Create68000(Application *pApp)
 {
-Disassembler *pDasm = new Dasm68000;
+Disassembler *pDasm = new Dasm68000(pApp);
 if (pDasm) pDasm->Setup();
 return pDasm;
 }
@@ -335,7 +335,8 @@ OpCode Dasm68000::opcodes[mnemo68000_count] =
 /* Dasm68000 : constructor                                                   */
 /*****************************************************************************/
 
-Dasm68000::Dasm68000(void)
+Dasm68000::Dasm68000(Application *pApp)
+  : Disassembler(pApp)
 {
 #if 1
 asmtype = "gen";
@@ -2668,6 +2669,7 @@ else // no bus check necessary, there's only one
         }
       if (addr != NO_ADDRESS)
         {
+        // TODO: check how that interferes with PIC!
         chg.oper = "ORG";
         chg.opnds = Number2String(addr, 6, NO_ADDRESS);
         changes.push_back(chg);

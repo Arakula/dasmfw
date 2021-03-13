@@ -58,7 +58,7 @@ using namespace std;
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.19"
+#define DASMFW_VERSION  "0.20"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t cadr_t;                /* container for maximal code address*/
@@ -143,7 +143,8 @@ bool ParseBool(string value, bool &bResult);
 /*****************************************************************************/
 
 class Disassembler;
-bool RegisterDisassembler(string name, Disassembler * (*CreateDisassembler)());
+class Application;
+bool RegisterDisassembler(string name, Disassembler * (*CreateDisassembler)(Application *));
 
 // This one relies on the global functions above
 #include "Memory.h"
@@ -248,6 +249,7 @@ protected:
   void DumpMem(int bus);
 #endif
 
+public:
   // Comment / Text line handling
   bool AddComment(adr_t addr, bool bAfter = false, string sComment = "", bool bPrepend = false, bool bIsComment = true, int bus = BusCode)
     {

@@ -105,13 +105,61 @@ class MemAttribute6809Handler : public MemAttributeHandler
 
 
 /*****************************************************************************/
+/* OS8 file structures                                                       */
+/*****************************************************************************/
+
+#pragma pack(1)
+struct OS9ModuleHeader
+  {
+  uint8_t bSync[2];    // sync bytes $87,$CD
+  uint8_t bModSize[2]; // module size as a word, including CRC
+  uint8_t bOffName[2]; // offset of module name relative to bSync
+  uint8_t bModType;    // module type / language type
+  uint8_t bAttRev;     // attributes / revision level
+  uint8_t bHdrChk;     // header checksum
+  };
+// if (bModType & 0xf0) < 0xa0 :
+struct OS9UserModuleHeader : public OS9ModuleHeader
+  {
+  uint8_t bExecOff[2]; // execution offset
+  uint8_t bPSReq[2];   // permanent storage requirement
+  };
+// if (bModType & 0xf0) == 0xf0 :
+struct OS9DeviceDescriptorHeader : public OS9ModuleHeader
+  {
+  uint8_t bFmNOff[2];  // File Manager Name Offset
+  uint8_t bDDNOff[2];  // Device Driver Name Offset
+  uint8_t bMode;       // Mode byte
+  uint8_t bControl[3]; // Device Controller Address (24 bit)
+  uint8_t bTabSize;    // Table Size
+  };
+// if (bModType & 0xf0) == 0xc0 :
+struct OS9ConfigModuleHeader : public OS9ModuleHeader
+  {
+  uint8_t bRAMTop[3];  // top limit of free RAM
+  uint8_t bIrqNo;      // IRQ polling entries
+  uint8_t bDevNo;      // device entries
+  uint8_t bStupOff[2]; // offset to startup mod. name
+  uint8_t bSysdrv[2];  // offset to default drive name
+  uint8_t bBoot[2];    // offset to bootstrap module name
+  };
+// if (bModType & 0xf0) == 0x40 :
+struct OS9DataModuleHeader : public OS9ModuleHeader
+  {
+  uint8_t bDataOff[2]; // offset to data
+  uint8_t bSize;       // data size
+  };
+#pragma pack()
+
+
+/*****************************************************************************/
 /* Dasm6809 : class for a Motorola 6809 Processor                            */
 /*****************************************************************************/
 
 class Dasm6809 : public Dasm6800
   {
   public:
-    Dasm6809(void);
+    Dasm6809(Application *pApp);
     virtual ~Dasm6809(void);
 
   // Overrides
@@ -139,6 +187,14 @@ class Dasm6809 : public Dasm6800
       { if (memattr[bus]) ((MemAttribute6809Handler *)memattr[bus])->SetDirectPage(addr, dp); }
 
     virtual bool ProcessInfo(string key, string value, adr_t &from, adr_t &to, adr_t &step, vector<TMemoryArray<adr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode);
+
+    bool LoadOS9(FILE *f, string &sLoadType);
+    bool SetupOS9(adr_t loadAddr, uint16_t modsize, OS9ModuleHeader &h);
+    bool SetupOS9(adr_t loadAddr, OS9UserModuleHeader &h);
+    bool SetupOS9(adr_t loadAddr, OS9DataModuleHeader &h);
+    bool SetupOS9(adr_t loadAddr, OS9DeviceDescriptorHeader &h);
+    bool SetupOS9(adr_t loadAddr, OS9ConfigModuleHeader &h);
+    virtual bool LoadFile(string filename, FILE *f, string &sLoadType, int interleave = 1, int bus = BusCode);
 
   protected:
     // parse instruction at given memory address for labels
@@ -245,6 +301,8 @@ class Dasm6809 : public Dasm6800
     static const char reg[];
 
     bool os9Patch;
+    bool os9Comments;
+    bool os9ModHeader;
     bool useFlex;
 
   protected:

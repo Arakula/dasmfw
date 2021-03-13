@@ -68,10 +68,14 @@ template<class T, class TType = uint8_t> class TMemory : public vector<T>
     bool TypeMatches(TType chkType) { return memType == chkType; }
 
     // vector specializations
-    typename vector<T>::const_reference at(typename vector<T>::size_type _Pos) const { return vector<T>::at(_Pos - GetStart()); }
-    typename vector<T>::reference at(typename vector<T>::size_type _Pos) { return vector<T>::at(_Pos - GetStart()); }
-	typename vector<T>::const_reference operator[](typename vector<T>::size_type _Pos) const { return at(_Pos); }
-	typename vector<T>::reference operator[](typename vector<T>::size_type _Pos) { return at(_Pos); }
+    typename vector<T>::const_reference at(typename vector<T>::size_type _Pos) const
+      { return vector<T>::at(_Pos - GetStart()); }
+    typename vector<T>::reference at(typename vector<T>::size_type _Pos)
+      { return vector<T>::at(_Pos - GetStart()); }
+	typename vector<T>::const_reference operator[](typename vector<T>::size_type _Pos) const
+      { return at(_Pos); }
+	typename vector<T>::reference operator[](typename vector<T>::size_type _Pos)
+      { return at(_Pos); }
 
   protected:
     Label label;
@@ -272,7 +276,7 @@ struct MemAttribute
   unsigned cellSize: 8;                 /* cell size 1..256 (i.e., +1)       */
   unsigned memType: 3;                  /* MemoryType                        */
   unsigned cellType: 3;                 /* CellType                          */
-  unsigned display: 3;                  /* CellDisplay                       */
+  unsigned display: 4;                  /* CellDisplay                       */
   unsigned used: 1;                     /* used (or not)                     */
   unsigned breakBefore: 1;              /* line break in disassembly         */
   unsigned forcedAddr:1;                /* forced addressing                 */
@@ -287,12 +291,12 @@ struct MemAttribute
   enum Display
     {
     CellUndisplayable,
+    DefaultDisplay,
     Binary,
     Char,
     Octal,
     Decimal,
     Hex,
-    DefaultDisplay
     };
 
   MemAttribute

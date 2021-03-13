@@ -33,7 +33,7 @@
 static struct DisassemblerCreators      /* structure for dasm creators:      */
   {
   string name;                          /* code name of the disassembler     */
-  Disassembler *(*Factory)();           /* factory to create it              */
+  Disassembler *(*Factory)(Application *); /* factory to create it           */
   } *Disassemblers = NULL;
 static int nRegDisassemblers = 0;       /* # registered disassemblers        */
 static int nAllocDisassemblers = 0;     /* # allocated disassembler structs  */
@@ -42,7 +42,7 @@ static int nAllocDisassemblers = 0;     /* # allocated disassembler structs  */
 /* RegisterDisassembler : registers a disassembler                           */
 /*****************************************************************************/
 
-bool RegisterDisassembler(string name, Disassembler *(*CreateDisassembler)())
+bool RegisterDisassembler(string name, Disassembler *(*CreateDisassembler)(Application *))
 {
 if (nRegDisassemblers + 1 > nAllocDisassemblers)
   {
@@ -94,13 +94,13 @@ return true;
 /* CreateDisassembler : creates a disassembler with a given code name        */
 /*****************************************************************************/
 
-Disassembler *CreateDisassembler(string name, int *pidx = NULL)
+Disassembler *CreateDisassembler(string name, Application *pApp, int *pidx = NULL)
 {
 for (int da = 0; da < nRegDisassemblers; da++)
   if (Disassemblers[da].name == name)
     {
     if (pidx) *pidx = da;
-    return Disassemblers[da].Factory();
+    return Disassemblers[da].Factory(pApp);
     }
 return NULL;
 }
@@ -109,7 +109,7 @@ return NULL;
 /* ListDisassemblers : lists out all registered disassemblers                */
 /*****************************************************************************/
 
-static void ListDisassemblers(int indent = 0)
+static void ListDisassemblers(Application *pApp, int indent = 0)
 {
 printf("%*sRegistered disassemblers:\n"
        "%*s%-8s %-16s %s\n"
@@ -119,7 +119,7 @@ printf("%*sRegistered disassemblers:\n"
        indent, "");
 for (int da = 0; da < nRegDisassemblers; da++)
   {
-  Disassembler *pDasm = Disassemblers[da].Factory();
+  Disassembler *pDasm = Disassemblers[da].Factory(pApp);
   printf("%*s%-8s %-16s (%d/%d bits data/code, %s-endian",
          indent, "",
          Disassemblers[da].name.c_str(),
@@ -267,7 +267,7 @@ if (idx != sDasmName.npos)
   sDasmName = sDasmName.substr(0, idx);
 // if the name might be "dasm"+code, try to use this disassembler
 if (lowercase(sDasmName.substr(0, 4)) == "dasm")
-  pDasm = CreateDisassembler(sDasmName.substr(4), &iDasm);
+  pDasm = CreateDisassembler(sDasmName.substr(4), this, &iDasm);
 }
 
 /*****************************************************************************/
@@ -1986,7 +1986,7 @@ if (bSetDasm)                           /* 1st pass: find only dasm          */
     if (idx != string::npos)
       lvalue = lvalue.substr(0, idx);
     if (pDasm) delete pDasm;            /* use the last one                  */
-    pDasm = CreateDisassembler(lvalue, &iDasm);
+    pDasm = CreateDisassembler(lvalue, this, &iDasm);
     if (!pDasm)
       printf("Unknown disassembler \"%s\"\n", value.c_str());
     return 1;
@@ -2233,14 +2233,14 @@ ListOptionLine("dasm", "{code}\tDisassembler to use",
 if (!pDasm)
   {
   printf("\n");
-  ListDisassemblers();
+  ListDisassemblers(this);
   printf("\nTo show the available options for a disassembler, select one first\n"
          "and append -? to the command line\n");
   }
 else
   {
   if (bAllOptions)
-    ListDisassemblers(4);
+    ListDisassemblers(this, 4);
   ListOptionLine("out", "Output File name", outname.size() ? outname : "console");
   ListOptionLine("info", "Info File name");
   if (pDasm->GetBusCount() > 1)

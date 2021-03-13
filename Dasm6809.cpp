@@ -31,9 +31,9 @@
 /* Create6809 : create an 6809 disassembler                                  */
 /*****************************************************************************/
 
-static Disassembler *Create6809()
+static Disassembler *Create6809(Application *pApp)
 {
-Disassembler *pDasm = new Dasm6809;
+Disassembler *pDasm = new Dasm6809(pApp);
 if (pDasm) pDasm->Setup();
 return pDasm;
 }
@@ -422,13 +422,16 @@ OpCode Dasm6809::opcodes[mnemo6809_count - mnemo6800_count] =
 /* Dasm6809 : constructor                                                    */
 /*****************************************************************************/
 
-Dasm6809::Dasm6809(void)
+Dasm6809::Dasm6809(Application *pApp)
+  : Dasm6800(pApp)
 {
 codes = m6809_codes;
 codes10 = m6809_codes10;
 codes11 = m6809_codes11;
 exg_tfr = m6809_exg_tfr;
 os9Patch = false;
+os9Comments = false;
+os9ModHeader = false;
 useFlex = false;
 mnemo.resize(mnemo6809_count);          /* set up additional mnemonics       */
 for (int i = 0; i < mnemo6809_count - mnemo6800_count; i++)
@@ -446,6 +449,12 @@ AddOption("flex", "{off|on}\tuse FLEX9 standard labels",
           static_cast<PSetter>(&Dasm6809::Set6809Option),
           static_cast<PGetter>(&Dasm6809::Get6809Option));
 AddOption("os9", "{off|on}\tpatch swi2 (os9 call)",
+          static_cast<PSetter>(&Dasm6809::Set6809Option),
+          static_cast<PGetter>(&Dasm6809::Get6809Option));
+AddOption("os9c", "{off|on}\tauto-create os9 module comments",
+          static_cast<PSetter>(&Dasm6809::Set6809Option),
+          static_cast<PGetter>(&Dasm6809::Get6809Option));
+AddOption("os9m", "{off|on}\tauto-create os9 module header and end",
           static_cast<PSetter>(&Dasm6809::Set6809Option),
           static_cast<PGetter>(&Dasm6809::Get6809Option));
 }
@@ -477,6 +486,16 @@ else if (lname == "os9")
   os9Patch = bnValue;
   return bIsBool ? 1 : 0;
   }
+else if (lname == "os9c")
+  {
+  os9Comments = bnValue;
+  return bIsBool ? 1 : 0;
+  }
+else if (lname == "os9m")
+  {
+  os9ModHeader = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else if (lname == "dplabel")
   {
   useDPLabels = bnValue;
@@ -497,6 +516,8 @@ string Dasm6809::Get6809Option(string lname)
 {
 if (lname == "flex")         return useFlex ? "on" : "off";
 else if (lname == "os9")     return os9Patch ? "on" : "off";
+else if (lname == "os9c")    return os9Comments ? "on" : "off";
+else if (lname == "os9m")    return os9ModHeader ? "on" : "off";
 else if (lname == "dplabel") return useDPLabels ? "on" : "off";
 return "";
 }
@@ -615,6 +636,387 @@ switch (cmdType)
   }
 return true;
 }
+
+/*****************************************************************************/
+/* LoadOS9 : loads an OS9 module                                             */
+/*****************************************************************************/
+
+bool Dasm6809::LoadOS9(FILE *f, string &sLoadType)
+{
+int c = fgetc(f);                       /* fetch first byte to decide        */
+if (c == EOF)                           /* whether it may be a OS9 module    */
+  return false;
+ungetc(c, f);
+if (c != 0x87)
+  return false;
+
+int nCurPos = ftell(f);                 /* remember where we started         */
+union
+  {
+  OS9ModuleHeader h;
+  OS9UserModuleHeader um;
+  OS9DeviceDescriptorHeader dd;
+  OS9ConfigModuleHeader cf;
+  OS9DataModuleHeader dm;
+  } mod;
+// first get the normal header
+if (fread(&mod, 1, sizeof(OS9ModuleHeader), f) != sizeof(OS9ModuleHeader))
+  {
+  fseek(f, nCurPos, SEEK_SET);          /* seek back                         */
+  return false;
+  }
+uint16_t wModSize = ((uint16_t)mod.h.bModSize[0]) * 256 + mod.h.bModSize[1];
+uint16_t wOffName = ((uint16_t)mod.h.bOffName[0]) * 256 + mod.h.bOffName[1];
+uint8_t hpck = 0;  // calc hdr chksum
+for (uint8_t *ph = (uint8_t *)&mod; ph != mod.um.bExecOff; ph++)
+  hpck ^= *ph;
+// hpck should be $FF now.
+if (mod.h.bSync[1] != 0xcd ||
+    !mod.h.bModType ||
+    wModSize < sizeof(mod.h) + 1 ||
+    wOffName < sizeof(mod.h) ||
+    hpck != 0xff)
+  {
+  fseek(f, nCurPos, SEEK_SET);
+  return false;
+  }
+
+long nHLPos = ftell(f);                 /* remember pos after header load    */
+adr_t nHdrLen = (adr_t)(nHLPos - nCurPos);
+
+// OK, looks legit. Load it into standard OS9 places.
+// This should be position-independent code. Load it at $0400
+adr_t const loadAddr = 0x0400;
+adr_t fbegin = loadAddr, fend = fbegin + wModSize - 1, i;
+// For now, including the header portion:
+AddMemory(fbegin, wModSize, Code);
+for (i = 0; i < nHdrLen; i++)
+  SetUByte(fbegin + i, ((uint8_t *)&mod)[i]);
+for (; i < wModSize; i++)
+  {
+  int c = fgetc(f);
+  if (c == EOF)
+    {
+    fseek(f, nCurPos, SEEK_SET);
+    return false;
+    }
+  if (i < sizeof(mod))                  /* fill up all possible headers      */
+    ((uint8_t*)&mod)[i] = (uint8_t)c;
+  SetUByte(fbegin + i, (uint8_t)c);
+  }
+
+// now calculate the checksum!
+// this is a close copy of the OS9 assembler logic in CRCCHK.
+uint8_t crc24[3] = { 0xff, 0xff, 0xff };
+for (i = fbegin; i <= fend; i++)
+  {
+  uint8_t a = GetUByte(i) ^ crc24[0];
+  crc24[0] = crc24[1];
+  crc24[1] = crc24[2] ^ (a >> 2) ^ (a >> 7);
+  crc24[2] = (a << 1) ^ (a << 6);
+  a ^= (a << 1);
+  a ^= (a << 2);
+  a ^= (a << 4);
+  if (a & 0x80)
+    {
+    crc24[0] ^= 0x80;
+    crc24[2] ^= 0x21;
+    }
+  }
+
+if (crc24[0] != 0x80 ||                 /* CRCCHK checks against $800FE3!    */
+    crc24[1] != 0x0f ||
+    crc24[2] != 0xe3)
+  {
+  fseek(f, nCurPos, SEEK_SET);          /* seek back                         */
+  return false;
+  }
+
+// loaded & checked OK, so set up contents
+if (fbegin < begin)
+  begin = fbegin;
+if (fend > end)
+  end = fend;
+sLoadType = "OS9";
+os9Patch = true;  // in this case, DO patch OS9 codes.
+bPIC = true;      // and default to position-independent code
+// NB: this requires an info file to turn the options off!
+
+int modtype = mod.h.bModType >> 4;
+int language = mod.h.bModType & 0x0f;
+string modname;
+adr_t endName = fbegin + wOffName;
+for (; ; endName++)
+  {
+  c = GetUByte(endName);
+  modname += (char)(c & 0x7f);
+  if (c & 0x80)
+    break;
+  }
+adr_t startContent = endName + 2;
+string modnm = modname + "$Nm";
+string modsiz = modname + "$Sz";
+string modstrt = modname + "$St";
+string datasize = modname + "$DS";
+
+const char *modtypenames[] =
+  {
+  "",
+  "PRGRM",
+  "SBRTN",
+  "MULTI",
+  "DATA",
+  "$50",
+  "$60",
+  "$70",
+  "$80",
+  "$90",
+  "$A0",
+  "$B0",
+  "SYSTM",
+  "FLMGR",
+  "DRIVR",
+  "DEVIC",
+  };
+const char *languagenames[] =
+  {
+  "",
+  "OBJCT",
+  "ICODE",
+  "PCODE",
+  "CCODE",
+  "CBLCODE",
+  "FRTNCODE",
+  "7",
+  "8",
+  "9",
+  "10",
+  "11",
+  "12",
+  "13",
+  "14",
+  "15",
+  };
+const char *attributenames[] =
+  {
+  "",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "REENT",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "",
+  };
+string modtypename = modtypenames[modtype];
+if (*languagenames[language])
+  modtypename += string("+") + languagenames[mod.h.bModType & 0x0f];
+string attributes = attributenames[mod.h.bAttRev >> 4];
+if (attributes.size())
+  attributes += "+";
+attributes += (char)('0' + (mod.h.bAttRev & 0x0f));
+
+uint16_t wExecOff = 0;
+uint16_t wPSReq = 0;
+if (modtype != 0x04 && modtype < 0x0a)
+  {
+  wExecOff = ((uint16_t)mod.um.bExecOff[0]) * 256 + mod.um.bExecOff[1];
+  wPSReq = ((uint16_t)mod.um.bPSReq[0]) * 256 + mod.um.bPSReq[1];
+  }
+
+for (i = fbegin; i <= fend; i++)
+  {
+  if (i < startContent)
+    SetMemType(i, Data);
+  else
+    SetMemType(i, Code);
+  SetCellUsed(i);
+  SetDisplay(i, defaultDisplay);
+  }
+SetupOS9(fbegin, wModSize, mod.h);
+if (modtype == 4)
+  SetupOS9(fbegin, mod.dm);
+else if (modtype < 0x0a)
+  SetupOS9(fbegin, mod.um);
+else if (modtype == 0x0c)
+  SetupOS9(fbegin, mod.cf);
+else if (modtype == 0x0f)
+  SetupOS9(fbegin, mod.dd);
+
+// this might be better in the SetupOS9 methods ... but for now, keep it here.
+if (os9ModHeader)
+  {
+  if (wExecOff)
+    AddLabel(loadAddr + wExecOff, Code, modstrt, true);
+
+  pApp->AddComment(fbegin, false, "        IF      0", true, false);
+  pApp->AddComment(startContent, false, "", true, false);
+  pApp->AddComment(startContent, false, "        ENDIF", true, false);
+  pApp->AddComment(startContent, false, datasize + " EQU " + Number2String(wPSReq, 4, NO_ADDRESS), true, false);
+  pApp->AddComment(startContent, false, modnm + " fcs /" + modname + "/", true, false);
+  string modcmd("        mod     ");
+  modcmd += modsiz + "," + modnm + "," + modtypename + "," + attributes + ",";
+  modcmd += modstrt + "," + datasize;
+  pApp->AddComment(startContent, false, modcmd, true, false);
+  pApp->AddComment(startContent, false, "        ELSE", true, false);
+
+  adr_t chksadr = fend - 2;
+  pApp->AddComment(chksadr, false, "        IF      0", true, false);
+  pApp->AddComment(chksadr, false, "", true, false);
+  pApp->AddComment(chksadr, true, "        ENDIF", true, false);
+  pApp->AddComment(chksadr, true, modsiz + " equ *", true, false);
+  pApp->AddComment(chksadr, true, "        emod", true, false);
+  pApp->AddComment(chksadr, true, "        ELSE", true, false);
+  }
+else if (wExecOff)
+  AddLabel(fbegin + wExecOff, Code, "", true);
+
+(void)wPSReq;  // keep gcc happy
+
+return true;
+}
+
+/*****************************************************************************/
+/* SetupOS9 : format according to the module type                            */
+/*****************************************************************************/
+
+bool Dasm6809::SetupOS9(adr_t loadAddr, uint16_t modsize, OS9ModuleHeader &h)
+{
+// header and checksum are const
+adr_t i;
+for (i = 0; i < sizeof(h); i++)
+  SetMemType(loadAddr + i, Const);
+adr_t chksadr = loadAddr + modsize - 3;
+for (i = 0; i < 3; i++)
+  SetMemType(chksadr + i, Const);
+SetCellSize(loadAddr + 2, 2);
+SetCellType(loadAddr + 2, MemAttribute::UnsignedInt);
+SetCellSize(loadAddr + 4, 2);
+SetCellType(loadAddr + 4, MemAttribute::UnsignedInt);
+SetBreakBefore(loadAddr + 7);
+SetBreakBefore(loadAddr + 8);
+uint16_t wOffName = ((uint16_t)h.bOffName[0]) * 256 + h.bOffName[1];
+if (os9Comments)
+  {
+  pApp->AddComment(loadAddr, false, "OS9 Module Header Data");
+  pApp->AddLComment(loadAddr, "Sync bytes");
+  pApp->AddLComment(loadAddr + 2, "Module size");
+  pApp->AddLComment(loadAddr + 4, "Module name offset");
+  pApp->AddLComment(loadAddr + 6, "Module type and language");
+  pApp->AddLComment(loadAddr + 7, "Attributes and revision level");
+  pApp->AddLComment(loadAddr + 8, "Header checksum");
+  pApp->AddLComment(loadAddr + wOffName, "Module name");
+  pApp->AddComment(chksadr, false, "OS9 Checksum Data");
+  pApp->AddLComment(chksadr, "Checksum bytes");
+  }
+return true;
+}
+
+bool Dasm6809::SetupOS9(adr_t loadAddr, OS9DataModuleHeader &h)
+{
+SetMemType(loadAddr + 9, Const);
+SetCellSize(loadAddr + 9, 2);
+SetCellType(loadAddr + 9, MemAttribute::UnsignedInt);
+SetMemType(loadAddr + 11, Const);
+SetCellSize(loadAddr + 11, 2);
+SetCellType(loadAddr + 11, MemAttribute::UnsignedInt);
+
+if (os9Comments)
+  {
+  pApp->AddLComment(loadAddr + 9, "Data offset");
+  pApp->AddLComment(loadAddr + 11, "Data size");
+  }
+
+return true;
+}
+
+bool Dasm6809::SetupOS9(adr_t loadAddr, OS9UserModuleHeader &h)
+{
+SetMemType(loadAddr + 9, Const);
+SetCellSize(loadAddr + 9, 2);
+SetCellType(loadAddr + 9, MemAttribute::UnsignedInt);
+SetMemType(loadAddr + 11, Const);
+SetCellSize(loadAddr + 11, 2);
+SetCellType(loadAddr + 11, MemAttribute::UnsignedInt);
+if (os9Comments)
+  {
+  pApp->AddLComment(loadAddr + 9, "Execution offset");
+  pApp->AddLComment(loadAddr + 11, "Permament storage requirement");
+  }
+
+#if 0
+// if os9ModHeader goes in here, this might become interesting
+uint16_t wExecOff = ((uint16_t)h.bExecOff[0]) * 256 + h.bExecOff[1];
+uint16_t wPSReq = ((uint16_t)h.bPSReq[0]) * 256 + h.bPSReq[1];
+#endif
+
+return true;
+}
+
+bool Dasm6809::SetupOS9(adr_t loadAddr, OS9DeviceDescriptorHeader &h)
+{
+for (int8_t i = sizeof(OS9ModuleHeader);
+     i < sizeof(OS9DeviceDescriptorHeader);
+     i++)
+  SetMemType(loadAddr + i, Const);
+SetCellSize(loadAddr + 9, 2);
+SetCellType(loadAddr + 9, MemAttribute::UnsignedInt);
+SetCellSize(loadAddr + 11, 2);
+SetCellType(loadAddr + 11, MemAttribute::UnsignedInt);
+if (os9Comments)
+  {
+  pApp->AddLComment(loadAddr + 9, "File manager name offset");
+  pApp->AddLComment(loadAddr + 11, "Device driver name offset");
+  pApp->AddLComment(loadAddr + 12, "Mode byte");
+  pApp->AddLComment(loadAddr + 13, "Device controller address (24 bit)");
+  pApp->AddLComment(loadAddr + 16, "Table size");
+  }
+return true;
+}
+
+bool Dasm6809::SetupOS9(adr_t loadAddr, OS9ConfigModuleHeader &h)
+{
+for (int8_t i = sizeof(OS9ModuleHeader);
+     i < sizeof(OS9ConfigModuleHeader);
+     i++)
+  SetMemType(loadAddr + i, Const);
+SetCellSize(loadAddr + 14, 2);
+SetCellType(loadAddr + 14, MemAttribute::UnsignedInt);
+SetCellSize(loadAddr + 16, 2);
+SetCellType(loadAddr + 16, MemAttribute::UnsignedInt);
+SetCellSize(loadAddr + 18, 2);
+SetCellType(loadAddr + 18, MemAttribute::UnsignedInt);
+if (os9Comments)
+  {
+  pApp->AddLComment(loadAddr + 9, "Top limit of free RAM (24 bit)");
+  pApp->AddLComment(loadAddr + 12, "IRQ polling entries");
+  pApp->AddLComment(loadAddr + 13, "Device entries");
+  pApp->AddLComment(loadAddr + 14, "Offset to startup module name");
+  pApp->AddLComment(loadAddr + 16, "Offset to default drive name");
+  pApp->AddLComment(loadAddr + 18, "Offset to bootstrap module name");
+  }
+
+return true;
+}
+
+/*****************************************************************************/
+/* LoadFile : loads an opened file                                           */
+/*****************************************************************************/
+
+bool Dasm6809::LoadFile(string filename, FILE *f, string &sLoadType, int interleave, int bus)
+{
+return LoadOS9(f, sLoadType) ||  // OS9 files need no interleave nor bus
+       Dasm6800::LoadFile(filename, f, sLoadType, interleave, bus);
+}
+
 
 /*****************************************************************************/
 /* InitParse : initialize parsing                                            */

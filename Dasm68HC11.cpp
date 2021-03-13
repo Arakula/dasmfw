@@ -26,9 +26,9 @@
 /* Create68HC11 : create an 68HC11 disassembler                              */
 /*****************************************************************************/
 
-static Disassembler *Create68HC11()
+static Disassembler *Create68HC11(Application *pApp)
 {
-Disassembler *pDasm = new Dasm68HC11;
+Disassembler *pDasm = new Dasm68HC11(pApp);
 if (pDasm) pDasm->Setup();
 return pDasm;
 }
@@ -368,7 +368,8 @@ OpCode Dasm68HC11::opcodes[mnemo68HC11_count - mnemo6801_count] =
 /* Dasm68HC11 : constructor                                                  */
 /*****************************************************************************/
 
-Dasm68HC11::Dasm68HC11(void)
+Dasm68HC11::Dasm68HC11(Application *pApp)
+  : Dasm6801(pApp)
 {
 codes = m68hc11_codes;
 codes18 = m68hc11_codes18;

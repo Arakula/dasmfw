@@ -31,9 +31,9 @@
 /* CreateAvr8 : create an avr8 disassembler handler                          */
 /*****************************************************************************/
 
-static Disassembler *CreateAvr8()
+static Disassembler *CreateAvr8(Application *pApp)
 {
-Disassembler *pDasm = new DasmAvr8;
+Disassembler *pDasm = new DasmAvr8(pApp);
 if (pDasm) pDasm->Setup();
 return pDasm;
 }
@@ -352,7 +352,8 @@ avrInstructionInfo DasmAvr8::AVR_Instruction_Set[] =
 /* DasmAvr8 : constructor                                                    */
 /*****************************************************************************/
 
-DasmAvr8::DasmAvr8()
+DasmAvr8::DasmAvr8(Application *pApp)
+  : Disassembler(pApp)
 {
 commentStart = ";";
 labelDelim = ":";

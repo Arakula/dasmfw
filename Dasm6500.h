@@ -33,7 +33,7 @@ class Dasm650X :
   public Disassembler
   {
   public:
-    Dasm650X(void);
+    Dasm650X(Application *pApp);
     virtual ~Dasm650X(void);
 
   // Overrides
@@ -210,7 +210,7 @@ class Dasm6501 :
   public Dasm650X
   {
   public:
-    Dasm6501(void);
+    Dasm6501(Application *pApp);
 
   // Options handler
   protected:
@@ -266,7 +266,7 @@ class Dasm6503 :
   public Dasm6501
   {
   public:
-    Dasm6503(void);
+    Dasm6503(Application *pApp);
 
   // Overrides
   public:
@@ -286,7 +286,7 @@ class Dasm6504 :
   public Dasm6501
   {
   public:
-    Dasm6504(void);
+    Dasm6504(Application *pApp);
 
   // Overrides
   public:
@@ -307,7 +307,7 @@ class Dasm65C02 :
   public Dasm650X
   {
   public:
-    Dasm65C02(void);
+    Dasm65C02(Application *pApp);
     // return processor long name
     virtual string GetName() { return "MOS 65C02"; }
 

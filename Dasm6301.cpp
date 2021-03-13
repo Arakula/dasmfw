@@ -31,9 +31,9 @@
 /* Create6301 : create a 6301 disassembler                                   */
 /*****************************************************************************/
 
-static Disassembler *Create6301()
+static Disassembler *Create6301(Application *pApp)
 {
-Disassembler *pDasm = new Dasm6301;
+Disassembler *pDasm = new Dasm6301(pApp);
 if (pDasm) pDasm->Setup();
 return pDasm;
 }
@@ -143,7 +143,8 @@ OpCode Dasm6301::opcodes[mnemo6301_count - mnemo6801_count] =
 /* Dasm6301 : constructor                                                    */
 /*****************************************************************************/
 
-Dasm6301::Dasm6301(void)
+Dasm6301::Dasm6301(Application *pApp)
+  : Dasm6801(pApp)
 {
 codes = h6301_codes;
 mnemo.resize(mnemo6301_count);          /* set up additional mnemonics       */

@@ -51,7 +51,7 @@ class Dasm6800 :
   public Disassembler
   {
   public:
-    Dasm6800(void);
+    Dasm6800(Application *pApp);
     virtual ~Dasm6800(void);
 
   // Overrides

@@ -195,7 +195,7 @@ class DasmAvr8 :
   public Disassembler
   {
   public:
-    DasmAvr8(void);
+    DasmAvr8(Application *pApp);
     virtual ~DasmAvr8(void);
 
   // Overrides

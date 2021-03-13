@@ -32,7 +32,7 @@
 class Dasm68HC11 : public Dasm6801
   {
   public:
-    Dasm68HC11(void);
+    Dasm68HC11(Application *pApp);
     virtual ~Dasm68HC11(void);
 
   // Overrides

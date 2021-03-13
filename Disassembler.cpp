@@ -120,7 +120,8 @@ const Disassembler::Endian Disassembler::prgEndian = (Disassembler::Endian)*((ui
 /* Disassembler : constructor                                                */
 /*****************************************************************************/
 
-Disassembler::Disassembler()
+Disassembler::Disassembler(Application *pApp)
+  : pApp(pApp)
 {
 begin = load = NO_ADDRESS;
 end = offset = 0;
@@ -137,6 +138,7 @@ bLoadLabel = true;
 bSetSysVec = true;
 bMultiLabel = false;
 bAutoLabel = false;
+bPIC = false;
 
 // set up options table
 // base class uses one generic option setter/getter pair (not mandatory)
@@ -171,6 +173,9 @@ AddOption("autolabel", "{off|on}\tset labels based on previous text label",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
 AddOption("sysvec", "{off|on}\tset system vector labels",
+          &Disassembler::DisassemblerSetOption,
+          &Disassembler::DisassemblerGetOption);
+AddOption("pic", "{off|on}\tdiasassemble as position-indpendent code",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
 }
@@ -417,6 +422,11 @@ else if (lname == "sysvec")
   bSetSysVec = bnValue;
   return bIsBool ? 1 : 0;
   }
+else if (lname == "pic")
+  {
+  bPIC = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else
   return 0;                             /* only option consumed              */
 
@@ -460,6 +470,7 @@ else if (lname == "loadlabel") oval = bLoadLabel ? "on" : "off";
 else if (lname == "multilabel") oval = bMultiLabel ? "on" : "off";
 else if (lname == "autolabel") oval = bAutoLabel ? "on" : "off";
 else if (lname == "sysvec") oval = bSetSysVec ? "on" : "off";
+else if (lname == "pic") oval = bPIC ? "on" : "off";
 return oval;
 }
 
