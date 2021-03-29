@@ -671,7 +671,7 @@ adr_t Dasm68000::ParseData
     )
 {
                                         /* mark DefLabels as used            */
-SetLabelUsed(addr, Const, NO_ADDRESS, bus);
+SetLabelUsed(addr, Const, bus, NO_ADDRESS);
 
 // TODO: complete this!
 int csz = GetCellSize(addr, bus);
