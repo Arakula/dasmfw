@@ -1033,6 +1033,75 @@ return false;
 }
 
 /*****************************************************************************/
+/* AddText : adds a text to the dictionary                                   */
+/*****************************************************************************/
+
+void Application::AddText(string name, string content)
+{
+if (content.size())
+  texts[lowercase(name)] = content;
+else
+  {
+  map<string,string>::iterator it = texts.find(lowercase(name));
+  if (it != texts.end())
+    texts.erase(it);
+  }
+}
+
+/*****************************************************************************/
+/* ReplaceText : replaces all &text occurences in a line                     */
+/*****************************************************************************/
+
+string Application::ReplaceText(string line)
+{
+string rline;
+size_t szline(line.size());
+size_t from = 0, i = line.find('&', 0);
+while (i != string::npos)
+  {
+  if (i != from)
+    rline += line.substr(from, i - from);
+  size_t e = i + 1;
+  size_t p = 0, r = 0;
+  if (e < szline && line[e] == '(')
+    {
+    p++;
+    e++;
+    }
+  while (e < szline && line[e] != ' ' && line[e] != '\t' && (!p || line[e] != ')'))
+    e++;
+  if (p && e < szline && line[e] == ')')
+    {
+    r++;
+    e++;
+    }
+  if (e - i > 1)
+    {
+    string name(line.substr(i + p + 1, e - i - p - r - 1));
+    const char *replenv = getenv(name.c_str());
+    if (replenv)
+      rline += replenv;
+    else
+      {
+      map<string,string>::iterator it = texts.find(lowercase(name));
+      if (it == texts.end())
+        rline += line.substr(i, e - i);
+      else
+        rline += it->second;
+      }
+    }
+  else                                  /* a single & is not replaced.       */
+    rline += line.substr(i, 1);
+
+  from = e;
+  i = line.find('&', e + 1);
+  }
+if (from != szline)
+  rline += line.substr(from, szline - from);
+return rline;
+}
+
+/*****************************************************************************/
 /* LoadInfo : loads an information file                                      */
 /*****************************************************************************/
 
@@ -1132,6 +1201,9 @@ enum InfoCmd
   infoPatchDWord,                       /* PATCHDW addr [dword]*             */
   infoPatchFloat,                       /* PATCHF addr [float]*              */
 
+  // rudimentary text replacement support
+  infoText,                             /* TEXT name [content]               */
+
   // end info file processing
   infoEnd,                              /* END (processing this file)        */
   };
@@ -1226,6 +1298,8 @@ static struct                           /* structure to convert key to type  */
   { "PATCHW",       infoPatchWord },
   { "PATCHDW",      infoPatchDWord },
   { "PATCHF",       infoPatchFloat },
+  // rudimentary text replacement support
+  { "TEXT",         infoText },
 
   // end info file processing
   { "END",          infoEnd },
@@ -1255,6 +1329,8 @@ do
     line += (char)fc;
     continue;
     }
+  if (bProcInfo)
+    line = ReplaceText(line);           /* do text replacement               */
   // newline or end of file encountered
   if (line.size() &&                    /* if line has contents              */
       line[0] != '*' && line[0] != ';')
@@ -1295,7 +1371,7 @@ do
 
     if (pDasm && !bSetDasm)             /* let disassembler have a go at it  */
       {
-      adr_t from, to, step;            /* address range has to be first!    */
+      adr_t from, to, step;             /* address range has to be first!    */
       ParseInfoRange(value, from, to, step);
       if (pDasm->ProcessInfo(key, value,
                              from, to, step,
@@ -1943,6 +2019,21 @@ do
           }
         }
         break;
+      case infoText :                   /* TEXT name [content]               */
+        {
+        char delim1 = ' ', delim2 = '\t';
+        string name;
+        string::size_type i = 0;
+        for (; i < value.size() && value[i] != delim1 && value[i] != delim2; i++)
+          name += value[i];
+        if (i < value.size())
+          value = trim(value.substr(i + 1));
+        else
+          value.clear();
+        if (name.size())
+          AddText(name, value);
+        }
+        break;
       case infoEnd :
         bEnd = true;
         break;
@@ -2370,6 +2461,7 @@ printf("\t                    (like WORD, but adds target labels if necessary)\n
         "\tinsert text:        INSERT [AFTER] addr[-addr] embedded line\n"
         "\tinclude label file: INCLUDE filename\n"
         "\tload binary file:   FILE filename [baseaddr]\n"
+        "\tdefine a text:      TEXT name [content]\n"
         "\tstop parsing:       END\n"
        );
 #else
@@ -2444,6 +2536,8 @@ printf("RMB addr[-addr]\n"
        "PATCHW addr [word]*\n"
        "PATCHDW addr [word]*\n"
        "PATCHF addr [float]*\n"
+
+       "TEXT name [content]\n"
 
        "END\n"
        );

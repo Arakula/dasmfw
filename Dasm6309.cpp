@@ -575,21 +575,21 @@ adr_t Dasm6309::ParseCode
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, T, mode;
 uint16_t W;
 int MI;
 const char *I;
 bool bSetLabel;
 adr_t dp = GetDirectPage(addr);
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I);
 
 #if 1
 // speed up things a bit by checking here (would be done in 6809 anyway)
-if ((T == _swi2) && os9Patch)
+if ((MI == _swi2) && os9Patch)
   return (PC + 1 - addr);
 #endif
 
-switch (M)                              /* which mode is this ?              */
+switch (mode)                           /* which mode is this ?              */
   {
   case _bd:                             /* Bit Manipulation direct           */
     SetDefLabelUsed(PC, bus);           /* the bit part                      */
@@ -712,18 +712,18 @@ adr_t Dasm6309::DisassembleCode
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, T, mode;
 uint16_t W;
 int MI;
 const char *I;
 bool bGetLabel;
 adr_t dp = GetDirectPage(addr);
 Label *lbl;
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I, &smnemo);
 
 #if 1
 // speed up things a bit by checking here (would be done in 6809 anyway)
-if ((T == _swi2) && os9Patch)
+if ((MI == _swi2) && os9Patch)
   {
   T = GetUByte(PC++);
   smnemo = "OS9";
@@ -732,18 +732,13 @@ if ((T == _swi2) && os9Patch)
   }
 #endif
 
-switch (M)                              /* which mode is this?               */
+switch (mode)                           /* which mode is this?               */
   {
-  case _imp:                            /* inherent/implied                  */
-    // override 6800 code, since the 6800 convenience mnemonics
-    // LSRD and ASLD are real opcodes on a 6309!
-    break;
-
   case _bd:                             /* Bit Manipulation direct           */
     {
     lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
-    M = GetUByte(PC);
-    string snum = lbl ? lbl->GetText() : Number2String(M, 2, PC);
+    T = GetUByte(PC);
+    string snum = lbl ? lbl->GetText() : Number2String(T, 2, PC);
     PC++;
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
@@ -810,7 +805,7 @@ switch (M)                              /* which mode is this?               */
   case _bt:                             /* Bit Transfers direct              */
     {
     lbl = FindLabel(PC, Const, bus);
-    M = GetUByte(PC);
+    uint8_t M = GetUByte(PC);
     string snum = lbl ? lbl->GetText() : sformat("%d", M & 7);
     PC++;
     lbl = FindLabel(PC, Const, bus);
@@ -857,3 +852,26 @@ switch (M)                              /* which mode is this?               */
   }
 return PC - addr;                       /* pass back # processed bytes       */
 }
+
+/*****************************************************************************/
+/* SetConvenience : set convenience mnemonics as appropriate                 */
+/*****************************************************************************/
+
+bool Dasm6309::SetConvenience(uint8_t instpg, uint16_t u2, string &smnemo, adr_t &PC)
+{
+// PC is on the second byte of u2
+// The 6309 has special mnemonics that collide with 6809/6800 convenience!
+switch (u2)
+  {
+  case 0x4456 :                         /* LSRA + RORB -> LSRD               */
+  case 0x4756 :                         /* ASRA + RORB -> ASRD               */
+  case 0x5849 :                         /* ASLB + ROLA -> ASLD(/LSLD)        */
+  case 0x4f5f :                         /* CLRA + CLRB -> CLRD               */
+  case 0x8300 :                         /* SUBD 1 -> DECD                    */
+  case 0xc300 :                         /* ADDD 1 -> INCD                    */
+    return false;
+  }
+
+return Dasm6809::SetConvenience(instpg, u2, smnemo, PC);
+}
+

@@ -545,20 +545,21 @@ return csz;
 adr_t Dasm650X::FetchInstructionDetails
     (
     adr_t PC,
-    uint8_t &O,
-    uint8_t &T,
-    uint8_t &M,
-    uint16_t &W,
+    uint8_t &instpg,
+    uint8_t &instb,
+    uint8_t &mode,
     int &MI,
     const char *&I,
     string *smnemo
     )
 {
-O = GetUByte(PC++);
-W = (uint16_t)(O * 2);
-MI = T = codes[W++];
-M = codes[W];
-I = mnemo[T].mne;
+uint16_t W;
+instpg = 0;  // 650X has no instruction page
+instb = GetUByte(PC++);
+W = (uint16_t)instb * 2;
+MI = codes[W++];
+mode = codes[W];
+I = mnemo[MI].mne;
 if (smnemo)
   *smnemo = I;
 return PC;
@@ -574,14 +575,14 @@ adr_t Dasm650X::ParseCode
     int bus                             /* ignored for 6500 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, T, mode;
 uint16_t W;
 int MI;
 const char *I;
 bool bSetLabel;
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I);
 
-switch (M)                              /* which mode is this ?              */
+switch (mode)                           /* which mode is this ?              */
   {
   case _nom:                            /* no mode                           */
     SetDefLabelUsed(PC, bus);
@@ -833,20 +834,20 @@ adr_t Dasm650X::DisassembleCode
     int bus                             /* ignored for 6500 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, T, mode;
 uint16_t W;
 int MI;
 const char *I;
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I, &smnemo);
 bool bGetLabel;
 Label *lbl;
 
-switch (M)                              /* which mode is this?               */
+switch (mode)                           /* which mode is this?               */
   {
   case _nom:                            /* no mode                           */
     smnemo = "FCB";
     lbl = FindLabel(PC, Const, bus);
-    sparm = lbl ? lbl->GetText() : Number2String(O, 2, PC);
+    sparm = lbl ? lbl->GetText() : Number2String(instb, 2, PC);
     PC = addr + 1;
     break;
 
@@ -889,15 +890,15 @@ switch (M)                              /* which mode is this?               */
       }
     else // if no direct page, this can't be interpreted as a label
       sparm = (lbl ? lbl->GetText() : Number2String(T, 2, PC));
-    if (M == _zpx)
+    if (mode == _zpx)
       sparm += ",X";
-    else if (M == _zpy)
+    else if (mode == _zpy)
       sparm += ",Y";
-    else if (M == _ind)
+    else if (mode == _ind)
       sparm = "(" + sparm + ")";
-    else if (M == _idx)
+    else if (mode == _idx)
       sparm = "(" + sparm + ",X)";
-    else if (M == _idy)
+    else if (mode == _idy)
       sparm = "(" + sparm + "),Y";
     PC++;
     }
@@ -922,9 +923,9 @@ switch (M)                              /* which mode is this?               */
       sparm = ">" + slbl;
     else
       sparm = slbl;
-    if (M == _abx)
+    if (mode == _abx)
       sparm += ",X";
-    else if (M == _aby)
+    else if (mode == _aby)
       sparm += ",Y";
     PC += 2;
     }
@@ -1200,27 +1201,29 @@ return "";
 adr_t Dasm6501::FetchInstructionDetails
     (
     adr_t PC,
-    uint8_t &O,
-    uint8_t &T,
-    uint8_t &M,
-    uint16_t &W,
+    uint8_t &instpg,
+    uint8_t &instb,
+    uint8_t &mode,
     int &MI,
     const char *&I,
     string *smnemo
     )
 {
-O = GetUByte(PC++);
-W = (uint16_t)(O * 2);
-MI = T = codes[W++];
-M = codes[W];
-bool und = !!(M & _und);
-M &= ~_und;
+uint16_t W;
+
+instpg = 0;  // 6501 has no instruction page
+instb = GetUByte(PC++);
+W = (uint16_t)instb * 2;
+MI = codes[W++];
+mode = codes[W];
+bool und = !!(mode & _und);
+mode &= ~_und;
 if (und && !useUndefined)               /* if unwanted undefined opcode      */
   {
-  MI = T = _ill;
-  M = _nom;
+  MI = _ill;
+  mode = _nom;
   }
-I = mnemo[T].mne;
+I = mnemo[MI].mne;
 if (smnemo)
   *smnemo = I;
 return PC;
@@ -1376,14 +1379,14 @@ adr_t Dasm65C02::ParseCode
     int bus                             /* ignored for 6500 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, T, mode;
 uint16_t W;
 int MI;
 const char *I;
 bool bSetLabel;
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I);
 
-switch (M)                              /* which mode is this ?              */
+switch (mode)                           /* which mode is this ?              */
   {
   case _zpi:                            /* (zero-page)                       */
   case _zpb:                            /* zero-page bit                     */
@@ -1460,16 +1463,16 @@ adr_t Dasm65C02::DisassembleCode
     int bus                             /* ignored for 6500 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, T, mode;
 uint16_t W;
 int MI;
 const char *I;
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I, &smnemo);
 bool bGetLabel;
 Label *lbl;
 char bitnum;
 
-switch (M)                              /* which mode is this?               */
+switch (mode)                           /* which mode is this?               */
   {
   case _zpi:                            /* (zero page)                       */
     {
@@ -1497,7 +1500,7 @@ switch (M)                              /* which mode is this?               */
     break;
   case _bbt :                           /* branch on bit                     */
     {
-    bitnum = (O & 0x70) >> 4;           /* get number to add to mnemonic     */
+    bitnum = (instb & 0x70) >> 4;       /* get number to add to mnemonic     */
     smnemo += '0' + bitnum;
                                         /* process the zpg part              */
     bGetLabel = !IsConst(PC);
@@ -1541,9 +1544,12 @@ switch (M)                              /* which mode is this?               */
     }
     break;
   case _zpb:                            /* zero-page bit                     */
-    bitnum = (O & 0x70) >> 4;           /* get number to add to mnemonic     */
+#if 0
+    // not sure what I wanted to do here ...
+    bitnum = (instb & 0x70) >> 4;       /* get number to add to mnemonic     */
     smnemo += '0' + bitnum;
-    M = _zpg;                           /* otherwise, it's zero-page         */
+    mode = _zpg;                        /* otherwise, it's zero-page         */
+#endif
     return Dasm650X::DisassembleCode(addr, smnemo, sparm, bus);
   default :
     return Dasm650X::DisassembleCode(addr, smnemo, sparm, bus);

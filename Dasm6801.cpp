@@ -215,3 +215,21 @@ if (bus == BusCode)
 return true;
 }
 
+/*****************************************************************************/
+/* SetConvenience : set convenience mnemonics as appropriate                 */
+/*****************************************************************************/
+
+bool Dasm6801::SetConvenience(uint8_t instpg, uint16_t u2, string &smnemo, adr_t &PC)
+{
+// PC is on the second byte of u2
+// The 6801 has special mnemonics that collide with 6800 convenience!
+switch (u2)
+  {
+  case 0x4456 :                   /* LSRA + RORB -> LSRD (0x04!)       */
+  case 0x5849 :                   /* ASLB + ROLA -> ASLD(/LSLD) (0x05!)*/
+    return false;
+  }
+
+return Dasm6800::SetConvenience(instpg, u2, smnemo, PC);
+}
+

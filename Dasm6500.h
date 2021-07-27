@@ -96,7 +96,7 @@ class Dasm650X :
     virtual string Number2String(adr_t value, int nDigits, adr_t addr, int bus = BusCode);
     virtual string Address2String(adr_t addr, int bus = BusCode)
       { (void)bus; return sformat("$%04X", addr); }
-    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, string *smnemo = NULL);
+    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &MI, const char *&I, string *smnemo = NULL);
 
   protected:
     // 6500 addressing modes
@@ -218,7 +218,7 @@ class Dasm6501 :
     string Get6501Option(string name);
 
   protected:
-    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, string *smnemo = NULL);
+    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &MI, const char *&I, string *smnemo = NULL);
 
   protected:
     // 6501 addressing modes

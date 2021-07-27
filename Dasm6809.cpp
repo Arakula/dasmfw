@@ -922,6 +922,8 @@ return true;
 
 bool Dasm6809::SetupOS9(adr_t loadAddr, OS9DataModuleHeader &h)
 {
+(void)h; // maybe needed later
+
 SetMemType(loadAddr + 9, Const);
 SetCellSize(loadAddr + 9, 2);
 SetCellType(loadAddr + 9, MemAttribute::UnsignedInt);
@@ -940,6 +942,8 @@ return true;
 
 bool Dasm6809::SetupOS9(adr_t loadAddr, OS9UserModuleHeader &h)
 {
+(void)h; // maybe needed later
+
 SetMemType(loadAddr + 9, Const);
 SetCellSize(loadAddr + 9, 2);
 SetCellType(loadAddr + 9, MemAttribute::UnsignedInt);
@@ -963,8 +967,10 @@ return true;
 
 bool Dasm6809::SetupOS9(adr_t loadAddr, OS9DeviceDescriptorHeader &h)
 {
+(void)h; // maybe needed later
+
 for (int8_t i = sizeof(OS9ModuleHeader);
-     i < sizeof(OS9DeviceDescriptorHeader);
+     i < (int8_t)sizeof(OS9DeviceDescriptorHeader);
      i++)
   SetMemType(loadAddr + i, Const);
 SetCellSize(loadAddr + 9, 2);
@@ -984,8 +990,10 @@ return true;
 
 bool Dasm6809::SetupOS9(adr_t loadAddr, OS9ConfigModuleHeader &h)
 {
+(void)h; // maybe needed later
+
 for (int8_t i = sizeof(OS9ModuleHeader);
-     i < sizeof(OS9ConfigModuleHeader);
+     i < (int8_t)sizeof(OS9ConfigModuleHeader);
      i++)
   SetMemType(loadAddr + i, Const);
 SetCellSize(loadAddr + 14, 2);
@@ -1071,43 +1079,210 @@ return Dasm6800::InitParse(bus);
 adr_t Dasm6809::FetchInstructionDetails
     (
     adr_t PC,
-    uint8_t &O,
-    uint8_t &T,
-    uint8_t &M,
-    uint16_t &W,
+    uint8_t &instpg,
+    uint8_t &instb,
+    uint8_t &mode,
     int &MI,
     const char *&I,
     string *smnemo
     )
 {
-O = T = GetUByte(PC++);
-if (T == 0x10)
+uint16_t W;
+uint8_t T;
+
+instpg = instb = GetUByte(PC++);
+if (instpg == 0x10)
   {
   T = GetUByte(PC++);
   W = T * 2;
   MI = T = codes10[W++];
-  I = mnemo[T].mne;
-  M = codes10[W];
+  I = mnemo[MI].mne;
+  mode = codes10[W];
   }
-else if (T == 0x11)
+else if (instpg == 0x11)
   {
   T = GetUByte(PC++);
   W = T * 2;
-  MI = T = codes11[W++];
-  I = mnemo[T].mne;
-  M = codes11[W];
+  MI = codes11[W++];
+  I = mnemo[MI].mne;
+  mode = codes11[W];
   }
 else
   {
-  W = T * 2;
-  MI = T = codes[W++];
-  M = codes[W];
-  I = mnemo[T].mne;
+  instpg = 0;
+  W = (uint16_t)instb * 2;
+  MI = codes[W++];
+  mode = codes[W];
+  I = mnemo[MI].mne;
   }
 
 if (smnemo)
   *smnemo = I;
 return PC;
+}
+
+/*****************************************************************************/
+/* SetConvenience : set convenience mnemonics as appropriate                 */
+/*****************************************************************************/
+
+bool Dasm6809::SetConvenience(uint8_t instpg, uint16_t u2, string &smnemo, adr_t &PC)
+{
+uint16_t W;
+
+switch (u2)
+  {
+  case 0x1a01 :                         /* ORCC $01 -> SEC                   */
+    smnemo = mnemo[_sec].mne; PC++;
+    return true;
+  case 0x1a02 :                         /* ORCC $02 -> SEV                   */
+    smnemo = mnemo[_sev].mne; PC++;
+    return true;
+  case 0x1a04 :                         /* ORCC $04 -> SEZ                   */
+    smnemo = mnemo[_sez].mne; PC++;
+    return true;
+  case 0x1a10 :                         /* ORCC $10 -> SEI                   */
+    smnemo = mnemo[_sei].mne; PC++;
+    return true;
+  case 0x1a40 :                         /* ORCC $40 -> SEF                   */
+    smnemo = mnemo[_sef].mne; PC++;
+    return true;
+  case 0x1a50 :                         /* ORCC $40+$10 -> SEIF              */
+    smnemo = mnemo[_seif].mne; PC++;
+    return true;
+  case 0x1cfe :                         /* ANDCC ~$01 -> CLC                 */
+    smnemo = mnemo[_clc].mne; PC++;
+    return true;
+  case 0x1cfd :                         /* ANDCC ~$02 -> CLV                 */
+    smnemo =  mnemo[_clv].mne; PC++;
+    return true;
+  case 0x1cfb :                         /* ANDCC ~$04 -> CLZ                 */
+    smnemo = mnemo[_clz].mne; PC++;
+    return true;
+  case 0x1cef :                         /* ANDCC ~$10 -> CLI                 */
+    smnemo = mnemo[_cli].mne; PC++;
+    return true;
+  case 0x1cbf :                         /* ANDCC ~$40 -> CLF                 */
+    smnemo = mnemo[_clf].mne; PC++;
+    return true;
+  case 0x1caf :                         /* ANDCC ~($40 + $10) -> CLIF        */
+    smnemo = mnemo[_clif].mne; PC++;
+    return true;
+  case 0x3cff :                         /* CWAI $FF -> WAI                   */
+    smnemo = mnemo[_wai].mne; PC++;
+    return true;
+  case 0x3001 :                         /* LEAX +1 -> INX                    */
+    smnemo = mnemo[_inx].mne; PC++;
+    return true;
+  case 0x301f :                         /* LEAX -1 -> DEX                    */
+    smnemo = mnemo[_dex].mne; PC++;
+    return true;
+  case 0x3121 :                         /* LEAY +1 -> INY                    */
+    smnemo = mnemo[_iny].mne; PC++;
+    return true;
+  case 0x313f :                         /* LEAY -1 -> DEY                    */
+    smnemo = mnemo[_dey].mne; PC++;
+    return true;
+  case 0x3261 :                         /* LEAS +1 -> INS                    */
+    smnemo = mnemo[_ins].mne; PC++;
+    return true;
+  case 0x327f :                         /* LEAS -1 -> DES                    */
+    smnemo = mnemo[_des].mne; PC++;
+    return true;
+  case 0x3341 :                         /* LEAU +1 -> INU                    */
+    smnemo = mnemo[_inu].mne; PC++;
+    return true;
+  case 0x335f :                         /* LEAU -1 -> DEU                    */
+    smnemo = mnemo[_deu].mne; PC++;
+    return true;
+  case 0x1f14 :                         /* TFR X,S -> TXS                    */
+    smnemo = mnemo[_txs].mne; PC++;
+    return true;
+  case 0x1f41 :                         /* TFR S,X -> TSX                    */
+    smnemo = mnemo[_tsx].mne; PC++;
+    return true;
+/* hairy - some assemblers expand TAB to TAB + TSTA...
+   but there's no guarantee.
+  case 0x1f89 :
+    smnemo = mnemo[_tab]; PC++;
+    return true; */
+  case 0x1f8a :                         /* TFR A,CC -> TAP                   */
+    smnemo = mnemo[_tap].mne; PC++;
+    return true;
+/* hairy - some assemblers expand TBA to TBA + TSTA...
+   but there's no guarantee.
+  case 0x1f98 :
+    smnemo = mnemo[_tba]; PC++;
+    return true; */
+  case 0x1fa8 :                         /* TFR CC,A -> TPA                   */
+    smnemo = mnemo[_tpa].mne; PC++;
+    return true;
+  case 0x3404 :                         /* PSHS B + ...                      */
+    W = IsCLabel(PC + 1) ? 0 : GetUWord(PC + 1);
+    switch (W)
+      {
+      case 0xa0e0 :                     /* PSHS B / SUBA ,S++ -> SBA         */
+        smnemo = mnemo[_sba].mne; PC += 3;
+        return true;
+      case 0xa1e0 :                     /* PSHS B / CMPA ,S++ -> CBA         */
+        smnemo = mnemo[_cba].mne; PC += 3;
+        return true;
+      case 0xabe0 :                     /* PSHS B / ADDA ,S++ -> ABA         */
+        smnemo = mnemo[_aba].mne; PC += 3;
+        return true;
+      default:                          /* PSHS B / anything else -> PSHB    */
+        smnemo = mnemo[_pshb].mne; PC++;
+        return true;
+      }
+    break;
+  case 0x3402 :                         /* PSHS A -> PSHA                    */
+    smnemo = mnemo[_psha].mne; PC++;
+    return true;
+  case 0x3406 :                         /* PSHS D -> PSHD                    */
+    smnemo = "PSHD"; PC++;
+    return true;
+  case 0x3410 :                         /* PSHS X -> PSHX                    */
+    smnemo = "PSHX"; PC++;
+    return true;
+  case 0x3420 :                         /* PSHS Y -> PSHY                    */
+    smnemo = "PSHY"; PC++;
+    return true;
+  case 0x3502 :                         /* PULS A -> PULA                    */
+    smnemo = mnemo[_pula].mne; PC++;
+    return true;
+  case 0x3504 :                         /* PULS B -> PULB                    */
+    smnemo = mnemo[_pulb].mne; PC++;
+    return true;
+  case 0x3506 :                         /* PULS D -> PULD                    */
+    smnemo = "PULD"; PC++;
+    return true;
+  case 0x3510 :                         /* PULS X -> PULX                    */
+    smnemo = "PULX"; PC++;
+    return true;
+  case 0x3520 :                         /* PULS Y -> PULY                    */
+    smnemo = "PULY"; PC++;
+    return true;
+  case 0x8300 :                         /* SUBD #1 -> DECD                   */
+    W = GetUWord(PC);
+    if (W == 1)
+      {
+      smnemo = "DECD"; PC += 2;
+      return true;
+      }
+    break;
+  case 0xc300 :                         /* ADDD #1 -> INCD                   */
+    W = GetUWord(PC);
+    if (W == 1)
+      {
+      smnemo = "INCD"; PC += 2;
+      return true;
+      }
+    break;
+  case 0xc001 :                         /* 6800-style DECD collision         */
+  case 0xcd01 :                         /* 6800-style INCD collision         */
+    return false;
+  }
+
+return Dasm6800::SetConvenience(instpg, u2, smnemo, PC);
 }
 
 /*****************************************************************************/
@@ -1573,18 +1748,18 @@ adr_t Dasm6809::ParseCode
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, /* T, */ mode;
 uint16_t W;
 int MI;
 const char *I;
 bool bSetLabel;
 Label *lbl;
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I);
 
-if ((T == _swi2) && os9Patch)
+if ((MI == _swi2) && os9Patch)
   return (PC + 1 - addr);
 
-switch (M)                              /* which mode is this ?              */
+switch (mode)                           /* which mode is this ?              */
   {
   case _ind:                            /* indexed                           */
     PC = IndexParse(MI, PC, addr);
@@ -1604,12 +1779,12 @@ switch (M)                              /* which mode is this ?              */
     break;
     
   case _r1:                             /* tfr/exg mode                      */
-    T = GetUByte(PC); PC++;
+    /* T = GetUByte(PC); */ PC++;
     break;
 
   case _r2:                             /* pul/psh system                    */
   case _r3:                             /* pul/psh user                      */
-    T = GetUByte(PC); PC++;
+    /* T = GetUByte(PC); */ PC++;
     break;
 
   default :                             /* anything else is handled by base  */
@@ -1630,7 +1805,7 @@ adr_t Dasm6809::DisassembleCode
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, T, mode;
 uint16_t W;
 int MI;
 const char *I;
@@ -1638,8 +1813,8 @@ adr_t PC = addr;
 bool bGetLabel;
 Label *lbl;
 
-PC = FetchInstructionDetails(PC, O, T, M, W, MI, I, &smnemo);
-if ((T == _swi2) && os9Patch)
+PC = FetchInstructionDetails(PC, instpg, instb, mode, MI, I, &smnemo);
+if ((MI == _swi2) && os9Patch)
   {
   T = GetUByte(PC++);
   smnemo = "OS9";
@@ -1647,7 +1822,7 @@ if ((T == _swi2) && os9Patch)
   return PC - addr;
   }
 
-switch (M)                              /* which mode is this?               */
+switch (mode)                           /* which mode is this?               */
   {
   case _ext:                            /* extended                          */
     {
@@ -1673,95 +1848,10 @@ switch (M)                              /* which mode is this?               */
     }
     break;
 
-  case _imb:                            /* immediate byte                    */
-    T = GetUByte(PC);
-    if (useConvenience)
-      W = (uint16_t)(O << 8) | T;
-    else
-      W = 0;
-    switch (W)                          /* examine for special CC settings   */
-      {
-      case 0x1a01 :                     /* (6809) ORCC $01                   */
-        smnemo = mnemo[_sec].mne;
-        break;
-      case 0x1a02 :                     /* (6809) ORCC $02                   */
-        smnemo = mnemo[_sev].mne;
-        break;
-      case 0x1a04 :                     /* (6809) ORCC $04                   */
-        smnemo = mnemo[_sez].mne;
-        break;
-      case 0x1a10 :                     /* (6809) ORCC $10                   */
-        smnemo = mnemo[_sei].mne;
-        break;
-      case 0x1a40 :                     /* (6809) ORCC $40                   */
-        smnemo = mnemo[_sef].mne;
-        break;
-      case 0x1a50 :                     /* (6809) ORCC $40+$10               */
-        smnemo = mnemo[_seif].mne;
-        break;
-      case 0x1cfe :                     /* (6809) ANDCC ~$01                 */
-        smnemo = mnemo[_clc].mne;
-        break;
-      case 0x1cfd :                     /* (6809) ANDCC ~$02                 */
-        smnemo =  mnemo[_clv].mne;
-        break;
-      case 0x1cfb :                     /* (6809) ANDCC ~$04                 */
-        smnemo = mnemo[_clz].mne;
-        break;
-      case 0x1cef :                     /* (6809) ANDCC ~$10                 */
-        smnemo = mnemo[_cli].mne;
-        break;
-      case 0x1cbf :                     /* (6809) ANDCC ~$40                 */
-        smnemo = mnemo[_clf].mne;
-        break;
-      case 0x1caf :                     /* (6809) ANDCC ~($40 + $10)         */
-        smnemo = mnemo[_clif].mne;
-        break;
-      case 0x3cff :                     /* (6809) CWAI $FF                   */
-        smnemo = mnemo[_wai].mne;
-        break;
-      default :
-        lbl = FindLabel(PC, Const, bus);
-        sparm = "#" + (lbl ? lbl->GetText() : Number2String(T, 2, PC));
-      }
-    PC++;
-    break;
-
   case _ind:                            /* indexed                           */
-    if (useConvenience)
-      W = (uint16_t)(O << 8) | GetUByte(PC);
-    else
-      W = 0;
-    switch (W)
-      {
-      case 0x3001 :                     /* (6809) LEAX +1                    */
-        smnemo = mnemo[_inx].mne; PC++;
-        break;
-      case 0x301f :                     /* (6809) LEAX -1                    */
-        smnemo = mnemo[_dex].mne; PC++;
-        break;
-      case 0x3121 :                     /* (6809) LEAY +1                    */
-        smnemo = mnemo[_iny].mne; PC++;
-        break;
-      case 0x313f :                     /* (6809) LEAY -1                    */
-        smnemo = mnemo[_dey].mne; PC++;
-        break;
-      case 0x3261 :                     /* (6809) LEAS +1                    */
-        smnemo = mnemo[_ins].mne; PC++;
-        break;
-      case 0x327f :                     /* (6809) LEAS -1                    */
-        smnemo = mnemo[_des].mne; PC++;
-        break;
-      case 0x3341 :                     /* (6809) LEAU +1                    */
-        smnemo = mnemo[_inu].mne; PC++;
-        break;
-      case 0x335f :                     /* (6809) LEAU -1                    */
-        smnemo = mnemo[_deu].mne; PC++;
-        break;
-      default :
-        sparm = IndexString(PC);
-        break;
-      }
+    if (!useConvenience || 
+        !SetConvenience(instpg, (uint16_t)(instb << 8) | GetUByte(PC), smnemo, PC))
+      sparm = IndexString(PC);
     break;
     
   case _rew:                            /* relative word                     */
@@ -1775,129 +1865,49 @@ switch (M)                              /* which mode is this?               */
     break;
     
   case _r1:                             /* tfr/exg mode                      */
-    if (useConvenience)
-      W = (uint16_t)(O << 8) | GetUByte(PC);
-    else
-      W = 0;
-    switch (W)
+    if (!useConvenience || 
+        !SetConvenience(instpg, (uint16_t)(instb << 8) | GetUByte(PC), smnemo, PC))
       {
-      case 0x1f14 :                     /* (6809) TFR X,S                    */
-        smnemo = mnemo[_txs].mne; PC++;
-        break;
-      case 0x1f41 :                     /* (6809) TFR S,X                    */
-        smnemo = mnemo[_tsx].mne; PC++;
-        break;
-/* hairy - some assemblers expand TAB to TAB + TSTA...
-   but there's no guarantee.
-      case 0x1f89 :
-        smnemo = "TAB"; PC++;
-        break; */
-      case 0x1f8a :                     /* (6809) TFR A,CC                   */
-        smnemo = mnemo[_tap].mne; PC++;
-        break;
-/* hairy - some assemblers expand TBA to TBA + TSTA...
-   but there's no guarantee.
-      case 0x1f98 :
-        smnemo = "TBA"; PC++;
-        break; */
-      case 0x1fa8 :                     /* (6809) TFR CC,A                   */
-        smnemo = mnemo[_tpa].mne; PC++;
-        break;
-      default :
-        T = GetUByte(PC++);
-        sparm = sformat("%s,%s", exg_tfr[T >> 4], exg_tfr[T & 0xF]);
-        break;
+      T = GetUByte(PC++);
+      sparm = sformat("%s,%s", exg_tfr[T >> 4], exg_tfr[T & 0xF]);
       }
     break;
 
   case _r2:                             /* pul/psh system                    */
   case _r3:                             /* pul/psh user                      */
-    if (useConvenience)
-      W = (uint16_t)(O << 8) | GetUByte(PC);
-    else
-      W = 0;
-    switch (W)
+    if (!useConvenience || 
+        !SetConvenience(instpg, (uint16_t)(instb << 8) | GetUByte(PC), smnemo, PC))
       {
-      case 0x3404 :                     /* (6809) PSHS B                     */
-        if (FindLabel(PC + 1))
-          W = 0;
-        else
-          W = GetUWord(PC + 1);
-        switch (W)
-          {
-          case 0xa0e0 :                 /* (6809) PSHS B / SUBA ,S++         */
-            smnemo = mnemo[_sba].mne; PC += 3;
-            break;
-          case 0xa1e0 :                 /* (6809) PSHS B / CMPA ,S++         */
-            smnemo = mnemo[_cba].mne; PC += 3;
-            break;
-          case 0xabe0 :                 /* (6809) PSHS B / ADDA ,S++         */
-            smnemo = mnemo[_aba].mne; PC += 3;
-            break;
-          default:                      /* (6809) PSHS B / anything else     */
-            smnemo = mnemo[_pshb].mne; PC++;
-            break;
-          }
-        break;
-      case 0x3402 :                     /* (6809) PSHS A                     */
-        smnemo = mnemo[_psha].mne; PC++;
-        break;
-      case 0x3406 :                     /* (6809) PSHS D                     */
-        smnemo = "PSHD"; PC++;
-        break;
-      case 0x3410 :                     /* (6809) PSHS X                     */
-        smnemo = "PSHX"; PC++;
-        break;
-      case 0x3420 :                     /* (6809) PSHS Y                     */
-        smnemo = "PSHY"; PC++;
-        break;
-      case 0x3502 :                     /* (6809) PULS A                     */
-        smnemo = mnemo[_pula].mne; PC++;
-        break;
-      case 0x3504 :                     /* (6809) PULS B                     */
-        smnemo = mnemo[_pulb].mne; PC++;
-        break;
-      case 0x3506 :                     /* (6809) PULS D                     */
-        smnemo = "PULD"; PC++;
-        break;
-      case 0x3510 :                     /* (6809) PULS X                     */
-        smnemo = "PULX"; PC++;
-        break;
-      case 0x3520 :                     /* (6809) PULS Y                     */
-        smnemo = "PULY"; PC++;
-        break;
-      default:
-        // buf[0] = '\0';
-        T = GetUByte(PC++);
-        if (T & 0x80)
-          sparm += "PC,";
-        if (T & 0x40)
-          {
-          if (M == _r2)
-            sparm += "U,";
-          if (M == _r3)
-            sparm += "S,";
-          }
-        if (T&0x20)
-          sparm += "Y,";
-        if (T & 0x10)
-          sparm += "X,";
-        if (T & 0x08)
-          sparm += "DP,";
-        if ((T & 0x06) == 0x06)
-          sparm += "D,";
-        else
-          {
-          if (T & 0x04)
-            sparm += "B,";
-          if (T & 0x02)
-            sparm += "A,";
-          }
-        if (T & 0x01)
-          sparm += "CC,";
-        if (sparm.size())
-          sparm = sparm.substr(0, sparm.size() - 1);
-      break;
+      // buf[0] = '\0';
+      T = GetUByte(PC++);
+      if (T & 0x80)
+        sparm += "PC,";
+      if (T & 0x40)
+        {
+        if (mode == _r2)
+          sparm += "U,";
+        else if (mode == _r3)
+          sparm += "S,";
+        }
+      if (T&0x20)
+        sparm += "Y,";
+      if (T & 0x10)
+        sparm += "X,";
+      if (T & 0x08)
+        sparm += "DP,";
+      if ((T & 0x06) == 0x06)
+        sparm += "D,";
+      else
+        {
+        if (T & 0x04)
+          sparm += "B,";
+        if (T & 0x02)
+          sparm += "A,";
+        }
+      if (T & 0x01)
+        sparm += "CC,";
+      if (sparm.size())
+        sparm = sparm.substr(0, sparm.size() - 1);
       }
     break;
 

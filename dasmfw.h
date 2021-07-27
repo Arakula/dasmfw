@@ -46,6 +46,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <map>
 #include <memory>
 #include <algorithm>
 using namespace std;
@@ -58,7 +59,7 @@ using namespace std;
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.20"
+#define DASMFW_VERSION  "0.21"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t cadr_t;                /* container for maximal code address*/
@@ -279,6 +280,9 @@ public:
   Comment *LCommentAt(int index, int bus = BusCode) { return lcomments[bus].at(index); }
   void RemoveLCommentAt(int index, int bus = BusCode) { lcomments[bus].erase(lcomments[bus].begin() + index); }
 
+  // Text replacement handling
+  void AddText(string name, string content);
+  string ReplaceText(string line);
 
 protected:
   int argc;
@@ -315,6 +319,8 @@ protected:
   vector<CommentArray> comments[2];
   // line comment arrays
   vector<CommentArray> lcomments;
+  // text replacement map
+  map<string, string> texts;
 };
 
 #endif // __dasmfw_h_defined__

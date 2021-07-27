@@ -108,7 +108,7 @@ class Dasm68000 :
     virtual bool String2Number(string s, adr_t &value);
     virtual string Number2String(adr_t value, int nDigits, adr_t addr, int bus = BusCode);
     virtual string Address2String(adr_t addr, int bus = BusCode)
-      { (void)bus; return sformat("$%06x", addr); }
+      { (void)bus; return sformat("%s%06x", hdrHex.c_str(), addr); }
 
   protected:
     enum OpType
@@ -298,6 +298,7 @@ class Dasm68000 :
     // TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST
     bool showInstTypes;
     string sExtByte, sExtShort, sExtWord, sExtLong, sExtQuad;
+    string hdrHex, hdrDec, hdrOct, hdrBin;
 
   protected:
     virtual void SetAsmType(string &newType);
@@ -368,5 +369,24 @@ class Dasm68000 :
 
 
 // to my understanding, an 68008 is a crippled 68000 with either 20 or 22 bits address bus
+
+class Dasm68008 :
+    public Dasm68000
+  {
+  public:
+    Dasm68008(Application *pApp);
+    virtual ~Dasm68008(void);
+
+  // Overrides
+  public:
+    // return processor long name
+    virtual string GetName() { return "Motorola 68008"; }
+
+    // return highest possible code address
+    virtual cadr_t GetHighestCodeAddr() { return 0x3fffff; }
+    // return highest possible data address
+    virtual dadr_t GetHighestDataAddr() { return 0x3fffff; }
+
+  };
 
 #endif // __Dasm68000_h_defined__

@@ -38,6 +38,17 @@ return pDasm;
 }
 
 /*****************************************************************************/
+/* Create68008 : create an 68008 processor handler                           */
+/*****************************************************************************/
+
+static Disassembler *Create68008(Application *pApp)
+{
+Disassembler *pDasm = new Dasm68008(pApp);
+if (pDasm) pDasm->Setup();
+return pDasm;
+}
+
+/*****************************************************************************/
 /* Auto-registration                                                         */
 /*****************************************************************************/
 
@@ -45,11 +56,11 @@ static bool bRegistered[] =
   {
   RegisterDisassembler("68000", Create68000),
   // RegisterDisassembler("68k",   Create68000),
-  // RegisterDisassembler("68008", Create68000),
+  RegisterDisassembler("68008", Create68008),
   };
 
 /*===========================================================================*/
-/* Dasm680000 class members                                                  */
+/* Dasm68000 class members                                                   */
 /*===========================================================================*/
 
 Dasm68000::OpDef Dasm68000::OpTable[optblSize] =
@@ -355,6 +366,11 @@ sExtWord  = ".W";
 sExtLong  = ".L";
 sExtQuad  = ".Q";
 
+hdrHex = "$";
+hdrDec = "";
+hdrOct = "@";
+hdrBin = "%";
+
 int i, j;
 mnemo.resize(mnemo68000_count);         /* set up mnemonics table            */
 for (i = 0; i < mnemo68000_count; i++)
@@ -372,19 +388,13 @@ for (--i; i >= 0; i--)
   for (j = nStart; j <= nEnd; j++)
     {
     if ((j & OpTable[i].mask) == OpTable[i].op_code)
-      otIndex[j] = (unsigned char)i;
+      otIndex[j] = (uint8_t)i;
     }
   }
 
-#if 1
 AddOption("asm", "{gas|bird|gen[eric]}\tCreate output for a specific assembler",
           static_cast<PSetter>(&Dasm68000::Set68000Option),
           static_cast<PGetter>(&Dasm68000::Get68000Option));
-#else
-AddOption("gas", "{off|on}\tCreate GNU Assembler compatible output",
-          static_cast<PSetter>(&Dasm68000::Set68000Option),
-          static_cast<PGetter>(&Dasm68000::Get68000Option));
-#endif
 AddOption("closecc", "{off|on}\tadd closing delimiter to char constants",
           static_cast<PSetter>(&Dasm68000::Set68000Option),
           static_cast<PGetter>(&Dasm68000::Get68000Option));
@@ -471,7 +481,23 @@ return "";
 void Dasm68000::SetAsmType(string &newType)
 {
 if (newType == "gas" || newType == "bird" || newType == "gen")
-    asmtype = newType;
+  {
+  asmtype = newType;
+  if (asmtype == "bird")
+    {
+    hdrHex = "0x";
+    hdrOct = "0";
+    hdrBin = "0b";
+    hdrDec = "0d";
+    }
+  else
+    {
+    hdrHex = "$";
+    hdrOct = "@";
+    hdrBin = "%";
+    hdrDec = "";
+    }
+  }
 
 #if 0
 // let's see whether we need that ...
@@ -501,17 +527,14 @@ for (i = 0; i < _countof(mnemomod); i++)
 if (asmtype == "gas")
   {
   sExtShort = ".S";
-
   }
 else if (asmtype == "bird")
   {
   sExtShort = ".W";  // can't do that
-
   }
 else // "gen" or anything else
   {
   sExtShort = ".S";
-
   }
 }
 
@@ -597,14 +620,14 @@ if (disp == MemAttribute::Char &&       /* if character output requested     */
   if (isprint(value))
     s = sformat("'%c%s", value, closeCC ? "'" : "");
   else
-    s = sformat("$%02x", value);
+    s = sformat("%s%02x", hdrHex.c_str(), value);
   }
 else if (disp == MemAttribute::Binary)  /* if a binary                       */
   {
   int nBit;
 
   nDigits *= 4;                         /* convert from digits to bits       */
-  s = '%';                              /* prepare a binary value            */
+  s = hdrBin;                           /* prepare a binary value            */
                                         /* now do for all bits               */
   for (nBit = nDigits - 1; nBit >= 0; nBit--) 
     s.push_back('0' + (!!(value & (1 << nBit))));
@@ -622,11 +645,11 @@ else if (disp == MemAttribute::Hex)     /* if hex                            */
   s = sformat("%0*X", nDigits, value);
   while (s.size() > 2 && s.substr(0, 2) == "00")
     s = s.substr(2);
-  s = "$" + s;
+  s = hdrHex + s;
 #endif
   }
 else if (disp == MemAttribute::Octal)   /* if octal display                  */
-  s = sformat("@%0*o", (nDigits * 4) + 2 / 3, value);
+  s = sformat("%s%0*o", hdrOct.c_str(), (nDigits * 4) + 2 / 3, value);
 else                                    /* otherwise                         */
   {
   if (bSigned)
@@ -670,8 +693,7 @@ adr_t Dasm68000::ParseData
     int bus
     )
 {
-                                        /* mark DefLabels as used            */
-SetLabelUsed(addr, Const, bus, NO_ADDRESS);
+SetLabelUsed(addr, Const, bus);         /* mark DefLabels as used            */
 
 // TODO: complete this!
 int csz = GetCellSize(addr, bus);
@@ -689,15 +711,15 @@ return csz;
 /* Helper functionality, copied from dis.cpp - adapt ASAP!                   */
 /*****************************************************************************/
 
-#define BYTE_SIZE	256
-#define WORD_SIZE	257
-#define LONG_SIZE	258
+#define BYTE_SIZE	0x0100
+#define WORD_SIZE	0x0101
+#define LONG_SIZE	0x0102
 
-static int xlate_size(int *size,int type)
+static int xlate_size(int &size, int type)
 {
 if (type == 0)	/*	main type	*/
   {
-  switch (*size)
+  switch (size)
     {
     case 0:
       return BYTE_SIZE;
@@ -709,16 +731,16 @@ if (type == 0)	/*	main type	*/
   }
 else if (type == 1)	/*	for move op	*/
   {
-  switch (*size)
+  switch (size)
     {
     case 1:
-      *size = 0;
+      size = 0;
       return BYTE_SIZE;
     case 2:
-      *size = 2;
+      size = 2;
       return LONG_SIZE;
     case 3:
-      *size = 1;
+      size = 1;
       return WORD_SIZE;
     }
   }
@@ -1046,7 +1068,7 @@ else
   size = op_mode & 0x03;
   dir = (op_mode >> 2) & 0x01;
   }
-op_mode = xlate_size(&size, 0);
+op_mode = xlate_size(size, 0);
 addr = ParseEffectiveAddress(instaddr, addr, source, optable_index, op_mode);
 
 (void)dir;  // unused ATM
@@ -1057,7 +1079,7 @@ return addr;
 adr_t Dasm68000::ParseOptype04(adr_t instaddr, adr_t addr, uint16_t code, int optable_index)
 {
 int size = (code >> 12) & 0x03;
-int16_t op_mode = xlate_size(&size, 1);
+int16_t op_mode = xlate_size(size, 1);
 int16_t source = code & 0x3f;
 int16_t dest = (code >> 6) & 0x3f;
 /*	on dest, mode and reg are in different order, so swap them	*/
@@ -1081,7 +1103,7 @@ adr_t Dasm68000::ParseOptype06(adr_t instaddr, adr_t addr, uint16_t code, int op
 
 int16_t dest = code & 0x3f;
 int size = (code >> 6) & 0x03;  // 0x03? sure? not 0x07? what's at bit 8? TODO: check
-int16_t op_mode = xlate_size(&size, 0);
+int16_t op_mode = xlate_size(size, 0);
 int16_t data = (code >> 9) & 0x07;
 if (data == 0)
   data = 8;
@@ -1096,7 +1118,7 @@ adr_t Dasm68000::ParseOptype07(adr_t instaddr, adr_t addr, uint16_t code, int op
 
 int16_t dest = code & 0x3f;
 int size = (code >> 6) & 0x03;
-int16_t op_mode = xlate_size(&size, 0);
+int16_t op_mode = xlate_size(size, 0);
 addr = ParseEffectiveAddress(instaddr, addr, dest, optable_index, 0);
 
 (void)op_mode;  // unused ATM
@@ -1657,7 +1679,7 @@ else if (flags & 0xff)                  /* if not byte-sized                 */
         // s = Label2String(qw, 16, !IsConst(done), done);
 
         // display as hex value in a format that any 32/64bit compiler can do
-        s = sformat("$%x%08x", (uint32_t)(qw >> 32), (uint32_t)qw);
+        s = sformat("%s%x%08x", hdrHex.c_str(), (uint32_t)(qw >> 32), (uint32_t)qw);
         }
         break;
       }
@@ -1710,7 +1732,7 @@ adr_t Dasm68000::DisassembleCode
 {
 uint16_t code = GetUWord(addr, bus);
 int i = otIndex[code];
-adr_t len = 2;                         /* default to 2 bytes length         */
+adr_t len = 2;                          /* default to 2 bytes length         */
 smnemo = mnemo[OpTable[i].mnemo].mne;   /* initialize mnemonic               */
 switch (OpTable[i].ot)                  /* parse according to op type        */
   {
@@ -1938,6 +1960,7 @@ switch(mode)
     switch (reg)	/*	other modes	*/
       {
       case 0:		/*	absolute short	*/
+        // TODO: unsure whether this is signed or not. Check! Might save a ton of special code
         short_adr = GetSWord(addr);
         bGetLabel = !IsConst(addr);
         pLbl = FindLabel((uint16_t)short_adr);
@@ -2043,9 +2066,13 @@ uint16_t dest_reg = (code >> 9) & 0x07; /* get destination reg               */
 uint16_t source = code & 0x3f;          /* this is an effective address      */
                                         /* calculate effective address       */
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a, source, optable_index, 0);
+#if 1
 // this may be a bit inefficient, but it works ...
 if (e_a.size() > 2 && e_a.substr(e_a.size() - 2) == sExtLong)
   e_a = e_a.substr(0, e_a.size() - 2);
+else if (e_a.size() > 2 && e_a.substr(e_a.size() - 2) == sExtShort)
+  e_a = e_a.substr(0, e_a.size() - 2) + sExtWord;  // no sign here.
+#endif
 
 sparm = sformat("%s,%s", e_a.c_str(), GetAddrReg(dest_reg));
 
@@ -2075,7 +2102,7 @@ else
   size = op_mode & 0x03;
   dir = (op_mode >> 2) & 0x01;
   }
-op_mode = xlate_size(&size, 0);
+op_mode = xlate_size(size, 0);
 string e_a;
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a, source, optable_index, op_mode);
 
@@ -2095,7 +2122,7 @@ adr_t Dasm68000::DisassembleOptype04(adr_t instaddr, adr_t addr, uint16_t code, 
 {
 string e_a1, e_a2;
 int size = (code >> 12) & 0x03;
-int16_t op_mode = xlate_size(&size, 1);
+int16_t op_mode = xlate_size(size, 1);
 int16_t source = code & 0x3f;
 int16_t dest = (code >> 6) & 0x3f;
 /*	on dest, mode and reg are in different order, so swap them	*/
@@ -2105,13 +2132,20 @@ dest = ((dest & 0x07) << 3) | (dest >> 3);
 #pragma message("Mnemo size extension extraction is insufficient!")
 string smnemotype;
 if (smnemo.size() > 2 && smnemo[smnemo.size() - 2] == '.')
+  {
   smnemotype = smnemo.substr(smnemo.size() - 2);
+  smnemo = smnemo.substr(0, smnemo.size() - 2);
+  }
 
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a1, source, optable_index, op_mode);
-if (smnemotype.size() && e_a1.size() > 2 && smnemotype == e_a1.substr(e_a1.size() - 2))
-  e_a1 = e_a1.substr(0, e_a1.size() - 2);
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a2, dest, optable_index, 0);
+// if (smnemotype.size() && e_a1.size() > 2 && smnemotype == e_a1.substr(e_a1.size() - 2))
+if (smnemotype.size() && e_a1.size() > 2 && e_a1[e_a1.size() - 2] == '.')
+  e_a1 = e_a1.substr(0, e_a1.size() - 2);
+if (smnemotype.size() && e_a2.size() > 2 && e_a2[e_a2.size() - 2] == '.')
+  e_a2 = e_a2.substr(0, e_a2.size() - 2);
 sparm = sformat("%s,%s", e_a1.c_str(), e_a2.c_str());
+smnemo += smnemotype;
 return addr;
 }
 
@@ -2121,6 +2155,8 @@ adr_t Dasm68000::DisassembleOptype05(adr_t instaddr, adr_t addr, uint16_t code, 
 // PEA type instructions
 int16_t source = code & 0x3f;
 addr = DisassembleEffectiveAddress(instaddr, addr, sparm, source, optable_index, 0);
+if (sparm.size() > 2 && sparm.substr(sparm.size() - 2) == sExtShort)
+  sparm = sparm.substr(0, sparm.size() - 2) + sExtWord;  // no sign here.
 
 return addr;
 }
@@ -2131,7 +2167,7 @@ adr_t Dasm68000::DisassembleOptype06(adr_t instaddr, adr_t addr, uint16_t code, 
 
 int16_t dest = code & 0x3f;
 int size = (code >> 6) & 0x03;  // 0x03? sure? not 0x07? what's at bit 8? TODO: check
-int16_t op_mode = xlate_size(&size, 0);
+int16_t op_mode = xlate_size(size, 0);
 int16_t data = (code >> 9) & 0x07;
 if (data == 0)
   data = 8;
@@ -2151,8 +2187,11 @@ adr_t Dasm68000::DisassembleOptype07(adr_t instaddr, adr_t addr, uint16_t code, 
 
 int16_t dest = code & 0x3f;
 int size = (code >> 6) & 0x03;
-int16_t op_mode = xlate_size(&size, 0);
+int16_t op_mode = xlate_size(size, 0);
 addr = DisassembleEffectiveAddress(instaddr, addr, sparm, dest, optable_index, 0);
+if (sparm.size() > 2 && sparm.substr(sparm.size() - 2) == sExtShort)
+  sparm = sparm.substr(0, sparm.size() - 2) + sExtWord;  // no sign here.
+
 smnemo += GetSizeSuffix(size);
 
 (void)op_mode;  // unused ATM
@@ -2173,7 +2212,8 @@ if (displacement == 0)
   bGetLabel &= !IsConst(addr);
   displacement = GetSWord(addr);
   // append ".L" if the displacement would allow a short instruction
-  if (displacement >= -128 && displacement <= 127)
+  if ((asmtype == "bird") ||  // bird needs that in any case
+      (displacement >= -128 && displacement <= 127))
     smnemo += sExtLong;
   dest = addr + displacement;
   startaddr = addr;
@@ -2306,6 +2346,8 @@ adr_t Dasm68000::DisassembleOptype15(adr_t instaddr, adr_t addr, uint16_t code, 
 int16_t dest = code & 0x3f;
 int size = (code >> 6) & 0x03;
 addr = DisassembleEffectiveAddress(instaddr, addr, sparm, dest, optable_index, 0);
+if (sparm.size() > 2 && sparm.substr(sparm.size() - 2) == sExtShort)
+  sparm = sparm.substr(0, sparm.size() - 2) + sExtWord;  // no sign here.
 smnemo += GetSizeSuffix(size);
 return addr;
 }
@@ -2391,6 +2433,24 @@ string s_data = Number2String(GetSWord(addr), 4, addr);
 addr += 2;
 string e_a;
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a, dest, optable_index, 0);
+if (e_a.size() > 2 && e_a.substr(e_a.size() - 2) == sExtShort)
+  e_a = e_a.substr(0, e_a.size() - 2) + sExtWord;  // no sign here.
+
+if (smnemo.size() > 2 && smnemo[smnemo.size() - 2] != '.')
+  {
+  bool gas = (asmtype == "gas");
+  int critsz = 2 + gas;
+  int regnam = 0 + gas;
+  int regnum = 1 + gas;
+  if ((int)e_a.size() == critsz &&
+      (!gas || e_a[0] == '%') &&
+      (toupper(e_a[regnam]) == 'A' || toupper(e_a[regnam]) == 'D') &&
+      isdigit(e_a[regnum]))
+    ; // smnemo += sExtLong;
+  else
+    smnemo += sExtByte;
+  }
+
 sparm = sformat("#%s,%s", s_data.c_str(), e_a.c_str());
 return addr;
 }
@@ -2413,7 +2473,7 @@ adr_t Dasm68000::DisassembleOptype22(adr_t instaddr, adr_t addr, uint16_t code, 
 
 int16_t data = (int16_t)((char)(code & 0xff));
 uint16_t dest_reg = (code >> 9) & 0x07;
-sparm = sformat("#$%x,%s", data, GetDataReg(dest_reg));
+sparm = sformat("#%s%x,%s", hdrHex.c_str(), data, GetDataReg(dest_reg));
 return addr;
 }
 
@@ -2428,6 +2488,8 @@ uint16_t reg_mask = GetUWord(addr);
 addr += 2; // not sure about that - TODO: check!
 string e_a;
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a, source, optable_index, 0);
+if (e_a.size() > 2 && e_a.substr(e_a.size() - 2) == sExtShort)
+  e_a = e_a.substr(0, e_a.size() - 2) + sExtWord;  // no sign here.
 // process register mask
 int16_t mode = (source >> 3) & 0x07;
 int16_t flag = 0;
@@ -2562,6 +2624,12 @@ adr_t Dasm68000::DisassembleOptype26(adr_t instaddr, adr_t addr, uint16_t code, 
 int16_t source = code & 0x3f;
 string e_a;
 addr = DisassembleEffectiveAddress(instaddr, addr, e_a, source, optable_index, WORD_SIZE);
+if (e_a.size() > 2 && e_a[e_a.size() - 2] == '.')
+  {
+  smnemo += e_a.substr(e_a.size() - 2);
+  e_a = e_a.substr(0, e_a.size() - 2);
+  }
+
 uint16_t mt = code & 0x0600;
 const char *reg = (mt == 0x0200 || mt == 0x0400) ? "CCR" : "SR";
 sparm = (code & 0x400) ?
@@ -2691,4 +2759,26 @@ else // no bus check necessary, there's only one
   }
 
 return Disassembler::DisassembleChanges(addr, prevaddr, prevsz, bAfterLine, changes, bus);
+}
+
+
+/*===========================================================================*/
+/* Dasm68008 class members                                                   */
+/*===========================================================================*/
+
+/*****************************************************************************/
+/* Dasm68008 : constructor                                                   */
+/*****************************************************************************/
+
+Dasm68008::Dasm68008(Application *pApp)
+  : Dasm68000(pApp)
+{
+}
+
+/*****************************************************************************/
+/* ~Dasm68008 : destructor                                                   */
+/*****************************************************************************/
+
+Dasm68008::~Dasm68008(void)
+{
 }

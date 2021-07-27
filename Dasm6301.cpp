@@ -170,14 +170,14 @@ adr_t Dasm6301::ParseCode
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, /* T, */ mode;
 uint16_t W;
 int MI;
 const char *I;
 bool bSetLabel;
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I);
 
-switch (M)                              /* which mode is this ?              */
+switch (mode)                           /* which mode is this ?              */
   {
   case _bi :                            /* Bit Manipulation indexed          */
     SetDefLabelUsed(PC, bus);           /* the bit part                      */
@@ -188,7 +188,7 @@ switch (M)                              /* which mode is this ?              */
     PC++;
     break;
   case _bd :                            /* Bit Manipulation direct           */
-    T = GetUByte(PC);
+    /* T = GetUByte(PC); */
     SetDefLabelUsed(PC, bus);           /* the bit part                      */
     PC++;
     bSetLabel = !IsConst(PC);
@@ -220,16 +220,16 @@ adr_t Dasm6301::DisassembleCode
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, T, mode;
 uint16_t W;
 adr_t Wrel;
 int MI;
 const char *I;
 bool bGetLabel;
 Label *lbl;
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I, &smnemo);
 
-switch (M)                              /* which mode is this?               */
+switch (mode)                           /* which mode is this?               */
   {
   case _bi :                            /* Bit Manipulation indexed          */
     T = GetUByte(PC);
@@ -244,21 +244,21 @@ switch (M)                              /* which mode is this?               */
       {
       W = (int)((unsigned char)T) + (uint16_t)Wrel;
       sparm += Label2String((adr_t)((int)((unsigned char)T)), 4,
-                            bGetLabel, PC) + GetIx8IndexReg(O);
+                            bGetLabel, PC) + GetIx8IndexReg(instb);
       }
     else if (lbl)
-      sparm += lbl->GetText() + GetIx8IndexReg(O);
+      sparm += lbl->GetText() + GetIx8IndexReg(instb);
     else if (!T && !showIndexedModeZeroOperand)
-      sparm += GetIx8IndexReg(O);   /* omit '$00', unless the user has set the 'showzero' option */
+      sparm += GetIx8IndexReg(instb);   /* omit '$00', unless the user has set the 'showzero' option */
     else
-      sparm += Number2String(T, 2, PC) + GetIx8IndexReg(O);
+      sparm += Number2String(T, 2, PC) + GetIx8IndexReg(instb);
     PC++;
     break;
   case _bd :                            /* Bit Manipulation direct           */
     {
     lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
-    M = GetUByte(PC);
-    string snum = lbl ? lbl->GetText() : Number2String(M, 2, PC);
+    T = GetUByte(PC);
+    string snum = lbl ? lbl->GetText() : Number2String(T, 2, PC);
     PC++;
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);

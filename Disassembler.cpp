@@ -577,7 +577,7 @@ else if (bUseLabel && memType == Code)
 else if (bUseLabel && memType == Data)
   sOut = UnnamedLabel(WrelMod, false, bus);
 else  // no label - use ORIGINAL value
-  sOut = Number2String(WrelMod, nDigits, addr, bus);
+  sOut = Number2String(relative ? Wrel : value, nDigits, addr, bus);
 
 if (relative)                           /* if it's relative addressing       */
   {

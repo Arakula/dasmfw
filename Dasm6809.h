@@ -309,7 +309,8 @@ class Dasm6809 : public Dasm6800
     // must not be called from constructor!
     virtual MemAttributeHandler *CreateAttributeHandler() { return new MemAttribute6809Handler; }
 
-    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &O, uint8_t &T, uint8_t &M, uint16_t &W, int &MI, const char *&I, string *smnemo = NULL);
+    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &MI, const char *&I, string *smnemo = NULL);
+    virtual bool SetConvenience(uint8_t instpg, uint16_t u2, string &smnemo, adr_t &PC);
     virtual adr_t IndexParse(int MI, adr_t pc, adr_t instaddr = NO_ADDRESS);
     virtual string IndexString(adr_t &pc);
     void AddFlexLabels();

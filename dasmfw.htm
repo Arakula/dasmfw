@@ -662,6 +662,23 @@ dasmfw would otherwise assume the line ends at the <b>*</b>, which starts the co
       by the processor architecture) in a loaded file.<br />
       Patching in unused areas causes them to become used.</dd>
 </dl>
+<dl>
+  <dt><b>text <i>name [content]</i></b></dt>
+  <dd>dasmfw contains a rudimentary text replacement capability for the info files. If
+  a text with a specific name has been set, it can then used from this point on by
+  specifying &amp;name or &amp;(name) in the info file. When processing the info file,
+  dasmfw first tries to replace "name" with the content of an environment variable of this
+  name, then it looks for internally defined texts. If the text "name" can be found in one
+  of these ways, &name is replaced with <i>content</i>. If not, it is used verbatim.
+  Specifying only the name, but no content, undefines the text.<br />
+  <i>name</i> is used case-insensitive and terminated by a logical blank or end of line.
+  Apart from that, there are no syntactic restrictions.
+  Garbage in, garbage out.<br />
+  <b>Note:</b> Inside a <b>text</b> instruction, replacement is also done.
+  Recursive text replacements are not possible.
+  Texts need to be defined before they can be used.
+  </dd>
+</dl>
 <dl>	  
   <dt><b>end</b></dt>
   <dd>Terminates processing of this info file at this line.</dd>

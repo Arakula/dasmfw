@@ -458,46 +458,48 @@ return Disassembler::InitParse(bus);
 adr_t Dasm68HC11::FetchInstructionDetails
     (
     adr_t PC,
-    uint8_t &O,
-    uint8_t &T,
-    uint8_t &M,
-    uint16_t &W,
+    uint8_t &instpg,
+    uint8_t &instb,
+    uint8_t &mode,
     int &MI,
     const char *&I,
     string *smnemo
     )
 {
-O = T = GetUByte(PC++);
-if (T == 0x18)
+uint16_t W;
+
+instpg = instb = GetUByte(PC++);
+if (instpg == 0x18)
   {
-  T = GetUByte(PC++);
-  W = T * 2;
-  MI = T = codes18[W++];
-  I = mnemo[T].mne;
-  M = codes18[W];
+  instb = GetUByte(PC++);
+  W = (uint16_t)instb * 2;
+  MI = codes18[W++];
+  I = mnemo[MI].mne;
+  mode = codes18[W];
   }
-else if (T == 0x1A)
+else if (instpg == 0x1A)
   {
-  T = GetUByte(PC++);
-  W = T * 2;
-  MI = T = codes1a[W++];
-  I = mnemo[T].mne;
-  M = codes1a[W];
+  instb = GetUByte(PC++);
+  W = (uint16_t)instb * 2;
+  MI = codes1a[W++];
+  I = mnemo[MI].mne;
+  mode = codes1a[W];
   }
-else if (T == 0xCD)
+else if (instpg == 0xCD)
   {
-  T = GetUByte(PC++);
-  W = T * 2;
-  MI = T = codescd[W++];
-  I = mnemo[T].mne;
-  M = codescd[W];
+  instb = GetUByte(PC++);
+  W = (uint16_t)instb * 2;
+  MI = codescd[W++];
+  I = mnemo[MI].mne;
+  mode = codescd[W];
   }
 else
   {
-  W = T * 2;
-  MI = T = codes[W++];
-  M = codes[W];
-  I = mnemo[T].mne;
+  instpg = 0;
+  W = (uint16_t)instb * 2;
+  MI = codes[W++];
+  I = mnemo[MI].mne;
+  mode = codes[W];
   }
 
 if (smnemo)
@@ -509,9 +511,9 @@ return PC;
 /* GetIx8IndexReg : return index register for indexed addressing             */
 /*****************************************************************************/
 
-string Dasm68HC11::GetIx8IndexReg(uint8_t O)
+string Dasm68HC11::GetIx8IndexReg(uint8_t instpg)
 {
-if (O == 0x18 || O == 0xCD)
+if (instpg == 0x18 || instpg == 0xCD)
   return ",Y";
 return ",X";
 }
@@ -526,14 +528,14 @@ adr_t Dasm68HC11::ParseCode
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, T, mode;
 uint16_t W;
 int MI;
 const char *I;
 bool bSetLabel;
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I);
 
-switch (M)                              /* which mode is this ?              */
+switch (mode)                           /* which mode is this ?              */
   {
   case _bd :                            /* Bit Manipulation direct           */
     bSetLabel = !IsConst(PC);
@@ -631,16 +633,16 @@ adr_t Dasm68HC11::DisassembleCode
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, T, mode;
 uint16_t W;
 adr_t Wrel;
 int MI;
 const char *I;
 bool bGetLabel;
 Label *lbl;
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I, &smnemo);
 
-switch (M)                              /* which mode is this?               */
+switch (mode)                           /* which mode is this?               */
   {
   case _bd :                            /* Bit Manipulation direct           */
     {
@@ -652,8 +654,8 @@ switch (M)                              /* which mode is this?               */
     string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
     PC++;
     lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
-    M = GetUByte(PC);
-    string smask = lbl ? lbl->GetText() : Number2String(M, 2, PC);
+    T = GetUByte(PC);
+    string smask = lbl ? lbl->GetText() : Number2String(T, 2, PC);
     PC++;
     sparm = sformat("%s %s",
                     slbl.c_str(),
@@ -671,14 +673,14 @@ switch (M)                              /* which mode is this?               */
       {
       W = (int)((unsigned char)T) + (uint16_t)Wrel;
       slbl = Label2String((adr_t)((int)((unsigned char)T)), 4,
-                          bGetLabel, PC) + GetIx8IndexReg(O);
+                          bGetLabel, PC) + GetIx8IndexReg(instpg);
       }
     else if (lbl)
-      slbl = lbl->GetText() + GetIx8IndexReg(O);
+      slbl = lbl->GetText() + GetIx8IndexReg(instpg);
     else if (!T && !showIndexedModeZeroOperand)
-      slbl = GetIx8IndexReg(O);   /* omit '$00', unless the user has set the 'showzero' option */
+      slbl = GetIx8IndexReg(instpg);   /* omit '$00', unless the user has set the 'showzero' option */
     else
-      slbl = Number2String(T, 2, PC) + GetIx8IndexReg(O);
+      slbl = Number2String(T, 2, PC) + GetIx8IndexReg(instpg);
     PC++;
     T = GetUByte(PC);
     lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
@@ -699,8 +701,8 @@ switch (M)                              /* which mode is this?               */
     string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
     PC++;
     lbl = FindLabel(PC, Const, bus);    /* the bit part                      */
-    M = GetUByte(PC);
-    string smask = lbl ? lbl->GetText() : Number2String(M, 2, PC);
+    T = GetUByte(PC);
+    string smask = lbl ? lbl->GetText() : Number2String(T, 2, PC);
     PC++;
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
@@ -741,14 +743,14 @@ switch (M)                              /* which mode is this?               */
       {
       W = (int)((unsigned char)T) + (uint16_t)Wrel;
       slbl = Label2String((adr_t)((int)((unsigned char)T)), 4,
-                          bGetLabel, PC) + GetIx8IndexReg(O);
+                          bGetLabel, PC) + GetIx8IndexReg(instpg);
       }
     else if (lbl)
-      slbl = lbl->GetText() + GetIx8IndexReg(O);
+      slbl = lbl->GetText() + GetIx8IndexReg(instpg);
     else if (!T && !showIndexedModeZeroOperand)
-      slbl = GetIx8IndexReg(O);   /* omit '$00', unless the user has set the 'showzero' option */
+      slbl = GetIx8IndexReg(instpg);   /* omit '$00', unless the user has set the 'showzero' option */
     else
-      slbl = Number2String(T, 2, PC) + GetIx8IndexReg(O);
+      slbl = Number2String(T, 2, PC) + GetIx8IndexReg(instpg);
     PC++;
     T = GetUByte(PC);
     lbl = FindLabel(PC, Const, bus);    /* the bit part                      */

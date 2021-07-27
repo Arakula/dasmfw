@@ -249,6 +249,8 @@ OpCode Dasm6800::opcodes[mnemo6800_count] =
     { "WAI",   Data },                  /* _wai                              */
     // Convenience mnemonics
     { "ASLD",  Data },                  /* _asld                             */
+    { "ASRD",  Data },                  /* _asrd                             */
+    { "CLRD",  Data },                  /* _clrd                             */
     { "LSRD",  Data },                  /* _lsrd                             */
   };
 
@@ -719,20 +721,22 @@ return csz;
 adr_t Dasm6800::FetchInstructionDetails
     (
     adr_t PC,
-    uint8_t &O,
-    uint8_t &T,
-    uint8_t &M,
-    uint16_t &W,
+    uint8_t &instpg,
+    uint8_t &instb,
+    uint8_t &mode,
     int &MI,
     const char *&I,
     string *smnemo
     )
 {
-O = T = GetUByte(PC++);
-W = (uint16_t)(T * 2);
-MI = T = codes[W++];
-I = mnemo[T].mne;
-M = codes[W];
+uint16_t W;
+
+instpg = 0;
+instb = GetUByte(PC++);
+W = (uint16_t)instb * 2;
+MI = codes[W++];
+I = mnemo[MI].mne;
+mode = codes[W];
 if (smnemo)
   *smnemo = I;
 return PC;
@@ -748,14 +752,14 @@ adr_t Dasm6800::ParseCode
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, T, mode;
 uint16_t W;
 int MI;
 const char *I;
 bool bSetLabel;
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I);
 
-switch (M)                              /* which mode is this ?              */
+switch (mode)                           /* which mode is this ?              */
   {
   case _nom:                            /* no mode                           */
     SetDefLabelUsed(PC, bus);
@@ -1021,55 +1025,55 @@ adr_t Dasm6800::DisassembleCode
     int bus                             /* ignored for 6800 and derivates    */
     )
 {
-uint8_t O, T, M;
+uint8_t instpg, instb, T, mode;
 uint16_t W;
 adr_t Wrel;
 int MI;
 const char *I;
-adr_t PC = FetchInstructionDetails(addr, O, T, M, W, MI, I, &smnemo);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I, &smnemo);
 bool bGetLabel;
 Label *lbl;
 
-switch (M)                              /* which mode is this?               */
+switch (mode)                           /* which mode is this?               */
   {
   case _nom:                            /* no mode                           */
     smnemo = "FCB";
     lbl = FindLabel(PC, Const, bus);
-    sparm = lbl ? lbl->GetText() : Number2String(O, 2, PC);
+    sparm = lbl ? lbl->GetText() : Number2String(instb, 2, PC);
     PC = addr + 1;
     break;
 
   case _imp:                            /* inherent/implied                  */
     if (useConvenience &&
         !IsCLabel(PC))                  /* not if 2nd byte has a code label! */
-      {
-      switch ((uint16_t)(O << 8) | GetUByte(PC))
-        {
-        case 0x4456 :                   /* LSRA + RORB -> LSRD               */
-          smnemo = mnemo[_lsrd].mne; PC++;
-          break;
-        case 0x5849 :                   /* ASLB + ROLA -> ASLD               */
-          smnemo = mnemo[_asld].mne; PC++;
-          break;
-        }
-      }
+      SetConvenience(instpg, (uint16_t)(instb << 8) | GetUByte(PC), smnemo, PC);
     break;
 
   case _imb:                            /* immediate byte                    */
     lbl = FindLabel(PC, Const, bus);
     T = GetUByte(PC);
-    sparm = "#" + (lbl ? lbl->GetText() : Number2String(T, 2, PC));
-    PC++;
+    if (!useConvenience ||
+        lbl ||
+        !SetConvenience(instpg, (uint16_t)(instb << 8) | T, smnemo, PC))
+      {
+      sparm = "#" + (lbl ? lbl->GetText() : Number2String(T, 2, PC));
+      PC++;
+      }
     break;
 
   case _imw:                            /* immediate word                    */
     bGetLabel = !IsConst(PC);
     lbl = bGetLabel ? NULL : FindLabel(PC, Const, bus);
-    W = GetUWord(PC);
-    if (bGetLabel)
-      W = (uint16_t)PhaseInner(W, PC);
-    sparm = "#" + (lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC));
-    PC += 2;
+    if (!useConvenience ||
+        lbl ||
+        !SetConvenience(instpg, (uint16_t)(instb << 8) | GetUByte(PC), smnemo, PC))
+      {
+      W = GetUWord(PC);
+      if (bGetLabel)
+        W = (uint16_t)PhaseInner(W, PC);
+      sparm = "#" + (lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC));
+      PC += 2;
+      }
     break;
 
   case _dir:                            /* direct                            */
@@ -1107,7 +1111,7 @@ switch (M)                              /* which mode is this?               */
     string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
     adr_t dp;
     // various _ext opcodes don't have a _dir counterpart, so no > needed
-    if (O >= 0x70 && O <= 0x7f)
+    if (instb >= 0x70 && instb <= 0x7f)
       dp = W ^ 0xff00;
     else
       {
@@ -1135,16 +1139,16 @@ switch (M)                              /* which mode is this?               */
     lbl = (bGetLabel || Wrel) ? NULL : FindLabel(PC, Const, bus);
     if (Wrel)
       {
-      W = (int)((unsigned char)T) + (uint16_t)Wrel;
-      sparm = Label2String((adr_t)((int)((unsigned char)T)), 4,
-                           bGetLabel, PC) + GetIx8IndexReg(O);
+      W = (int)((uint8_t)T) + (uint16_t)Wrel;
+      sparm = Label2String((adr_t)((int)((uint8_t)T)), 4,
+                           bGetLabel, PC) + GetIx8IndexReg(instpg);
       }
     else if (lbl)
-      sparm = lbl->GetText() + GetIx8IndexReg(O);
+      sparm = lbl->GetText() + GetIx8IndexReg(instpg);
     else if (!T && !showIndexedModeZeroOperand)
-      sparm = GetIx8IndexReg(O); /* omit '$00', unless the user has set the 'showzero' option */
+      sparm = GetIx8IndexReg(instpg); /* omit '$00', unless the user has set the 'showzero' option */
     else
-      sparm = Number2String(T, 2, PC) + GetIx8IndexReg(O);
+      sparm = Number2String(T, 2, PC) + GetIx8IndexReg(instpg);
     PC++;
     break;
 
@@ -1169,6 +1173,46 @@ switch (M)                              /* which mode is this?               */
     break;
   }
 return PC - addr;                       /* pass back # processed bytes       */
+}
+
+/*****************************************************************************/
+/* SetConvenience : set convenience mnemonics as appropriate                 */
+/*****************************************************************************/
+
+bool Dasm6800::SetConvenience(uint8_t instpg, uint16_t u2, string &smnemo, adr_t &PC)
+{
+(void)instpg; // only used in derived classes
+switch (u2)
+  {
+  case 0x4456 :                         /* LSRA + RORB -> LSRD               */
+    smnemo = mnemo[_lsrd].mne; PC++;
+    return true;
+  case 0x4756 :                         /* ASRA + RORB -> ASRD               */
+    smnemo = mnemo[_asrd].mne; PC++;
+    return true;
+  case 0x5849 :                         /* ASLB + ROLA -> ASLD (/LSLD)       */
+    smnemo = mnemo[_asld].mne; PC++;
+    return true;
+  case 0x4f5f :                         /* CLRA + CLRB -> CLRD               */
+    smnemo = mnemo[_clrd].mne; PC++;
+    return true;
+  case 0xcd01 :                         /* ADDB #1 + ADCA #0 -> INCD         */
+    if (!IsCLabel(PC + 1) && GetUWord(PC + 1) == 0x8900)
+      {
+      smnemo = "INCD"; PC += 3;
+      return true;
+      }
+    break;
+  case 0xc001 :                         /* SUBB #1 SBCA #0 -> DECD           */
+    if (!IsCLabel(PC + 1) && GetUWord(PC + 1) == 0x8200)
+      {
+      smnemo = "DECD"; PC += 3;
+      return true;
+      }
+    break;
+  }
+
+return false;
 }
 
 /*****************************************************************************/

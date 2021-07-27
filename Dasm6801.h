@@ -43,6 +43,9 @@ class Dasm6801 : public Dasm6800
     // Initialize parsing
     virtual bool InitParse(int bus = BusCode);
 
+    virtual bool SetConvenience(uint8_t instpg, uint16_t u2, string &smnemo, adr_t &PC);
+
+
   protected:
     // additional 6801 mnemonics
     enum Mnemonics6801
