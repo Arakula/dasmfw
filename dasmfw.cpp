@@ -241,6 +241,7 @@ showLogo = true;                        /* show logo in output file          */
 showHex = true;                         /* flag for hex data display         */
 showAddr = true;                        /* flag for address display          */
 showComments = true;                    /* flag for comment display          */
+showLComments = true;                   /* flag for line comment display     */
 showCref = false;                       /* flag for cross-reference display  */
 f9dasmComp = false;                     /* flag for f9dasm compatibility     */
 labelLen = 8;                           /* minimum label length              */
@@ -727,10 +728,10 @@ for (int l = 0; l < pDasm->GetLabelCount(bus); l++)
       // the line itself
       pComment = (showComments && laddr != paddr) ?
                      GetFirstLComment(laddr, it, bus) : NULL;
-      string scomment = pComment ? pComment->GetText() : "";
+      string scomment = (showLComments && pComment) ? pComment->GetText() : "";
       if (scomment.size()) scomment = sComBlk + scomment;
       PrintLine(slabel, smnemo, sparm, scomment, lLabelLen);
-      if (pComment)
+      if (showLComments && pComment)
         {
         while ((pComment = GetNextLComment(laddr, it, bus)) != NULL)
           PrintLine("", "", "", sComBlk + pComment->GetText());
@@ -805,7 +806,7 @@ adr_t Application::DisassembleLine
 string sLabel, sMnemo, sParms, sComBlk(sComDel + " ");
 CommentArray::iterator it;
 Comment *pComment;
-bool bWithComments = showHex || showAsc || showAddr;
+bool bWithComments = showLComments && (showHex || showAsc || showAddr);
 
 // comments before line
 DisassembleComments(addr, false, sComDel, bus);
@@ -835,43 +836,46 @@ DisassembleCref(p, sComDel, bus);
 if (p && p->IsUsed() && !p->IsConst())
   sLabel = pDasm->Label2String(addr, 4, true, addr, bus) +
            labelDelim;
-pComment = showComments ? GetFirstLComment(addr, it, bus) : NULL;
+pComment = (showComments && showLComments) ? GetFirstLComment(addr, it, bus) : NULL;
 int maxparmlen = (bWithComments || pComment) ? (cparmLen - 1) : uparmLen;
 adr_t sz = pDasm->Disassemble(addr, sMnemo, sParms, maxparmlen, bus);
 
 string scomment;
-if (showAddr)
-  scomment += sformat("%0*X%s",
-                      (pDasm->BusAddressBits(bus) + 3) / 4, addr,
-                      (showHex || showAsc) ? ": " : " ");
-if ((showHex || showAsc) && !pDasm->IsBss(addr, bus))
+if (showLComments)
   {
-  string sHex, sAsc;
-  if (showHex || showAsc)
+  if (showAddr)
+    scomment += sformat("%0*X%s",
+                        (pDasm->BusAddressBits(bus) + 3) / 4, addr,
+                        (showHex || showAsc) ? ": " : " ");
+  if ((showHex || showAsc) && !pDasm->IsBss(addr, bus))
     {
-    pDasm->DisassembleHexAsc(addr, sz, (adr_t)dbCount, sHex, sAsc, bus);
-    if (!pComment)
-      sAsc = trim(sAsc);
-#if 0
-    for (adr_t i = sz; i < (adr_t)dbCount; i++)
+    string sHex, sAsc;
+    if (showHex || showAsc)
       {
-      if (showHex && showAsc)
-        sHex += "   ";
-      if (showAsc && pComment)
-        sAsc += ' ';
-      }
+      pDasm->DisassembleHexAsc(addr, sz, (adr_t)dbCount, sHex, sAsc, bus);
+      if (!pComment)
+        sAsc = trim(sAsc);
+#if 0
+      for (adr_t i = sz; i < (adr_t)dbCount; i++)
+        {
+        if (showHex && showAsc)
+          sHex += "   ";
+        if (showAsc && pComment)
+          sAsc += ' ';
+        }
 #endif
-    }
+      }
 
-  if (showHex)
-    scomment += sHex;
-  if (showAsc)
-    scomment += sAsc;
-  }
-if (pComment && pComment->GetText().size())
-  {
-  if (scomment.size()) scomment += " ";
-  scomment += pComment->GetText();
+    if (showHex)
+      scomment += sHex;
+    if (showAsc)
+      scomment += sAsc;
+    }
+  if (pComment && pComment->GetText().size())
+    {
+    if (scomment.size()) scomment += " ";
+    scomment += pComment->GetText();
+    }
   }
 if (scomment.size()) scomment = sComBlk + scomment;
 PrintLine(sLabel, sMnemo, sParms, scomment);
@@ -1200,6 +1204,10 @@ enum InfoCmd
   infoPatchWord,                        /* PATCHW addr [word]*               */
   infoPatchDWord,                       /* PATCHDW addr [dword]*             */
   infoPatchFloat,                       /* PATCHF addr [float]*              */
+  infoRPatch,                           /* RPATCH addr [byte]*               */
+  infoRPatchWord,                       /* RPATCHW addr [word]*              */
+  infoRPatchDWord,                      /* RPATCHDW addr [dword]*            */
+  infoRPatchFloat,                      /* RPATCHF addr [float]*             */
 
   // rudimentary text replacement support
   infoText,                             /* TEXT name [content]               */
@@ -1298,6 +1306,10 @@ static struct                           /* structure to convert key to type  */
   { "PATCHW",       infoPatchWord },
   { "PATCHDW",      infoPatchDWord },
   { "PATCHF",       infoPatchFloat },
+  { "RPATCH",       infoRPatch },
+  { "RPATCHW",      infoRPatchWord },
+  { "RPATCHDW",     infoRPatchDWord },
+  { "RPATCHF",      infoRPatchFloat },
   // rudimentary text replacement support
   { "TEXT",         infoText },
 
@@ -1927,6 +1939,10 @@ do
       case infoPatchWord :              /* PATCHW addr [word]*               */
       case infoPatchDWord :             /* PATCHDW addr [dword]*             */
       case infoPatchFloat :             /* PATCHF addr [float]*              */
+      case infoRPatch :                 /* RPATCH addr [byte]*               */
+      case infoRPatchWord :             /* RPATCHW addr [word]*              */
+      case infoRPatchDWord :            /* RPATCHDW addr [dword]*            */
+      case infoRPatchFloat :            /* RPATCHF addr [float]*             */
         {
         adr_t from, to, step;
         string range;
@@ -1952,10 +1968,13 @@ do
             switch (cmdType)
               {
               case infoPatch :          /* PATCH addr [byte]*                */
+              case infoRPatch :         /* RPATCH addr [byte]*               */
                 if (sscanf(item.c_str(), "%x", &to) == 1)
                   {
                   if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
                     pDasm->AddMemory(from, 1, memtype, NULL, infoBus);
+                  if (cmdType == infoRPatch)
+                    to += pDasm->GetUByte(from, infoBus);
                   pDasm->SetUByte(from, (uint8_t)to, infoBus);
                   from += step;
                   }
@@ -1963,10 +1982,13 @@ do
                   from = NO_ADDRESS;
                 break;
               case infoPatchWord :      /* PATCHW addr [word]*               */
+              case infoRPatchWord :     /* RPATCHW addr [word]*              */
                 if (sscanf(item.c_str(), "%x", &to) == 1)
                   {
                   if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
                     pDasm->AddMemory(from, 2, memtype, NULL, infoBus);
+                  if (cmdType == infoRPatchWord)
+                    to += pDasm->GetUWord(from, infoBus);
                   pDasm->SetUWord(from, (uint16_t)to, infoBus);
                   from += (step > 2) ? step : 2;
                   }
@@ -1974,10 +1996,13 @@ do
                   from = NO_ADDRESS;
                 break;
               case infoPatchDWord :     /* PATCHDW addr [dword]*             */
+              case infoRPatchDWord :    /* RPATCHDW addr [dword]*            */
                 if (sscanf(item.c_str(), "%x", &to) == 1)
                   {
                   if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
                     pDasm->AddMemory(from, 4, memtype, NULL, infoBus);
+                  if (cmdType == infoRPatchDWord)
+                    to += pDasm->GetUDWord(from, infoBus);
                   pDasm->SetUDWord(from, (uint32_t)to, infoBus);
                   from += (step > 4) ? step : 4;
                   }
@@ -1985,6 +2010,7 @@ do
                   from = NO_ADDRESS;
                 break;
               case infoPatchFloat :     /* PATCHF addr [float]*              */
+              case infoRPatchFloat :    /* RPATCHF addr [float]*             */
                 {
                 double d;
                 if (sscanf(item.c_str(), "%lf", &d) == 1)
@@ -1992,15 +2018,24 @@ do
                   int sz;
                   if (pDasm->GetMemIndex(from, infoBus) == NO_ADDRESS)
                     {
-                    pDasm->AddMemory(from, 4, memtype, NULL, infoBus);
+                    float f = 0.;
+                    pDasm->AddMemory(from, 4, memtype, (uint8_t *)&f, infoBus);
                     sz = 4;
                     }
                   else
                     sz = pDasm->GetCellSize(from, infoBus);
                   if (sz == 4)
+                    {
+                    if (cmdType == infoRPatchFloat)
+                      d += pDasm->GetFloat(from, infoBus);
                     pDasm->SetFloat(from, (float)d, infoBus);
+                    }
                   else if (sz == 8)
+                    {
+                    if (cmdType == infoRPatchFloat)
+                      d += pDasm->GetDouble(from, infoBus);
                     pDasm->SetDouble(from, d, infoBus);
+                    }
                   // Tenbytes ... no, sorry. Not yet. Maybe never.
                   else
                     from = NO_ADDRESS;
@@ -2153,10 +2188,19 @@ else if (option == "noasc")
 else if (option == "comment")
   {
   showComments = bnValue;
+  if (!bnValue)
+    showLComments = false;
   return bIsBool ? 1 : 0;
   }
 else if (option == "nocomment")
-  showComments = false;
+  showComments = showLComments = false;
+else if (option == "lcomment")
+  {
+  showLComments = bnValue;
+  return bIsBool ? 1 : 0;
+  }
+else if (option == "nolcomment")
+  showLComments = false;
 else if (option == "cref")
   {
   showCref = bnValue;
@@ -2346,6 +2390,7 @@ else
   ListOptionLine("hex", "{off|on}\toutput hex dump", showHex ? "on" : "off");
   ListOptionLine("asc", "{off|on}\toutput ASCII rendering of code/data", showAsc ? "on" : "off");
   ListOptionLine("comment", "{off|on}\toutput comments", showComments ? "on" : "off");
+  ListOptionLine("lcomment", "{off|on}\toutput line comments", showLComments ? "on" : "off");
   ListOptionLine("cref", "{off|on}\toutput cross-reference for used labels", showCref ? "on" : "off");
   ListOptionLine("unused", "{off|on}\toutput unused defined labels", showUnused ? "on" : "off");
   ListOptionLine("labellen", "{length}\tspace reserved for labels", sformat("%d", labelLen));
@@ -2458,6 +2503,10 @@ printf("\t                    (like WORD, but adds target labels if necessary)\n
         "\tinsert word data:   PATCHW addr[-addr] data[...]\n"
         "\tinsert dword data:  PATCHDW addr[-addr] data[...]\n"
         "\tinsert float data:  PATCHF addr[-addr] data[...]\n"
+        "\tchange byte data:   RPATCH addr[-addr] data[...]\n"
+        "\tchange word data:   RPATCHW addr[-addr] data[...]\n"
+        "\tchange dword data:  RPATCHDW addr[-addr] data[...]\n"
+        "\tchange float data:  RPATCHF addr[-addr] data[...]\n"
         "\tinsert text:        INSERT [AFTER] addr[-addr] embedded line\n"
         "\tinclude label file: INCLUDE filename\n"
         "\tload binary file:   FILE filename [baseaddr]\n"
@@ -2536,6 +2585,11 @@ printf("RMB addr[-addr]\n"
        "PATCHW addr [word]*\n"
        "PATCHDW addr [word]*\n"
        "PATCHF addr [float]*\n"
+
+       "RPATCH addr [byte]*\n"
+       "RPATCHW addr [word]*\n"
+       "RPATCHDW addr [word]*\n"
+       "RPATCHF addr [float]*\n"
 
        "TEXT name [content]\n"
 

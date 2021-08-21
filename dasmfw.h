@@ -59,7 +59,7 @@ using namespace std;
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.21"
+#define DASMFW_VERSION  "0.22"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t cadr_t;                /* container for maximal code address*/
@@ -304,6 +304,7 @@ protected:
   bool showAsc;                         /* flag for ASCII content display    */
   bool showUnused;                      /* flag for showing unused labels    */
   bool showComments;                    /* flag for showing comments         */
+  bool showLComments;                   /* flag for showing line comments    */
   bool showCref;                        /* flag for showing cross-references */
   bool f9dasmComp;                      /* flag for f9dasm compatibility     */
   int labelLen;                         /* minimum label display length      */

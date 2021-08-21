@@ -170,6 +170,12 @@ specified by adding ":" plus the factor to the filename.</p>
       are enabled; this shifts all line comments that many places to the right for a nice layout.
       Default is 5; depending on your taste, you can reserve more or less.
       <br /> 1 is minimum, 255 is maximum.</dd>
+  <dt><b>lcomment <i>on|off</i></b><br />
+      <b>nolcomment</b></dt>
+  <dd>can be used to enable or disable the output of line comments (comments added behind
+     instuctions on a disassembly line, which can be provided in an info file, see below).<br />
+	 Normally, line comments are enabled.<br />
+	 Turning off comments completely also turns off line comments.</dd>
 </dl>
 <h3>Disassembler Options</h3>
 <p>Most of the following options are universally usable; some, however, are disassembler-specific.
@@ -658,6 +664,21 @@ dasmfw would otherwise assume the line ends at the <b>*</b>, which starts the co
   <dd>Can be used to patch words (i.e., 2-byte entities in the byte order defined
       by the processor architecture) in a loaded file.</dd>
   <dt><b>patchd <i>addr[-addr[/step]] dword [dword]*</i></b></dt>
+  <dd>Can be used to patch double words (i.e., 4-byte entities in the byte order defined
+      by the processor architecture) in a loaded file.<br />
+      Patching in unused areas causes them to become used.</dd>
+</dl>
+<dl>	  
+  <dt><b>rpatch <i>addr[-addr[/step]] hex [hex]*</i></b></dt>
+  <dd>Can be used to patch bytes in a loaded file. Using this feature, modified versions
+      of a file can be created automatically.<br />
+      In contrast to the patch* commands above, the <i>r</i>patch* commands 
+      work in a <i>relative</i> way - the given data are <i>added</i> to the value found at
+      the given address range.</dd>
+  <dt><b>rpatchw <i>addr[-addr[/step]] word [word]*</i></b></dt>
+  <dd>Can be used to patch words (i.e., 2-byte entities in the byte order defined
+      by the processor architecture) in a loaded file.</dd>
+  <dt><b>rpatchd <i>addr[-addr[/step]] dword [dword]*</i></b></dt>
   <dd>Can be used to patch double words (i.e., 4-byte entities in the byte order defined
       by the processor architecture) in a loaded file.<br />
       Patching in unused areas causes them to become used.</dd>
