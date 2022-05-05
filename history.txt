@@ -53,3 +53,19 @@ v0.18 2021-01-27 added Makefile for Linux builds plus small fixes
                  (oh boy, that was a cleanup session...)
 v0.19 2021-01-30 forceaddr option added
                  added 650X-based range of disassemblers
+v0.20 2021-03-13 some fixes
+                 Added OS9 module handling to 6809 disassembler
+v0.21 2021-07-21 some improvements
+                 "text" instruction added
+v0.22 2021-08-21 [no]comments option added
+                 rpath* info file instructions added
+v0.23 2021-10-20 small improvements
+v0.24 2022-05-05 Phillip Eaton went at it again :-)
+                 Fix for https://github.com/Arakula/dasmfw/issues/6
+                   Info file lines with in-line comments were not processed correctly.
+                   From now on, if a * appears in the line that does NOT start the
+                   comment part, it has to be prefixed with a \ to be processed.
+                 Added upmnemo {on|off|default} option in response to
+                   https://github.com/Arakula/dasmfw/issues/4
+                 Fix for https://github.com/Arakula/dasmfw/issues/5
+                 Slight 650X improvements

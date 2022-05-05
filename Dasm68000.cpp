@@ -1587,6 +1587,7 @@ if (lbltxt.find_first_of("+-") == string::npos)
     slabel = Label2String(laddr, GetBusWidth() / 4, true, laddr, bus);
   smnemo = "EQU";
   sparm = Address2String(laddr, bus);
+  Disassembler::DisassembleLabel(label, slabel, smnemo, sparm, bus);
   return true;
   }
 return false;
@@ -1609,6 +1610,7 @@ bool Dasm68000::DisassembleDefLabel
 slabel = label->GetText();
 smnemo = "EQU";
 sparm = label->GetDefinition();
+Disassembler::DisassembleDefLabel(label, slabel, smnemo, sparm, bus);
 return true;
 }
 
@@ -2705,7 +2707,7 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
     {
     LineChange chg;
     changes.push_back(chg);             /* append empty line before END      */
-    chg.oper = "END";
+    chg.oper = MnemoCase("END");
     if (load != NO_ADDRESS &&           /* if entry point address given      */
         bLoadLabel)                     /* and labelling wanted              */
       chg.opnds = Label2String(load, GetBusWidth() / 4, true, load);
@@ -2731,14 +2733,14 @@ else // no bus check necessary, there's only one
       changes.push_back(chg);
       if (prevphase != NO_ADDRESS && prevphstart != curphstart)
         {
-        chg.oper = "DEPHASE";
+        chg.oper = MnemoCase("DEPHASE");
         changes.push_back(chg);
         changes.push_back(LineChange());
         }
       if (addr != NO_ADDRESS)
         {
         // TODO: check how that interferes with PIC!
-        chg.oper = "ORG";
+        chg.oper = MnemoCase("ORG");
         chg.opnds = Number2String(addr, 6, NO_ADDRESS);
         changes.push_back(chg);
         if (curphase != NO_ADDRESS &&
@@ -2747,7 +2749,7 @@ else // no bus check necessary, there's only one
 //          && curphase != addr
             )
           {
-          chg.oper = "PHASE";
+          chg.oper = MnemoCase("PHASE");
           chg.opnds = Number2String(curphase, 6, NO_ADDRESS);
           changes.push_back(chg);
           }

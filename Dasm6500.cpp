@@ -112,7 +112,7 @@ uint8_t Dasm650X::m6500_codes[512] =
   _ill  ,_nom,   _and  ,_zpx,   _rol  ,_zpx,   _ill  ,_nom,     /* 34..37 */
   _sec  ,_imp,   _and  ,_aby,   _ill  ,_nom,   _ill  ,_nom,     /* 38..3B */
   _ill  ,_nom,   _and  ,_abx,   _rol  ,_abx,   _ill  ,_nom,     /* 3C..3F */
-  _rti  ,_acc,   _eor  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 40..43 */
+  _rti  ,_imp,   _eor  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 40..43 */
   _ill  ,_nom,   _eor  ,_zpg,   _lsr  ,_zpg,   _ill  ,_nom,     /* 44..47 */
   _pha  ,_imp,   _eor  ,_imm,   _lsr  ,_acc,   _ill  ,_nom,     /* 48..4B */
   _jmp  ,_abs,   _eor  ,_abs,   _lsr  ,_abs,   _ill  ,_nom,     /* 4C..4F */
@@ -198,7 +198,7 @@ OpCode Dasm650X::opcodes[mnemo6500_count] =
     { "INX",   Data },                  /* _inx                              */
     { "INY",   Data },                  /* _iny                              */
     { "JMP",   Code },                  /* _jmp                              */
-    { "JSR",   Data },                  /* _jsr                              */
+    { "JSR",   Code },                  /* _jsr                              */
     { "LDA",   Data },                  /* _lda                              */
     { "LDX",   Data },                  /* _ldx                              */
     { "LDY",   Data },                  /* _ldy                              */
@@ -682,6 +682,7 @@ if (lbltxt.find_first_of("+-") == string::npos)
     slabel = Label2String(laddr, 4, true, laddr, bus);
   smnemo = "EQU";
   sparm = Address2String(laddr, bus);
+  Disassembler::DisassembleLabel(label, slabel, smnemo, sparm, bus);
   return true;
   }
 return false;
@@ -704,6 +705,7 @@ bool Dasm650X::DisassembleDefLabel
 slabel = label->GetText();
 smnemo = "EQU";
 sparm = label->GetDefinition();
+Disassembler::DisassembleDefLabel(label, slabel, smnemo, sparm, bus);
 return true;
 }
 
@@ -978,7 +980,7 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
     {
     LineChange chg;
     changes.push_back(chg);             /* append empty line before END      */
-    chg.oper = "END";
+    chg.oper = MnemoCase("END");
     if (load != NO_ADDRESS &&           /* if entry point address given      */
         bLoadLabel)                     /* and labelling wanted              */
       chg.opnds = Label2String(load, 4, true, load);
@@ -1005,14 +1007,14 @@ else // no bus check necessary, there's only one
       changes.push_back(chg);
       if (prevphase != NO_ADDRESS && prevphstart != curphstart)
         {
-        chg.oper = "DEPHASE";
+        chg.oper = MnemoCase("DEPHASE");
         changes.push_back(chg);
         changes.push_back(LineChange());
         }
       if (addr != NO_ADDRESS)
         {
         // TODO: check how that interferes with PIC!
-        chg.oper = "ORG";
+        chg.oper = MnemoCase("ORG");
         chg.opnds = Number2String(addr, 4, NO_ADDRESS);
         changes.push_back(chg);
         if (curphase != NO_ADDRESS &&
@@ -1021,7 +1023,7 @@ else // no bus check necessary, there's only one
 //          && curphase != addr
             )
           {
-          chg.oper = "PHASE";
+          chg.oper = MnemoCase("PHASE");
           chg.opnds = Number2String(curphase, 4, NO_ADDRESS);
           changes.push_back(chg);
           }
@@ -1061,7 +1063,7 @@ uint8_t Dasm6501::m6501_codes[512] =
   _ill  ,_nom,   _and  ,_zpx,   _rol  ,_zpx,   _rla,_zpx|_und,  /* 34..37 */
   _sec  ,_imp,   _and  ,_aby,   _ill  ,_nom,   _rla,_aby|_und,  /* 38..3B */
   _ill  ,_nom,   _and  ,_abx,   _rol  ,_abx,   _rla,_abx|_und,  /* 3C..3F */
-  _rti  ,_acc,   _eor  ,_idx,   _ill  ,_nom,   _sre,_idx|_und,  /* 40..43 */
+  _rti  ,_imp,   _eor  ,_idx,   _ill  ,_nom,   _sre,_idx|_und,  /* 40..43 */
   _ill  ,_nom,   _eor  ,_zpg,   _lsr  ,_zpg,   _sre,_zpg|_und,  /* 44..47 */
   _pha  ,_imp,   _eor  ,_imm,   _lsr  ,_acc,   _alr,_imm|_und,  /* 48..4B */
   _jmp  ,_abs,   _eor  ,_abs,   _lsr  ,_abs,   _sre,_abs|_und,  /* 4C..4F */
@@ -1285,7 +1287,7 @@ uint8_t Dasm65C02::m65c02_codes[512] =
   _bit  ,_zpx,   _and  ,_zpx,   _rol  ,_zpx,   _rmb  ,_zpb,     /* 34..37 */
   _sec  ,_imp,   _and  ,_aby,   _dec  ,_imp,   _ill  ,_nom,     /* 38..3B */
   _bit  ,_abx,   _and  ,_abx,   _rol  ,_abx,   _bbr  ,_bbt,     /* 3C..3F */
-  _rti  ,_acc,   _eor  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 40..43 */
+  _rti  ,_imp,   _eor  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 40..43 */
   _ill  ,_nom,   _eor  ,_zpg,   _lsr  ,_zpg,   _rmb  ,_zpb,     /* 44..47 */
   _pha  ,_imp,   _eor  ,_imm,   _lsr  ,_acc,   _ill  ,_nom,     /* 48..4B */
   _jmp  ,_abs,   _eor  ,_abs,   _lsr  ,_abs,   _bbr  ,_bbt,     /* 4C..4F */

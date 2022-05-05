@@ -669,18 +669,27 @@ class Disassembler
     // Disassemble a line in the memory area
     adr_t Disassemble(adr_t addr, string &smnemo, string &sparm, int maxparmlen, int bus = BusCode)
       {
-      if (IsCode(addr, bus)) return DisassembleCode(addr, smnemo, sparm, bus);
-      uint32_t flags = 0;
-      adr_t end = GetConsecutiveData(addr, flags, maxparmlen, bus);
-      return DisassembleData(addr, end, flags, smnemo, sparm, maxparmlen, bus);
+      adr_t a;
+      if (IsCode(addr, bus))
+        a = DisassembleCode(addr, smnemo, sparm, bus);
+      else
+        {
+        uint32_t flags = 0;
+        adr_t end = GetConsecutiveData(addr, flags, maxparmlen, bus);
+        a = DisassembleData(addr, end, flags, smnemo, sparm, maxparmlen, bus);
+        }
+      smnemo = MnemoCase(smnemo);
+      return a;
       }
     // pass back correct mnemonic and parameters for a label
     virtual bool DisassembleLabel(Label *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode)
-      { (void)label; (void)slabel; (void)smnemo; (void)sparm; (void)bus;
+      { (void)label; (void)slabel; (void)sparm; (void)bus;
+        smnemo = MnemoCase(smnemo);
         return false; } // no changes in base implementation
     // pass back correct mnemonic and parameters for a DefLabel
     virtual bool DisassembleDefLabel(DefLabel *label, string &slabel, string &smnemo, string &sparm, int bus = BusCode)
-      { (void)label; (void)slabel; (void)smnemo; (void)sparm; (void)bus;
+      { (void)label; (void)slabel; (void)sparm; (void)bus;
+        smnemo = MnemoCase(smnemo);
         return false; } // no changes in base implementation
     // pass back disassembler-specific state changes before/after a disassembly line
     struct LineChange
@@ -690,7 +699,7 @@ class Disassembler
       string opnds;
       };
     virtual bool DisassembleChanges(adr_t addr, adr_t prevaddr, adr_t prevsz, bool bAfterLine, vector<LineChange> &changes, int bus = BusCode)
-      { (void)addr; (void)prevaddr; (void)prevsz; (void)bAfterLine; (void)changes; (void)bus;
+      { (void)addr; (void)prevaddr; (void)prevsz; (void)bAfterLine; (void)bus;
         return changes.size() != 0; } // no additional changes in base implementation
     // create hex / ASCII representation of the current area
     virtual bool DisassembleHexAsc(adr_t addr, adr_t len, adr_t max, string &sHex, string &sAsc, int bus = BusCode)
@@ -757,6 +766,15 @@ class Disassembler
       { busbits[bus] = CalcBitsForHighestAddr(GetHighestBusAddr(bus)); }
     // calculate consecutive data range (i.e., same type for all)
     virtual adr_t GetConsecutiveData(adr_t addr, uint32_t &flags, int maxparmlen, int bus = BusCode);
+    // set the correct case for mnemonics output
+    virtual string MnemoCase(string smnemo)
+      {
+      if (nMnemoUpper < 0)
+        return smnemo;
+      else if (nMnemoUpper > 0)
+        return uppercase(smnemo);
+      return lowercase(smnemo);
+      }
 
   public:
     // return address bits for a specific bus
@@ -912,6 +930,8 @@ class Disassembler
     bool bAutoLabel;
     // flag whether to disassemble as position-independent code
     bool bPIC;
+    // flag whether to emit uppercase or lowercase mnemonics
+    int nMnemoUpper;
     // default display format
     MemAttribute::Display defaultDisplay;
     // disassembler-specific comment start character

@@ -1495,6 +1495,7 @@ if (label->GetText().find_first_of("+-") == string::npos)
   smnemo = mnemo[(bus == BusIO) ? _d_port : _d_equ].mne;
   sparm = Label2String(laddr, 4, true, laddr, bus) + sequdelim[avr_gcc] +
           Address2String(laddr, bus);
+  Disassembler::DisassembleLabel(label, slabel, smnemo, sparm, bus);
   return true;
   }
 return false;
@@ -1531,6 +1532,7 @@ else
   smnemo = mnemo[_d_equ].mne;
   sparm = label->GetText() + sequdelim[avr_gcc] + label->GetDefinition();
   }
+Disassembler::DisassembleDefLabel(label, slabel, smnemo, sparm, bus);
 return true;
 }
 
@@ -1561,7 +1563,7 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
 // and since there's no entry point to be set anyway, it's unnecessary
     LineChange chg;
     changes.push_back(chg);             /* append empty line before END      */
-    chg.oper = mnemo[_d_exit].mne;
+    chg.oper = MnemoCase(mnemo[_d_exit].mne);
 #if 0
     if (load != NO_ADDRESS &&           /* if entry point address given      */
         bLoadLabel)                     /* and labelling wanted              */
@@ -1581,9 +1583,9 @@ else
       changes.push_back(chg);           /* append empty line before segment  */
       if (bus == BusCode || bus == BusData || bus == BusEEPROM)
         {
-        chg.oper = mnemo[(bus == BusEEPROM) ? _d_eseg :
-                         (bus == BusData) ? _d_dseg :
-                         _d_cseg].mne;
+        chg.oper = MnemoCase(mnemo[(bus == BusEEPROM) ? _d_eseg :
+                             (bus == BusData) ? _d_dseg :
+                             _d_cseg].mne);
         changes.push_back(chg);
         }
       }
@@ -1598,7 +1600,7 @@ else
       changes.push_back(chg);
       if (addr != NO_ADDRESS)
         {
-        chg.oper = mnemo[_d_org].mne;
+        chg.oper = MnemoCase(mnemo[_d_org].mne);
         chg.opnds = Number2String(addr, 4, NO_ADDRESS, bus);
         changes.push_back(chg);
         changes.push_back(LineChange());
@@ -1634,12 +1636,12 @@ else
           LineChange chg2;
           chg2.label = "#endif";
           changes.push_back(chg2);
-          chg.label = mnemo[_d_def].mne;
+          chg.label = MnemoCase(mnemo[_d_def].mne);
           chg.opnds = RegName(lbl->GetRegister(), false);
           }
         else
           {
-          chg.oper = mnemo[_d_def].mne;
+          chg.oper = MnemoCase(mnemo[_d_def].mne);
           chg.opnds = sformat("%s%sR%d", txt.c_str(), sdefdelim[avr_gcc], lbl->GetRegister());
           }
         changes.push_back(chg);

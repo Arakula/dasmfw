@@ -873,6 +873,7 @@ if (lbltxt.find_first_of("+-") == string::npos)
     slabel = Label2String(laddr, 4, true, laddr, bus);
   smnemo = "EQU";
   sparm = Address2String(laddr, bus);
+  Disassembler::DisassembleLabel(label, slabel, smnemo, sparm, bus);
   return true;
   }
 return false;
@@ -895,6 +896,7 @@ bool Dasm6800::DisassembleDefLabel
 slabel = label->GetText();
 smnemo = "EQU";
 sparm = label->GetDefinition();
+Disassembler::DisassembleDefLabel(label, slabel, smnemo, sparm, bus);
 return true;
 }
 
@@ -1239,7 +1241,7 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
     {
     LineChange chg;
     changes.push_back(chg);             /* append empty line before END      */
-    chg.oper = "END";
+    chg.oper = MnemoCase("END");
     if (load != NO_ADDRESS &&           /* if entry point address given      */
         bLoadLabel)                     /* and labelling wanted              */
       chg.opnds = Label2String(load, 4, true, load);
@@ -1266,7 +1268,7 @@ else // no bus check necessary, there's only one
       changes.push_back(chg);
       if (prevphase != NO_ADDRESS && prevphstart != curphstart)
         {
-        chg.oper = "DEPHASE";
+        chg.oper = MnemoCase("DEPHASE");
         changes.push_back(chg);
         changes.push_back(LineChange());
         }
@@ -1277,14 +1279,14 @@ else // no bus check necessary, there's only one
           {
           if (prevaddr != NO_ADDRESS)
             {
-            chg.oper = "ORG";
+            chg.oper = MnemoCase("ORG");
             chg.opnds = "* + ";
             chg.opnds += Number2String(addr - (prevaddr + prevsz), 4, NO_ADDRESS);
             }
           }
         else
           {
-          chg.oper = "ORG";
+          chg.oper = MnemoCase("ORG");
           chg.opnds = Number2String(addr, 4, NO_ADDRESS);
           changes.push_back(chg);
           }
@@ -1294,7 +1296,7 @@ else // no bus check necessary, there's only one
 //          && curphase != addr
             )
           {
-          chg.oper = "PHASE";
+          chg.oper = MnemoCase("PHASE");
           chg.opnds = Number2String(curphase, 4, NO_ADDRESS);
           changes.push_back(chg);
           }

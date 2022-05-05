@@ -139,6 +139,7 @@ bSetSysVec = true;
 bMultiLabel = false;
 bAutoLabel = false;
 bPIC = false;
+nMnemoUpper = -1;  // don't care
 
 // set up options table
 // base class uses one generic option setter/getter pair (not mandatory)
@@ -176,6 +177,9 @@ AddOption("sysvec", "{off|on}\tset system vector labels",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
 AddOption("pic", "{off|on}\tdiasassemble as position-indpendent code",
+          &Disassembler::DisassemblerSetOption,
+          &Disassembler::DisassemblerGetOption);
+AddOption("upmnemo", "{off|on}\tdiasassemble mnemonics in UPPERCASE format",
           &Disassembler::DisassemblerSetOption,
           &Disassembler::DisassemblerGetOption);
 }
@@ -427,6 +431,14 @@ else if (lname == "pic")
   bPIC = bnValue;
   return bIsBool ? 1 : 0;
   }
+else if (lname == "upmnemo")
+  {
+  if (lvalue == "default")
+    nMnemoUpper = -1;
+  else
+    nMnemoUpper = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else
   return 0;                             /* only option consumed              */
 
@@ -471,6 +483,10 @@ else if (lname == "multilabel") oval = bMultiLabel ? "on" : "off";
 else if (lname == "autolabel") oval = bAutoLabel ? "on" : "off";
 else if (lname == "sysvec") oval = bSetSysVec ? "on" : "off";
 else if (lname == "pic") oval = bPIC ? "on" : "off";
+else if (lname == "upmnemo") oval =
+    (nMnemoUpper < 0) ? "default" :
+    (nMnemoUpper > 0) ? "on" :
+    "off";
 return oval;
 }
 

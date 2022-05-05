@@ -240,10 +240,12 @@ infoBus = BusCode;                      /* start with code bus               */
 showLogo = true;                        /* show logo in output file          */
 showHex = true;                         /* flag for hex data display         */
 showAddr = true;                        /* flag for address display          */
+showCode = true;                        /* flag for code display             */
 showComments = true;                    /* flag for comment display          */
 showLComments = true;                   /* flag for line comment display     */
 showCref = false;                       /* flag for cross-reference display  */
 f9dasmComp = false;                     /* flag for f9dasm compatibility     */
+labelEqus = false;                      /* flag for label equate output      */
 labelLen = 8;                           /* minimum label length              */
 lLabelLen = 8;                          /* minimum EQU label length          */
 mnemoLen = 8;                           /* minimum mnemonics length          */
@@ -809,7 +811,8 @@ Comment *pComment;
 bool bWithComments = showLComments && (showHex || showAsc || showAddr);
 
 // comments before line
-DisassembleComments(addr, false, sComDel, bus);
+if (!labelEqus || showCode)
+  DisassembleComments(addr, false, sComDel, bus);
 
 // the line itself
 // in case of multiple labels, it's always the last one that's used
@@ -828,7 +831,15 @@ while (pNext)
     DisassembleCref(pNext, sComDel, bus);
     string s = p->GetText();
     if (s.size())
-      PrintLine(s + labelDelim);
+      {
+      if (labelEqus)
+        {
+        PrintLabelEqu(p, s);
+        s = sComDel + s;
+        }
+      if (showCode)
+        PrintLine(s + labelDelim);
+      }
     }
   }
 // Cross-references before label line
@@ -878,8 +889,14 @@ if (showLComments)
     }
   }
 if (scomment.size()) scomment = sComBlk + scomment;
-PrintLine(sLabel, sMnemo, sParms, scomment);
-if (pComment)
+if (labelEqus)
+  {
+  PrintLabelEqu(p, sLabel);
+  sLabel = sComDel + sLabel;
+  }
+if (showCode)
+  PrintLine(sLabel, sMnemo, sParms, scomment);
+if (pComment && (!labelEqus || showCode))
   {
 // following line comments
   while ((pComment = GetNextLComment(addr, it, bus)) != NULL)
@@ -887,7 +904,8 @@ if (pComment)
   }
 
 // comments after line
-DisassembleComments(addr, true, sComDel, bus);
+if (!labelEqus || showCode)
+  DisassembleComments(addr, true, sComDel, bus);
 
 return sz;
 }
@@ -939,6 +957,22 @@ if (scomment.size())
   }
 nLen += fprintf(out, "\n");
 return nLen > 0;
+}
+
+/*****************************************************************************/
+/* PrintLabelEqu : prints code / data labels as equates                      */
+/*****************************************************************************/
+
+bool Application::PrintLabelEqu(Label *pLabel, string sLabel)
+{
+if (!pLabel || !sLabel.size())
+  return true;
+
+string slabelig, smnemo, sparm;
+pDasm->DisassembleLabel(pLabel, slabelig, smnemo, sparm);
+PrintLine(sLabel, smnemo, sparm);
+
+return true;
 }
 
 /*****************************************************************************/
@@ -1324,7 +1358,7 @@ if (!fp)
 
 int fc;
 string line;
-bool bMod = false, bEnd = false;
+bool bMod = false, bEnd = false, bEsc = false, bSkip = false;
 do
   {
   fc = fgetc(fp);
@@ -1338,7 +1372,12 @@ do
     }
   if (fc != '\r' && fc != '\n' && fc != EOF)
     {
-    line += (char)fc;
+    if ((fc == '*' /*|| fc == ';'*/) && /* catch comment characters          */
+        !bEsc)
+      bSkip = true;
+    bEsc = fc == '\\';                  /* get whether escaping next char    */
+    if (!bSkip)
+      line += (char)fc;
     continue;
     }
   if (bProcInfo)
@@ -2078,6 +2117,7 @@ do
     }
   line.clear();
   bMod = false;
+  bEsc = bSkip = false;                 /* reset in-line flags               */
   } while (fc != EOF && !bEnd);
 
 (void)bMod;  // unused ATM, but might become useful
@@ -2164,6 +2204,13 @@ else if (option == "logo")
   }
 else if (option == "nologo")
   showLogo = false;
+else if (option == "code")
+  {
+  showCode = bnValue;
+  return bIsBool ? 1 : 0;
+  }
+else if (option == "nocode")
+  showCode = false;
 else if (option == "addr")
   {
   showAddr = bnValue;
@@ -2215,6 +2262,13 @@ else if (option == "unused")
   }
 else if (option == "nounused")
   showUnused = false;
+else if (option == "labelequs")
+  {
+  labelEqus = bnValue;
+  return bIsBool ? 1 : 0;
+  }
+else if (option == "nolabelequs")
+  labelEqus = false;
 else if (option == "labellen" && iValue > 0 && iValue < 256)
   labelLen = iValue;
 else if (option == "eqlbllen" && iValue > 0 && iValue < 256)
@@ -2386,6 +2440,7 @@ else
     }
   printf("  Output formatting options:\n");
   ListOptionLine("logo", "{off|on}\toutput logo in file", showLogo ? "on" : "off");
+  ListOptionLine("code", "{off|on}\toutput code", showComments ? "on" : "off");
   ListOptionLine("addr", "{off|on}\toutput address dump", showAddr ? "on" : "off");
   ListOptionLine("hex", "{off|on}\toutput hex dump", showHex ? "on" : "off");
   ListOptionLine("asc", "{off|on}\toutput ASCII rendering of code/data", showAsc ? "on" : "off");
@@ -2393,6 +2448,7 @@ else
   ListOptionLine("lcomment", "{off|on}\toutput line comments", showLComments ? "on" : "off");
   ListOptionLine("cref", "{off|on}\toutput cross-reference for used labels", showCref ? "on" : "off");
   ListOptionLine("unused", "{off|on}\toutput unused defined labels", showUnused ? "on" : "off");
+  ListOptionLine("labelequs", "{off|on}\toutput code/data labels as equates, suppress code", labelEqus ? "on" : "off");
   ListOptionLine("labellen", "{length}\tspace reserved for labels", sformat("%d", labelLen));
   ListOptionLine("eqlbllen", "{length}\tspace reserved for equ labels", sformat("%d", lLabelLen));
   ListOptionLine("opcodelen", "{length}\tspace reserved for opcodes", sformat("%d", mnemoLen));

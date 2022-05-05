@@ -237,6 +237,11 @@ These are the universal options:</p>
   <dd>If the current processor has a system vector table at a given address and the input file(s)
       contain the table area, dasmfw can automatically format the system vector table and assign
       labels to the referenced addresses.<br />Default is on.</dd>
+  <dt><b>upmnemo <i>on|off|default</i></b><br />
+      <b>noupmnemo</b></dt>
+  <dd>can be used to force the disassembler to emit mnemonics in uppercase (<b><i>on</i></b>) or
+      lowercase (<b><i>off</i></b>) characters; if not given (same as <b><i>default</i></b>),
+      it uses the default mode implemented by the respective disassembler</dd>
 </dl>
 <p>The following options are disassembler-specific; some are only available for specific
    disassemblers. If in doubt, invoking dasmfw with the command line

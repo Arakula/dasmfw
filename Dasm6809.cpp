@@ -1948,7 +1948,7 @@ if (!bAfterLine)                        /* if before the address             */
     {
     LineChange chg;
     changes.push_back(chg);
-    chg.oper = "SETDP";
+    chg.oper = MnemoCase("SETDP");
     if (dp != NO_ADDRESS)
       chg.opnds = sformat("$%02X", dp >> 8);
     changes.push_back(chg);

@@ -59,7 +59,7 @@ using namespace std;
 /* Global definitions                                                        */
 /*****************************************************************************/
 
-#define DASMFW_VERSION  "0.22"
+#define DASMFW_VERSION  "0.24"
 
 // set these to int64_t once 64bit processors become part of the framework
 typedef uint32_t cadr_t;                /* container for maximal code address*/
@@ -228,6 +228,7 @@ protected:
   bool DisassembleDefLabels(string sComDel, string sComHdr, int bus = BusCode);
   adr_t DisassembleLine(adr_t addr, string sComDel, string sComHdr, string labelDelim, int bus = BusCode);
   bool PrintLine(string sLabel = "", string smnemo = "", string sparm = "", string scomment = "", int labelLen = -1);
+  bool PrintLabelEqu(Label *pLabel, string sLabel = "");
   bool LoadInfo(string fileName, vector<string> &loadStack, bool bProcInfo = true, bool bSetDasm = false);
   int ParseInfoRange(string value, adr_t &from, adr_t &to, adr_t &step, bool remapped = true);
   int ParseOption
@@ -307,6 +308,8 @@ protected:
   bool showLComments;                   /* flag for showing line comments    */
   bool showCref;                        /* flag for showing cross-references */
   bool f9dasmComp;                      /* flag for f9dasm compatibility     */
+  bool showCode;                        /* flag for code output              */
+  bool labelEqus;                       /* flag for label equate output      */
   int labelLen;                         /* minimum label display length      */
   int lLabelLen;                        /* minimum label len for EQUs        */
   int mnemoLen;                         /* minimum mnemonics display length  */
