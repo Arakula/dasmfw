@@ -1,7 +1,7 @@
 # dasmfw
 The DisASseMbler FrameWork
 
-Copyright (c) 2015-2021 Hermann Seib
+Copyright (c) 2015-2022 Hermann Seib
 &#13;&#10;Parts Copyright (c) 2000 Arto Salmi  
 &#13;&#10;Parts Copyright (c) 2013 Colin Bourassa  
 &#13;&#10;Parts Copyright (c) 2014-2015 Rainer Buchty
