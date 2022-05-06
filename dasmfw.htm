@@ -44,7 +44,11 @@ One program that can handle many different CPU architectures, some of them based
 That is, a framework for disassemblers&hellip;</li>
 </ul>
 <p>So I did a complete redesign - dasmfw was born. A framework that makes it relatively easy
-to "plug in" new disassemblers, regardless of the architecture involved.</p>
+to "plug in" new disassemblers, regardless of the architecture involved.<br />
+Purists may wrinkle their noses - it's written in a very basic, very much "C with objects" style,
+without any of the modern C++ finesses. That's actually intentional; this way, it can be
+used with practically any C++ compiler that this millennium has to offer. A single "auto",
+for example, would break that compatibility, no matter how convenient it would be.</p>
 <p align="right">Hermann Seib, 2021</p>
 
 <h2>Syntax</h2>
@@ -176,6 +180,15 @@ specified by adding ":" plus the factor to the filename.</p>
      instuctions on a disassembly line, which can be provided in an info file, see below).<br />
 	 Normally, line comments are enabled.<br />
 	 Turning off comments completely also turns off line comments.</dd>
+  <dt><b>code <i>on|off</i></b><br />
+      <b>nocode</b></dt>
+  <dd>can be used to prevent output of code lines. Makes sense if the disassembler run is
+      used to create a list of labels only (useful if you want to generate an include
+      file for another assembler source, together with <b>labeleqs on</b>)</dd>
+  <dt><b>labeleqs <i>on|off</i></b><br />
+      <b>nolabeleqs</b></dt>
+  <dd>can be used to emit code and data labels as equates (useful if you want to generate
+      an include file for another assembler source)</dd>
 </dl>
 <h3>Disassembler Options</h3>
 <p>Most of the following options are universally usable; some, however, are disassembler-specific.
@@ -351,11 +364,15 @@ information about the layout of the processed file.</p>
 <p>Normally, dasmfw will try to interpret everything as <i>code</i>;
 it doesn't try to find out which areas contain code and which areas contain data,
 or the format of the data. Using an info file, you can give it detailed instructions
-how to process the file, add comments, insert additional stuff, and so on.</p>
+how to process the file, add comments, patch existing areas, insert additional stuff,
+and so on.</p>
 <p>The info file is a simple text file, which contains one instruction per line.<br />
 The instructions are case-insensitive.<br />
-Addresses need to be given in <i>hexadecimal</i> notation.
-Anything following an asterisk (<b>*</b>) is interpreted as a comment.</p>
+Addresses need to be given in <i>hexadecimal</i> notation.<br />
+Anything following an asterisk (<b>*</b>) is interpreted as a comment. If an asterisk
+needs to be given, it has to be preceded by a backslash (<b>\</b>). Backslash acts as
+an <i>escape character</i>; if a single backslash is needed, it has to be preceded by
+another backslash.</p>
 <p>dasmfw looks for default information files in the following positions:</p>
 <ol>
 <li>in a subdirectory <b>.dasmfw</b> of the current user's home directory</li>
@@ -368,7 +385,8 @@ it would be dasm6809.nfo.</p>
 
 <h3>Info File Instructions</h3>
 <p>Each instruction line has the following syntax:</p>
-<pre>inst [bus tgtbus] [range] [value] [* comment]</pre>
+<pre>* [comment]
+inst [bus tgtbus] [range] [value] [* comment]</pre>
 <p><b>inst</b> is one of the instructions described below.<br />
 <b>tgtbus</b> is one of the busses defined for the current disassembler; for the AVR8, this can be
 <i>code</i>, <i>data</i>, <i>io</i>, or <i>eeprom</i>;

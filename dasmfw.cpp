@@ -1358,7 +1358,7 @@ if (!fp)
 
 int fc;
 string line;
-bool bMod = false, bEnd = false, bEsc = false, bSkip = false;
+bool bMod = false, bEnd = false;
 do
   {
   fc = fgetc(fp);
@@ -1372,12 +1372,7 @@ do
     }
   if (fc != '\r' && fc != '\n' && fc != EOF)
     {
-    if ((fc == '*' /*|| fc == ';'*/) && /* catch comment characters          */
-        !bEsc)
-      bSkip = true;
-    bEsc = fc == '\\';                  /* get whether escaping next char    */
-    if (!bSkip)
-      line += (char)fc;
+    line += (char)fc;
     continue;
     }
   if (bProcInfo)
@@ -1501,7 +1496,7 @@ do
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
         option = value.substr(0, idx);
-        value = trim(value.substr(idx));
+        value = triminfo(value.substr(idx));
         ParseOption(option, value, !bProcInfo);
         }
         break;
@@ -2101,7 +2096,7 @@ do
         for (; i < value.size() && value[i] != delim1 && value[i] != delim2; i++)
           name += value[i];
         if (i < value.size())
-          value = trim(value.substr(i + 1));
+          value = triminfo(value.substr(i + 1), true, false);
         else
           value.clear();
         if (name.size())
@@ -2117,7 +2112,6 @@ do
     }
   line.clear();
   bMod = false;
-  bEsc = bSkip = false;                 /* reset in-line flags               */
   } while (fc != EOF && !bEnd);
 
 (void)bMod;  // unused ATM, but might become useful
@@ -2440,7 +2434,7 @@ else
     }
   printf("  Output formatting options:\n");
   ListOptionLine("logo", "{off|on}\toutput logo in file", showLogo ? "on" : "off");
-  ListOptionLine("code", "{off|on}\toutput code", showComments ? "on" : "off");
+  ListOptionLine("code", "{off|on}\toutput code", showCode ? "on" : "off");
   ListOptionLine("addr", "{off|on}\toutput address dump", showAddr ? "on" : "off");
   ListOptionLine("hex", "{off|on}\toutput hex dump", showHex ? "on" : "off");
   ListOptionLine("asc", "{off|on}\toutput ASCII rendering of code/data", showAsc ? "on" : "off");
