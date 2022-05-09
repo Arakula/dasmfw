@@ -302,7 +302,7 @@ class DasmAvr8 :
       static const char *reghdr[] = { "R", "r" };
       if (with_label && CurRegLabel[regnum].size())
         return CurRegLabel[regnum];
-      return sformat("%s%d", reghdr[avr_gcc], regnum);
+      return MnemoCase(sformat("%s%d", reghdr[avr_gcc], regnum));
       }
     string IORegName(adr_t addr)
       {

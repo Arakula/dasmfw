@@ -514,8 +514,8 @@ return PC;
 string Dasm68HC11::GetIx8IndexReg(uint8_t instpg)
 {
 if (instpg == 0x18 || instpg == 0xCD)
-  return ",Y";
-return ",X";
+  return MnemoCase(",Y");
+return MnemoCase(",X");
 }
 
 /*****************************************************************************/
@@ -678,7 +678,8 @@ switch (mode)                           /* which mode is this?               */
     else if (lbl)
       slbl = lbl->GetText() + GetIx8IndexReg(instpg);
     else if (!T && !showIndexedModeZeroOperand)
-      slbl = GetIx8IndexReg(instpg);   /* omit '$00', unless the user has set the 'showzero' option */
+      // omit '$00', unless the user has set the 'showzero' option
+      slbl = GetIx8IndexReg(instpg);
     else
       slbl = Number2String(T, 2, PC) + GetIx8IndexReg(instpg);
     PC++;

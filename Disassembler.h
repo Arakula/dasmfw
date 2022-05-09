@@ -775,6 +775,7 @@ class Disassembler
         return uppercase(smnemo);
       return lowercase(smnemo);
       }
+    virtual string MnemoCase(char c) { return MnemoCase(string(&c, 1)); }
 
   public:
     // return address bits for a specific bus

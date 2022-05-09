@@ -74,3 +74,5 @@ v0.25 2022-05-06 [no]code option documented
                  Slight changes to info file handling against v0.24 as
                    neither "option cchar *" nor "option cchar \*" worked <sigh> ...
                    now it should work as documented and it's "option cchar \*"
+v0.26 2022-05-09 upmnemo option now also influences register names
+                 Updates to 6502 disassembler

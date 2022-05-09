@@ -925,7 +925,7 @@ if (rt != MemAttributeAvr8::RelUntyped)
       case MemAttributeAvr8::RelLowMinus :
       case MemAttributeAvr8::RelLow2 :
         s = sformat("%s(%s%s)",
-                    avr_gcc ? "lo8" : "LOW",
+                    MnemoCase(avr_gcc ? "lo8" : "LOW").c_str(),
                     (rt == MemAttributeAvr8::RelLowMinus) ? "-" : "",
                     s.c_str());
         return s;
@@ -933,7 +933,7 @@ if (rt != MemAttributeAvr8::RelUntyped)
       case MemAttributeAvr8::RelHighMinus :
       case MemAttributeAvr8::RelHigh2 :
         s = sformat("%s(%s%s)",
-                    avr_gcc ? "hi8" : "HIGH",
+                    MnemoCase(avr_gcc ? "hi8" : "HIGH").c_str(),
                     (rt == MemAttributeAvr8::RelHighMinus) ? "-" : "",
                     s.c_str());
         return s;
@@ -1419,37 +1419,37 @@ for (i = 0; i < numOperands; i++)
       sparm += lbl ? lbl->GetText() : sformat("0x%x", operand);
       break;
     case OpndX:
-      sparm += "X";
+      sparm += MnemoCase("X");
       break;
     case OpndXPlus:
-      sparm += "X+";
+      sparm += MnemoCase("X+");
       break;
     case OpndMinusX:
-      sparm += "-X";
+      sparm += MnemoCase("-X");
       break;
     case OpndY:
-      sparm += "Y";
+      sparm += MnemoCase("Y");
       break;
     case OpndYPlus:
-      sparm += "Y+";
+      sparm += MnemoCase("Y+");
       break;
     case OpndMinusY:
-      sparm += "-Y";
+      sparm += MnemoCase("-Y");
       break;
     case OpndZ:
-      sparm += "Z";
+      sparm += MnemoCase("Z");
       break;
     case OpndZPlus:
-      sparm += "Z+";
+      sparm += MnemoCase("Z+");
       break;
     case OpndMinusZ:
-      sparm += "-Z";
+      sparm += MnemoCase("-Z");
       break;
     case OpndYPlusQ:
-      sparm += sformat("Y+%d", operand);
+      sparm += sformat("%s+%d", MnemoCase("Y").c_str(), operand);
       break;
     case OpndZPlusQ:
-      sparm += sformat("Z+%d", operand);
+      sparm += sformat("%s+%d", MnemoCase("Z").c_str(), operand);
       break;
     case OpndData:
       {

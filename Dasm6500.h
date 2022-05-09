@@ -118,6 +118,7 @@ class Dasm650X :
       _rel,                             /* relative                          */
 
       addrmodes6500_count,
+      _nof = 0x40                       /* no forced addressing (JSR)        */
       };
 
     // 6500 mnemonics

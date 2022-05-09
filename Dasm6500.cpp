@@ -18,6 +18,41 @@
 /*                          Copyright (C) Hermann Seib                     *
  ***************************************************************************/
 
+#if 0
+Little TODO notepad ...
+
+"<" and ">" for forced addressing modes are obviously not used in the 6502
+assembler world. So be it. There seem to be other methods:
+
+Kick: append .abs or .a to the mnemonic (Absolute mode) or
+      append .zp  or .z to the mnemonic (Zeropage mode)
+
+dasm: .a, .z (plus various others) FORCE mnemonic extensions
+
+ACME: append +1 (zeropage), +2 (absolute 16bit), +3 (absolute 24bit for 65816)
+      to mnemo
+
+as65: nothing to be found in the manual
+
+Most, if not all, of the above assemblers would also interpret constants
+given with leading zeroes (like $00xx) as implicit absolute and without ($xx)
+as zero page addressing, but that is not something I'd rely on. Also, it's
+only usable for constants and equates - but not, for example, labels in
+the zero page.
+
+For the moment, I'm going with .a and .z, but that is surely not enough.
+as65, for example, obviously can't handle that.
+
+To go for maximum compatibility, options would be necessary to define
+  - whether forced addressing is to be done at all (OK, got that)
+  - a potential mnemonic addition (like the .a and .z currently in use)
+  - a potential parameter prefix (like the < and > of old)
+The "$00 means zero page, $0000 means absolute address" approach is not
+something that can be easily incorporated (and, as mentioned, incomplete),
+so I see neither reason nor a way to implement that.
+
+#endif
+
 /*****************************************************************************/
 /* Dasm650X.cpp : 650X disassembler implementation                           */
 /*****************************************************************************/
@@ -104,7 +139,7 @@ uint8_t Dasm650X::m6500_codes[512] =
   _ill  ,_nom,   _ora  ,_zpx,   _asl  ,_zpx,   _ill  ,_nom,     /* 14..17 */
   _clc  ,_imp,   _ora  ,_aby,   _ill  ,_nom,   _ill  ,_nom,     /* 18..1B */
   _ill  ,_nom,   _ora  ,_abx,   _asl  ,_abx,   _ill  ,_nom,     /* 1C..1F */
-  _jsr  ,_abs,   _and  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 20..23 */
+  _jsr,_abs|_nof,_and  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 20..23 */
   _bit  ,_zpg,   _and  ,_zpg,   _rol  ,_zpg,   _ill  ,_nom,     /* 24..27 */
   _plp  ,_imp,   _and  ,_imm,   _rol  ,_acc,   _ill  ,_nom,     /* 28..2B */
   _bit  ,_abs,   _and  ,_abs,   _rol  ,_abs,   _ill  ,_nom,     /* 2C..2F */
@@ -627,6 +662,7 @@ switch (mode)                           /* which mode is this ?              */
     break;
 
   case _abs:                            /* absolute                          */
+  case _abs|_nof:                       /* absolute, no forced addressing    */
   case _abx:                            /* absolute,X                        */
   case _aby:                            /* absolute,Y                        */
     bSetLabel = !IsConst(PC);
@@ -857,7 +893,7 @@ switch (mode)                           /* which mode is this?               */
     // no need to do anything
     break;
   case _acc:                            /* accumulator                       */
-    sparm = "A";
+    sparm = MnemoCase("A");
     break;
 
   case _imm:                            /* immediate byte                    */
@@ -887,26 +923,33 @@ switch (mode)                           /* which mode is this?               */
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC);
+#if 1
+      if (GetForcedAddr(PC))
+        smnemo += ".Z";
+      sparm = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+#else
       sparm = GetForcedAddr(PC) ? "<" : "";
       sparm += lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+#endif
       }
     else // if no direct page, this can't be interpreted as a label
       sparm = (lbl ? lbl->GetText() : Number2String(T, 2, PC));
     if (mode == _zpx)
-      sparm += ",X";
+      sparm += MnemoCase(",X");
     else if (mode == _zpy)
-      sparm += ",Y";
+      sparm += MnemoCase(",Y");
     else if (mode == _ind)
       sparm = "(" + sparm + ")";
     else if (mode == _idx)
-      sparm = "(" + sparm + ",X)";
+      sparm = "(" + sparm + MnemoCase(",X)");
     else if (mode == _idy)
-      sparm = "(" + sparm + "),Y";
+      sparm = "(" + sparm + MnemoCase("),Y");
     PC++;
     }
     break;
 
   case _abs:                            /* absolute                          */
+  case _abs|_nof:                       /* absolute, no forced addressing    */
   case _abx:                            /* absolute,X                        */
   case _aby:                            /* absolute,Y                        */
     {
@@ -921,14 +964,20 @@ switch (mode)                           /* which mode is this?               */
       dp = GetDirectPage(addr);
     if (dp == DEFAULT_ADDRESS)
       dp = 0;
-    if (forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp)
+    if (forceExtendedAddr &&
+        (W & (uint16_t)0xff00) == (uint16_t)dp &&
+        !(mode & _nof))
+#if 1
+      smnemo += ".A";
+#else
       sparm = ">" + slbl;
     else
+#endif
       sparm = slbl;
     if (mode == _abx)
-      sparm += ",X";
+      sparm += MnemoCase(",X");
     else if (mode == _aby)
-      sparm += ",Y";
+      sparm += MnemoCase(",Y");
     PC += 2;
     }
     break;
@@ -1055,7 +1104,7 @@ uint8_t Dasm6501::m6501_codes[512] =
   _ill  ,_nom,   _ora  ,_zpx,   _asl  ,_zpx,   _slo,_zpx|_und,  /* 14..17 */
   _clc  ,_imp,   _ora  ,_aby,   _ill  ,_nom,   _slo,_aby|_und,  /* 18..1B */
   _ill  ,_nom,   _ora  ,_abx,   _asl  ,_abx,   _slo,_abx|_und,  /* 1C..1F */
-  _jsr  ,_abs,   _and  ,_idx,   _ill  ,_nom,   _rla,_idx|_und,  /* 20..23 */
+  _jsr,_abs|_nof,_and  ,_idx,   _ill  ,_nom,   _rla,_idx|_und,  /* 20..23 */
   _bit  ,_zpg,   _and  ,_zpg,   _rol  ,_zpg,   _rla,_zpg|_und,  /* 24..27 */
   _plp  ,_imp,   _and  ,_imm,   _rol  ,_acc,   _anc,_imm|_und,  /* 28..2B */
   _bit  ,_abs,   _and  ,_abs,   _rol  ,_abs,   _rla,_abs|_und,  /* 2C..2F */
@@ -1279,7 +1328,7 @@ uint8_t Dasm65C02::m65c02_codes[512] =
   _trb  ,_zpg,   _ora  ,_zpx,   _asl  ,_zpx,   _rmb  ,_zpb,     /* 14..17 */
   _clc  ,_imp,   _ora  ,_aby,   _inc  ,_imp,   _ill  ,_nom,     /* 18..1B */
   _trb  ,_abs,   _ora  ,_abx,   _asl  ,_abx,   _bbr  ,_bbt,     /* 1C..1F */
-  _jsr  ,_abs,   _and  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 20..23 */
+  _jsr,_abs|_nof,_and  ,_idx,   _ill  ,_nom,   _ill  ,_nom,     /* 20..23 */
   _bit  ,_zpg,   _and  ,_zpg,   _rol  ,_zpg,   _rmb  ,_zpb,     /* 24..27 */
   _plp  ,_imp,   _and  ,_imm,   _rol  ,_acc,   _ill  ,_nom,     /* 28..2B */
   _bit  ,_abs,   _and  ,_abs,   _rol  ,_abs,   _bbr  ,_bbt,     /* 2C..2F */
@@ -1491,8 +1540,14 @@ switch (mode)                           /* which mode is this?               */
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC);
+#if 1
+      if (GetForcedAddr(PC))
+        smnemo += ".Z";
+      sparm = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+#else
       sparm = GetForcedAddr(PC) ? "<" : "";
       sparm += lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+#endif
       }
     else // if no direct page, this can't be interpreted as a label
       sparm = (lbl ? lbl->GetText() : Number2String(T, 2, PC));
@@ -1518,8 +1573,14 @@ switch (mode)                           /* which mode is this?               */
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC);
+#if 1
+      if (GetForcedAddr(PC))
+        smnemo += ".Z";
+      sparm = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+#else
       sparm = GetForcedAddr(PC) ? "<" : "";
       sparm += lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
+#endif
       }
     else // if no direct page, this can't be interpreted as a label
       sparm = (lbl ? lbl->GetText() : Number2String(T, 2, PC));

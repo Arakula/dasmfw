@@ -1484,19 +1484,19 @@ if (T & 0x80)
   switch (T & 0x1F)
     {
     case 0x00:
-      buf = sformat(",%c+", R);
+      buf = MnemoCase(sformat(",%c+", R));
       break;
     case 0x01:
-      buf = sformat(",%c++", R);
+      buf = MnemoCase(sformat(",%c++", R));
       break;
     case 0x02:
-      buf = sformat(",-%c", R);
+      buf = MnemoCase(sformat(",-%c", R));
       break;
     case 0x03:
-      buf = sformat(",--%c", R);
+      buf = MnemoCase(sformat(",--%c", R));
       break;
     case 0x04:
-      buf = sformat(",%c", R);
+      buf = MnemoCase(sformat(",%c", R));
       if (GetRelative(PC - 1))
         {
         bGetLabel = !IsConst(PC - 1);
@@ -1506,10 +1506,10 @@ if (T & 0x80)
         }
       break;
     case 0x05:
-      buf = sformat("B,%c", R);
+      buf = MnemoCase(sformat("B,%c", R));
       break;
     case 0x06:
-      buf = sformat("A,%c", R);
+      buf = MnemoCase(sformat("A,%c", R));
       break;
     case 0x08:
       bGetLabel = !IsConst(PC);
@@ -1522,14 +1522,17 @@ if (T & 0x80)
         {
         string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
         bool bFwd = IsForwardRef(W, bGetLabel, PC);
-        buf = sformat(bFwd ? "<%s,%c" : "%s,%c", slbl.c_str(), R);
+        buf = sformat(bFwd ? "<%s,%s" : "%s,%s",
+                      slbl.c_str(),
+                      MnemoCase(R).c_str());
         }
       else
         {
         string slbl = lbl ? lbl->GetText() : SignedNumber2String((int)((char)T), 2, PC);
         // DefLabels are output before the code, so they ARE defined and need no <
-        // buf = sformat((lbl && Wrel >= PC - 1) ? "<%s,%c" : "%s,%c", slbl.c_str(), R);
-        buf = sformat((lbl && Wrel >= PC - 1) ? "%s,%c" : "%s,%c", slbl.c_str(), R);
+        // buf = sformat((lbl && Wrel >= PC - 1) ? "<%s,%s" : "%s,%s", slbl.c_str(), MnemoCase(R)).c_str());
+        buf = sformat((lbl && Wrel >= PC - 1) ? "%s,%s" : "%s,%s",
+                      slbl.c_str(), MnemoCase(R).c_str());
         }
       PC++;
       break;
@@ -1541,7 +1544,7 @@ if (T & 0x80)
       if ((Wrel != W) || FindLabel(Wrel))
         {
         string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-        buf = sformat("%s,%c", slbl.c_str(), R);
+        buf = sformat("%s,%s", slbl.c_str(), MnemoCase(R).c_str());
         if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
           buf = ">" + buf;
         }
@@ -1551,18 +1554,18 @@ if (T & 0x80)
         if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
           {
           slbl = lbl ? lbl->GetText() : SignedNumber2String((int)(short)W, 4, PC);
-          buf = sformat(">%s,%c", slbl.c_str(), R);
+          buf = sformat(">%s,%s", slbl.c_str(), MnemoCase(R).c_str());
           }
         else
           {
           slbl = lbl ? lbl->GetText() : Number2String((uint16_t)(int)(short)W, 4, PC);  /* RB: this was "signed_string" */
-          buf = sformat("%s,%c", slbl.c_str(), R);
+          buf = sformat("%s,%s", slbl.c_str(), MnemoCase(R).c_str());
           }
         }
       PC += 2;
       break;
     case 0x0B:
-      buf = sformat("D,%c", R);
+      buf = MnemoCase(sformat("D,%c", R));
       break;
     case 0x0C:
       T = GetUByte(PC);
@@ -1572,12 +1575,12 @@ if (T & 0x80)
 #else
       if (bGetLabel)
         buf = Label2String((uint16_t)((int)((char)T) + PC + 1), 4,
-                           bGetLabel, PC) + ",PCR";
+                           bGetLabel, PC) + MnemoCase(",PCR");
       else
         {
         lbl = FindLabel(PC, Const);
         string slbl = lbl ? lbl->GetText() : Number2String((uint16_t)(int)(char)T, 2, PC);
-        buf = slbl + ",PC";
+        buf = slbl + MnemoCase(",PC");
         }
       if (((char)T > 0) && forceDirectAddr)
         buf = "<" + buf;
@@ -1593,34 +1596,34 @@ if (T & 0x80)
       string slbl = lbl ? lbl->GetText() :
                           Label2String((uint16_t)(W + PC), 4, bGetLabel, PC - 2);
       if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
-        buf = sformat(">%s,PCR", slbl.c_str());
+        buf = sformat(">%s", slbl.c_str()) + MnemoCase(",PCR");
       else
-        buf = sformat("%s,PCR", slbl.c_str());
+        buf = sformat("%s", slbl.c_str()) + MnemoCase(",PCR");
       }
       break;
     case 0x11:
-      buf = sformat("[,%c++]", R);
+      buf = MnemoCase(sformat("[,%c++]", R));
       break;
     case 0x13:
-      buf = sformat("[,--%c]", R);
+      buf = MnemoCase(sformat("[,--%c]", R));
       break;
     case 0x14:
-      buf = sformat("[,%c]", R);
+      buf = MnemoCase(sformat("[,%c]", R));
       break;
     case 0x15:
-      buf = sformat("[B,%c]", R);
+      buf = MnemoCase(sformat("[B,%c]", R));
       break;
     case 0x16:
-      buf = sformat("[A,%c]", R);
+      buf = MnemoCase(sformat("[A,%c]", R));
       break;
     case 0x18:
       {
       lbl = FindLabel(PC, Const);
       T = GetUByte(PC);
       string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
-      buf = sformat("[%s,%c]",
+      buf = sformat("[%s,%s]",
               slbl.c_str(),
-              R);
+              MnemoCase(R).c_str());
       PC++;
       }
       break;
@@ -1630,12 +1633,12 @@ if (T & 0x80)
       lbl = bGetLabel ? NULL : FindLabel(PC, Const);
       W = GetUWord(PC);
       string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-      buf = sformat("[%s,%c]", slbl.c_str(), R);
+      buf = sformat("[%s,%s]", slbl.c_str(), MnemoCase(R).c_str());
       PC += 2;
       }
       break;
     case 0x1B:
-      buf = sformat("[D,%c]", R);
+      buf = MnemoCase(sformat("[D,%c]", R));
       break;
     case 0x1C:
       {
@@ -1644,12 +1647,12 @@ if (T & 0x80)
       bGetLabel = !IsConst(PC);
       if (bGetLabel)
         buf = Label2String((uint16_t)((int)((char)T) + PC + 1), 4,
-                           bGetLabel, PC) + ",PCR";
+                           bGetLabel, PC) + MnemoCase(",PCR");
       else
         {
         lbl = FindLabel(PC, Const);
         string slbl = lbl ? lbl->GetText() : Number2String((uint16_t)(int)(char)T, 2, PC);
-        buf = slbl + ",PC";
+        buf = slbl + MnemoCase(",PC");
         }
       if (((char)T > 0) && forceDirectAddr)
         buf = "<" + buf;
@@ -1674,9 +1677,9 @@ if (T & 0x80)
       string slbl = lbl ? lbl->GetText() :
                           Label2String((uint16_t)(W + PC), 4, bGetLabel, PC - 2);
       if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
-        buf = sformat("[>%s,PCR]", slbl.c_str());
+        buf = sformat("[>%s,%s]", slbl.c_str(), MnemoCase("PCR").c_str());
       else
-        buf = sformat("[%s,PCR]", slbl.c_str());
+        buf = sformat("[%s,%s]", slbl.c_str(), MnemoCase("PCR").c_str());
 #else
       bGetLabel = !IsConst(PC);
       lbl = bGetLabel ? NULL : FindLabel(PC, Const);
@@ -1724,13 +1727,13 @@ else
     {
     lbl = bGetLabel ? NULL : FindLabel(PC - 1, Const);
     string slbl = lbl ? lbl->GetText() : Label2String((uint16_t)c, 4, bGetLabel, PC - 1);
-    buf = sformat("%s,%c", slbl.c_str(), R);
+    buf = sformat("%s,%s", slbl.c_str(), MnemoCase(R).c_str());
     }
   else
     {
     lbl = FindLabel(PC - 1, Const);
     string slbl = lbl ? lbl->GetText() : SignedNumber2String(c, 2, PC - 1);
-    buf = sformat("%s,%c", slbl.c_str(), R);
+    buf = sformat("%s,%s", slbl.c_str(), MnemoCase(R).c_str());
     }
   }
 
@@ -1869,7 +1872,9 @@ switch (mode)                           /* which mode is this?               */
         !SetConvenience(instpg, (uint16_t)(instb << 8) | GetUByte(PC), smnemo, PC))
       {
       T = GetUByte(PC++);
-      sparm = sformat("%s,%s", exg_tfr[T >> 4], exg_tfr[T & 0xF]);
+      sparm = sformat("%s,%s",
+                      MnemoCase(exg_tfr[T >> 4]).c_str(),
+                      MnemoCase(exg_tfr[T & 0xF]).c_str());
       }
     break;
 
@@ -1881,31 +1886,31 @@ switch (mode)                           /* which mode is this?               */
       // buf[0] = '\0';
       T = GetUByte(PC++);
       if (T & 0x80)
-        sparm += "PC,";
+        sparm += MnemoCase("PC,");
       if (T & 0x40)
         {
         if (mode == _r2)
-          sparm += "U,";
+          sparm += MnemoCase("U,");
         else if (mode == _r3)
-          sparm += "S,";
+          sparm += MnemoCase("S,");
         }
       if (T&0x20)
-        sparm += "Y,";
+        sparm += MnemoCase("Y,");
       if (T & 0x10)
-        sparm += "X,";
+        sparm += MnemoCase("X,");
       if (T & 0x08)
-        sparm += "DP,";
+        sparm += MnemoCase("DP,");
       if ((T & 0x06) == 0x06)
-        sparm += "D,";
+        sparm += MnemoCase("D,");
       else
         {
         if (T & 0x04)
-          sparm += "B,";
+          sparm += MnemoCase("B,");
         if (T & 0x02)
-          sparm += "A,";
+          sparm += MnemoCase("A,");
         }
       if (T & 0x01)
-        sparm += "CC,";
+        sparm += MnemoCase("CC,");
       if (sparm.size())
         sparm = sparm.substr(0, sparm.size() - 1);
       }

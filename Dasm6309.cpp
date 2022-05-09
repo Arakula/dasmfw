@@ -495,31 +495,31 @@ if (T & 0x80)
   switch (T & 0x1F)
     {
     case 0x07:
-      buf = sformat("E,%c", R);
+      buf = MnemoCase(sformat("E,%c", R));
       break;
     case 0x17:
-      buf = sformat("[E,%c]", R);
+      buf = MnemoCase(sformat("[E,%c]", R));
       break;
     case 0x0A:
-      buf = sformat("F,%c",R);
+      buf = MnemoCase(sformat("F,%c",R));
       break;
     case 0x1A:
-      buf = sformat("[F,%c]",R);
+      buf = MnemoCase(sformat("[F,%c]",R));
       break;
     case 0x0E:
-      buf = sformat("W,%c",R);
+      buf = MnemoCase(sformat("W,%c",R));
       break;
     case 0x1E:
-      buf = sformat("[W,%c]",R);
+      buf = MnemoCase(sformat("[W,%c]",R));
       break;
     default:
       switch (T)
         {
         case 0x8F:
-          buf = sformat(",W");
+          buf = MnemoCase(sformat(",W"));
           break;
         case 0x90:
-          buf = sformat("[,W]");
+          buf = MnemoCase(sformat("[,W]"));
           break;
         case 0xAF:
           {
@@ -527,7 +527,7 @@ if (T & 0x80)
           lbl = bGetLabel ? NULL : FindLabel(PC, Const);
           W = GetUWord(PC);
           string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-          buf = sformat("%s,W", slbl.c_str());
+          buf = sformat("%s,%s", slbl.c_str(), MnemoCase("W").c_str());
           PC += 2;
           }
           break;
@@ -537,21 +537,21 @@ if (T & 0x80)
           lbl = bGetLabel ? NULL : FindLabel(PC, Const);
           W = GetUWord(PC);
           string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-          buf = sformat("[%s,W]", slbl.c_str());
+          buf = sformat("[%s,%s]", slbl.c_str(),MnemoCase("W").c_str());
           PC += 2;
           }
           break;
         case 0xCF:
-          buf = sformat(",W++");
+          buf = MnemoCase(sformat(",W++"));
           break;
         case 0xD0:
-          buf = sformat("[,W++]");
+          buf = MnemoCase(sformat("[,W++]"));
           break;
         case 0xEF:
-          buf = sformat(",--W");
+          buf = MnemoCase(sformat(",--W"));
           break;
         case 0xF0:
-          buf = sformat("[,--W]");
+          buf = MnemoCase(sformat("[,--W]"));
           break;
         default:
           return Dasm6809::IndexString(pc);
@@ -812,7 +812,7 @@ switch (mode)                           /* which mode is this?               */
     T = GetUByte(PC);
     string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
     sparm = sformat("%s,%d,%s,%s%s",
-                    bit_r[M >> 6],
+                    MnemoCase(bit_r[M >> 6]).c_str(),
                     (M >> 3) & 7,
                     snum.c_str(),
                     (forceDirectAddr || GetForcedAddr(PC)) ? "<" : "",
@@ -823,22 +823,30 @@ switch (mode)                           /* which mode is this?               */
 
   case _t1:                             /* Block Transfer r0+,r1+            */
     T = GetUByte(PC++);
-    sparm = sformat("%s+,%s+", I, block_r[T >> 4], block_r[T & 0xF]);
+    sparm = sformat("%s+,%s+", I,
+                    MnemoCase(block_r[T >> 4]).c_str(),
+                    MnemoCase(block_r[T & 0xF]).c_str());
     break;
     
   case _t2:                             /* Block Transfer r0-,r1-            */
     T = GetUByte(PC++);
-    sparm = sformat("%s-,%s-", I, block_r[T >> 4], block_r[T & 0xF]);
+    sparm = sformat("%s-,%s-", I,
+                    MnemoCase(block_r[T >> 4]).c_str(),
+                    MnemoCase(block_r[T & 0xF]).c_str());
     break;
     
   case _t3:                             /* Block Transfer r0+,r1             */
     T = GetUByte(PC++);
-    sparm = sformat("%s+,%s", I, block_r[T >> 4], block_r[T & 0xF]);
+    sparm = sformat("%s+,%s", I,
+                    MnemoCase(block_r[T >> 4]).c_str(),
+                    MnemoCase(block_r[T & 0xF]).c_str());
     break;
     
   case _t4:                             /* Block Transfer r0,r1+             */
     T = GetUByte(PC++);
-    sparm = sformat("%-7s %s,%s+", I, block_r[T >> 4], block_r[T & 0xF]);
+    sparm = sformat("%-7s %s,%s+", I,
+                    MnemoCase(block_r[T >> 4]).c_str(),
+                    MnemoCase(block_r[T & 0xF]).c_str());
     break;
     
   case _iml:                            /* immediate 32-bit                  */
