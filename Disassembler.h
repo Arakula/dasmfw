@@ -49,6 +49,8 @@ class MemAttributeHandler
     virtual void SetBreakBefore(adr_t addr, bool bOn = true) = 0;
     virtual bool GetForcedAddr(adr_t addr) = 0;
     virtual void SetForcedAddr(adr_t addr, bool bOn = true) = 0;
+    virtual bool GetRelConst(adr_t addr) = 0;
+    virtual void SetRelConst(adr_t addr, bool bOn = true) = 0;
     virtual uint32_t GetDisassemblyFlags(adr_t addr, uint8_t mem, Label *plbl) = 0;
     // basic access
     virtual size_t size() = 0;
@@ -112,6 +114,10 @@ class BasicMemAttributeHandler : public MemAttributeHandler
       { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->GetForcedAddr() : false; }
     virtual void SetForcedAddr(adr_t addr, bool bOn = true)
       { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetForcedAddr(bOn); }
+    virtual bool GetRelConst(adr_t addr)
+      { MemAttribute *pAttr = attr.getat(addr); return pAttr ? pAttr->GetRelConst() : false; }
+    virtual void SetRelConst(adr_t addr, bool bOn = true)
+      { MemAttribute *pAttr = attr.getat(addr); if (pAttr) pAttr->SetRelConst(bOn); }
     virtual uint32_t GetDisassemblyFlags(adr_t addr, uint8_t mem, Label *plbl)
       { return GetBasicDisassemblyFlags(attr.getat(addr), mem, plbl); }
     // basic access
@@ -418,6 +424,10 @@ class Disassembler
       { return memattr[bus] ? memattr[bus]->GetForcedAddr(addr) : false; }
     void SetForcedAddr(adr_t addr, bool bOn = true, int bus = BusCode)
       { if (memattr[bus]) memattr[bus]->SetForcedAddr(addr, bOn); }
+    bool GetRelConst(adr_t addr, int bus = BusCode)
+      { return memattr[bus] ? memattr[bus]->GetRelConst(addr) : false; }
+    void SetRelConst(adr_t addr, bool bOn = true, int bus = BusCode)
+      { if (memattr[bus]) memattr[bus]->SetRelConst(addr, bOn); }
     // get/set default cell display format
     MemAttribute::Display GetDisplay() { return defaultDisplay; }
     void SetDisplay(MemAttribute::Display newDisp) { defaultDisplay = newDisp; }
@@ -458,8 +468,11 @@ class Disassembler
       { return Relatives[bus].AddMemory(addr, relsize, 0, contents); }
     adr_t GetRelative(adr_t addr, int bus = BusCode)
       { adr_t *paddr = Relatives[bus].getat(addr); return paddr ? *paddr : 0; }
-    void SetRelative(adr_t addr, adr_t rel, int bus = BusCode)
-      { adr_t *paddr = Relatives[bus].getat(addr); if (paddr) *paddr = rel; }
+    void SetRelative(adr_t addr, adr_t rel, bool isconst, int bus = BusCode)
+      {
+      SetRelConst(addr, isconst, bus);
+      adr_t *paddr = Relatives[bus].getat(addr); if (paddr) *paddr = rel;
+      }
 
   // Phase handling
   public:

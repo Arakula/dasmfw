@@ -280,6 +280,7 @@ struct MemAttribute
   unsigned used: 1;                     /* used (or not)                     */
   unsigned breakBefore: 1;              /* line break in disassembly         */
   unsigned forcedAddr:1;                /* forced addressing                 */
+  unsigned relConst:1;                  /* rel for this is const             */
 
   enum Type
     {
@@ -307,11 +308,12 @@ struct MemAttribute
       Type cellType = UnsignedInt,
       Display display = DefaultDisplay,
       bool breakBefore = false,
-      bool forcedAddr = false
+      bool forcedAddr = false,
+      bool relConst = false
       )
     : cellSize(cellSize - 1), memType(memType), cellType(cellType),
       display(display), used(used), breakBefore(breakBefore),
-      forcedAddr(forcedAddr)
+      forcedAddr(forcedAddr), relConst(relConst)
     { }
 
   // MemAttribute Getters / Setters
@@ -329,6 +331,8 @@ struct MemAttribute
   void SetBreakBefore(bool bOn = true) { breakBefore = !!bOn; }
   bool GetForcedAddr() { return !!forcedAddr; }
   void SetForcedAddr(bool bOn = true) { forcedAddr = !!bOn; }
+  bool GetRelConst() { return !!relConst; }
+  void SetRelConst(bool bOn = true) { relConst = !!bOn; }
   };
 
 /*****************************************************************************/

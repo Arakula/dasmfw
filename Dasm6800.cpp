@@ -276,6 +276,8 @@ forceDirectAddr = true;
 closeCC = false;
 #endif
 useDPLabels = false;
+textDirectAddr = "p-<";
+textExtendedAddr = "p->";
 
 mnemo.resize(mnemo6800_count);          /* set up mnemonics table            */
 for (int i = 0; i < mnemo6800_count; i++)
@@ -299,6 +301,12 @@ AddOption("dplabel", "{off|on}\tinterpret single-byte data as direct page labels
           static_cast<PSetter>(&Dasm6800::Set6800Option),
           static_cast<PGetter>(&Dasm6800::Get6800Option));
 AddOption("forceaddr", "{off|on}\tuse forced addressing where necessary",
+          static_cast<PSetter>(&Dasm6800::Set6800Option),
+          static_cast<PGetter>(&Dasm6800::Get6800Option));
+AddOption("forcediraddr","{string}\tstring pattern to use for forced direct addressing",
+          static_cast<PSetter>(&Dasm6800::Set6800Option),
+          static_cast<PGetter>(&Dasm6800::Get6800Option));
+AddOption("forceextaddr","{string}\tstring pattern to use for forced extended addressing",
           static_cast<PSetter>(&Dasm6800::Set6800Option),
           static_cast<PGetter>(&Dasm6800::Get6800Option));
 }
@@ -350,6 +358,10 @@ else if (lname == "forceaddr")
   forceExtendedAddr = forceDirectAddr = bnValue;
   return bIsBool ? 1 : 0;
   }
+else if (lname == "forcediraddr")
+  textDirectAddr = value;
+else if (lname == "forceextaddr")
+  textExtendedAddr = value;
 else
   return 0;                             /* only name consumed                */
 
@@ -375,6 +387,10 @@ else if (lname == "dplabel")
   return useDPLabels ? "on" : "off";
 else if (lname == "forceaddr")
   return (forceExtendedAddr || forceDirectAddr) ? "on" : "off";
+else if (lname == "forcediraddr")
+  return textDirectAddr;
+else if (lname == "forceextaddr")
+  return textExtendedAddr;
 
 return "";
 }
@@ -641,6 +657,41 @@ else                                    /* otherwise                         */
     }
   }
 return s;                               /* pass back generated string        */
+}
+
+/*****************************************************************************/
+/* AddForced : add forced direct or extended addressing specifier            */
+/*****************************************************************************/
+
+void Dasm6800::AddForced(string &smnemo, string &sparm, bool bExtended)
+{
+string sf = bExtended ? textExtendedAddr : textDirectAddr;
+bool bMnemo = false;
+bool bAppend = false;
+int txtat = 0;
+char c = tolower(sf[0]);
+if (c == 'm' || c == 'p')
+  {
+  bMnemo = (c == 'm');
+  c = tolower(sf[++txtat]);
+  if (c == '-' || c == '+')
+    {
+    bAppend = (c == '+');
+    ++txtat;
+    }
+  }
+if (bMnemo)
+  {
+  smnemo = (bAppend) ?
+      smnemo + sf.substr(txtat) :
+      sf.substr(txtat) + smnemo;
+  }
+else
+  {
+  sparm = (bAppend) ?
+      sparm + sf.substr(txtat) :
+      sf.substr(txtat) + sparm;
+  }
 }
 
 /*****************************************************************************/
@@ -1123,6 +1174,12 @@ switch (mode)                           /* which mode is this?               */
       if (dp == DEFAULT_ADDRESS)
         dp = 0;
       }
+#if 1
+    if (forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp ||
+        GetForcedAddr(PC))
+      AddForced(smnemo, slbl, true);
+    sparm = slbl;
+#else
     if (forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp)
       sparm = ">" + slbl;
     else
@@ -1130,6 +1187,7 @@ switch (mode)                           /* which mode is this?               */
       sparm = GetForcedAddr(PC) ? ">" : "";
       sparm += slbl;
       }
+#endif
     PC += 2;
     }
     break;

@@ -1466,7 +1466,7 @@ return PC;
 /* IndexString : converts index to string                                    */
 /*****************************************************************************/
 
-string Dasm6809::IndexString(adr_t &pc)
+string Dasm6809::IndexString(string &smnemo, adr_t &pc)
 {
 uint8_t T;
 uint16_t W, Wrel;
@@ -1546,15 +1546,21 @@ if (T & 0x80)
         string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
         buf = sformat("%s,%s", slbl.c_str(), MnemoCase(R).c_str());
         if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
-          buf = ">" + buf;
+          //buf = ">" + buf;
+          AddForced(smnemo, buf, true);
         }
       else
         {
         string slbl;
         if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
           {
+#if 1
           slbl = lbl ? lbl->GetText() : SignedNumber2String((int)(short)W, 4, PC);
+          AddForced(smnemo, slbl, true);
+          buf = sformat("%s,%s", slbl.c_str(), MnemoCase(R).c_str());
+#else
           buf = sformat(">%s,%s", slbl.c_str(), MnemoCase(R).c_str());
+#endif
           }
         else
           {
@@ -1574,16 +1580,21 @@ if (T & 0x80)
       sprintf(buf,"$%s,PC",signed_string((int)(char)T, 2, (word)PC));
 #else
       if (bGetLabel)
-        buf = Label2String((uint16_t)((int)((char)T) + PC + 1), 4,
-                           bGetLabel, PC) + MnemoCase(",PCR");
+        {
+        string slbl = Label2String((uint16_t)((int)((char)T) + PC + 1), 4,
+                                   bGetLabel, PC);
+        if (((char)T > 0) && forceDirectAddr)
+          AddForced(smnemo, slbl, false);
+        buf = slbl + MnemoCase(",PCR");
+        }
       else
         {
         lbl = FindLabel(PC, Const);
         string slbl = lbl ? lbl->GetText() : Number2String((uint16_t)(int)(char)T, 2, PC);
+        if (((char)T > 0) && forceDirectAddr)
+          AddForced(smnemo, slbl, false);
         buf = slbl + MnemoCase(",PC");
         }
-      if (((char)T > 0) && forceDirectAddr)
-        buf = "<" + buf;
 #endif
       PC++;
       break;
@@ -1596,9 +1607,13 @@ if (T & 0x80)
       string slbl = lbl ? lbl->GetText() :
                           Label2String((uint16_t)(W + PC), 4, bGetLabel, PC - 2);
       if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
+#if 1
+        AddForced(smnemo, slbl, true);
+#else
         buf = sformat(">%s", slbl.c_str()) + MnemoCase(",PCR");
       else
-        buf = sformat("%s", slbl.c_str()) + MnemoCase(",PCR");
+#endif
+      buf = sformat("%s", slbl.c_str()) + MnemoCase(",PCR");
       }
       break;
     case 0x11:
@@ -1646,16 +1661,21 @@ if (T & 0x80)
       T = GetUByte(PC);
       bGetLabel = !IsConst(PC);
       if (bGetLabel)
-        buf = Label2String((uint16_t)((int)((char)T) + PC + 1), 4,
-                           bGetLabel, PC) + MnemoCase(",PCR");
+        {
+        string slbl = Label2String((uint16_t)((int)((char)T) + PC + 1), 4,
+                           bGetLabel, PC);
+        if (((char)T > 0) && forceDirectAddr)
+          AddForced(smnemo, slbl, false);
+        buf = slbl + MnemoCase(",PCR");
+        }
       else
         {
         lbl = FindLabel(PC, Const);
         string slbl = lbl ? lbl->GetText() : Number2String((uint16_t)(int)(char)T, 2, PC);
+        if (((char)T > 0) && forceDirectAddr)
+          AddForced(smnemo, slbl, false);
         buf = slbl + MnemoCase(",PC");
         }
-      if (((char)T > 0) && forceDirectAddr)
-        buf = "<" + buf;
       buf = "[" + buf + "]";
       PC++;
 #else
@@ -1677,9 +1697,13 @@ if (T & 0x80)
       string slbl = lbl ? lbl->GetText() :
                           Label2String((uint16_t)(W + PC), 4, bGetLabel, PC - 2);
       if (((W < 0x80) || (W >= 0xff80)) && forceExtendedAddr)
+#if 1
+        AddForced(smnemo, slbl, true);
+#else
         buf = sformat("[>%s,%s]", slbl.c_str(), MnemoCase("PCR").c_str());
       else
-        buf = sformat("[%s,%s]", slbl.c_str(), MnemoCase("PCR").c_str());
+#endif
+      buf = sformat("[%s,%s]", slbl.c_str(), MnemoCase("PCR").c_str());
 #else
       bGetLabel = !IsConst(PC);
       lbl = bGetLabel ? NULL : FindLabel(PC, Const);
@@ -1840,6 +1864,12 @@ switch (mode)                           /* which mode is this?               */
       dp = GetDirectPage(addr);
     if (dp == DEFAULT_ADDRESS)
       dp = 0;
+#if 1
+    if (forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp ||
+        GetForcedAddr(PC))
+      AddForced(smnemo, slbl, true);
+    sparm = slbl;
+#else
     if (forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp)
       sparm = ">" + slbl;
     else
@@ -1847,6 +1877,7 @@ switch (mode)                           /* which mode is this?               */
       sparm = GetForcedAddr(PC) ? ">" : "";
       sparm += slbl;
       }
+#endif
     PC += 2;
     }
     break;
@@ -1854,7 +1885,7 @@ switch (mode)                           /* which mode is this?               */
   case _ind:                            /* indexed                           */
     if (!useConvenience || 
         !SetConvenience(instpg, (uint16_t)(instb << 8) | GetUByte(PC), smnemo, PC))
-      sparm = IndexString(PC);
+      sparm = IndexString(smnemo, PC);
     break;
     
   case _rew:                            /* relative word                     */

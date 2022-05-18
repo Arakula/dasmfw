@@ -76,3 +76,8 @@ v0.25 2022-05-06 [no]code option documented
                    now it should work as documented and it's "option cchar \*"
 v0.26 2022-05-09 upmnemo option now also influences register names
                  Updates to 6502 disassembler
+v0.27 2022-05-10 relc directive added
+v0.28 2022-05-18 crude fix for https://github.com/Arakula/dasmfw/issues/8
+                   added 2 options for the 680X and 650X disassemblers to set
+                   up a pattern for forced direct(zeropage) and extended(absolute)
+                   addressing

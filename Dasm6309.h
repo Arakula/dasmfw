@@ -164,7 +164,7 @@ class Dasm6309 : public Dasm6809
 
   protected:
     virtual adr_t IndexParse(int MI, adr_t pc, adr_t instaddr = NO_ADDRESS);
-    virtual string IndexString(adr_t &pc);
+    virtual string IndexString(string &smnemo, adr_t &pc);
   };
 
 #endif // __Dasm6309_h_defined__

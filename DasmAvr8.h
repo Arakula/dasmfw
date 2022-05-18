@@ -114,6 +114,10 @@ public:
       { MemAttributeAvr8 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetForcedAddr() : false; }
     virtual void SetForcedAddr(adr_t addr, bool bOn = true)
       { MemAttributeAvr8 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetForcedAddr(bOn); }
+    virtual bool GetRelConst(adr_t addr)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetRelConst() : false; }
+    virtual void SetRelConst(adr_t addr, bool bOn = true)
+      { MemAttributeAvr8 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetRelConst(bOn); }
     virtual uint32_t GetDisassemblyFlags(adr_t addr, uint8_t mem, Label *plbl)
       { return GetBasicDisassemblyFlags(attr.getat(addr), mem, plbl); }
     // basic access

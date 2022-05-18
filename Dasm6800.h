@@ -119,6 +119,7 @@ class Dasm6800 :
     virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &MI, const char *&I, string *smnemo = NULL);
     virtual string GetIx8IndexReg(uint8_t instpg) { (void)instpg; return MnemoCase(",X"); }
     virtual bool SetConvenience(uint8_t instpg, uint16_t u2, string &smnemo, adr_t &PC);
+    void AddForced(string &smnemo, string &sparm, bool bExtended = true);
 
   protected:
     // 6800 addressing modes
@@ -271,6 +272,7 @@ class Dasm6800 :
     bool forceExtendedAddr;
     bool forceDirectAddr;
     bool useDPLabels;
+    string textExtendedAddr, textDirectAddr;
   };
 
 

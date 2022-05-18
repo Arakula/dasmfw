@@ -304,10 +304,42 @@ These are the universal options:</p>
       Since this is a bit hairy, default is off.</dd>
   <dt><b>forceaddr <i>on|off</i></b></dt>
   <dd>If the targeted processor (and assembler, if available) can handle
-      <i>forced direct / extended addressing</i>, dasmfw tries its best to determine
-      whether adding the required &lt; and &gt; marks is necessary; in very rare
-      occasions, this may fail. If you build the "RB" variant, it isn't done by default;
+      <i>forced direct / extended addressing</i> (zero-page and absolute for 650X), dasmfw tries
+      its best to determine whether adding the required marks is necessary;
+      in very rare occasions, this may fail. If you build the "RB" variant, it isn't done by default;
       normally, it is. This option can be used to change the behavior.</dd>
+  <dt><b>forcezpgaddr <i>pattern</i></b></dt>
+  <dd>For 6500-based disassemblers only.<br />
+      This defines a string pattern to use for forced zero-page addressing. The pattern consists of
+      3 parts, which have to be given in order:
+      <ul>
+        <li><b>m</b> or <b>p</b> defines whether the modification is done to the
+            <b>m</b>nemonic or the <b>p</b>arameter</li>
+        <li><b>-</b> or <b>+</b> (only to be given if preced by <b>m</b> or <b>p</b>) defines whether
+            the following text is prepended (<b>-</b>) or appended(<b>+</b>) to the mnemonic or parameter</li>
+        <li><b>text</b> which is a free-form text to denote the modification. Can be empty, if the assembler
+            only accepts one kind of forced addressing.</li>
+      </ul>
+      Default value is an A09-compatible (although A09 doesn't support 650X yet ;-) <b>p-&lt;</b>
+      </dd>
+  <dt><b>forceabsaddr <i>pattern</i></b></dt>
+  <dd>For 6500-based disassemblers only.<br />
+      This defines a string pattern to use for forced absolute addressing;
+      see <b>forcezpgaddr</b> above for details on the pattern.<br />
+      Default value is an A09-compatible (although A09 doesn't support 650X yet ;-) <b>p-&gt;</b>
+      </dd>
+  <dt><b>forcediraddr <i>pattern</i></b></dt>
+  <dd>For 6800-based disassemblers only.<br />
+      This defines a string pattern to use for forced direct (zero-page for 6800) addressing; 
+      see <b>forcezpgaddr</b> above for details on the pattern.<br />
+      Default value is an A09-compatible <b>p-&lt;</b>
+      </dd>
+  <dt><b>forceextaddr <i>pattern</i></b></dt>
+  <dd>For 6800-based disassemblers only.<br />
+      This defines a string pattern to use for forced extended addressing; 
+      see <b>forcezpgaddr</b> above for details on the pattern.<br />
+      Default value is an A09-compatible <b>p-&gt;</b>
+      </dd>
   <dt><b>undef <i>on|off</i><br />noundef</b></dt>
   <dd>Some processors (currently 6501 and 6502-based) support additional, but pretty well
       understood officially undefined opcodes. These can be made available; however,
@@ -618,9 +650,11 @@ dasmfw would otherwise assume the line ends at the <b>*</b>, which starts the co
   <dt><b>rel[ative] <i>addr[-addr] baseaddr</i></b></dt>
   <dd>This can be used to make instructions with indexed addressing easier
       to read.</dd>
-      
+  <dt><b>rel[ative]c <i>addr[-addr] baseindex</i></b></dt>
+  <dd>This can be used to make instructions with indexed addressing easier
+      to read.</dd>
   <dt><b>unrel[ative] <i>addr[-addr[/step]]</i></b></dt>
-  <dd>cancels the effect of <b>relative</b> instructions.</dd> 
+  <dd>cancels the effect of <b>relative</b> and <b>relativec</b> instructions.</dd> 
   
   <dt><b>remap <i>addr[-addr[/step]] offset</i></b></dt>
   <dd>This is a tricky instruction that only makes sense in very special

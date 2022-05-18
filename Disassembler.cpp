@@ -554,6 +554,7 @@ string Disassembler::Label2String
 {
 string sOut;
 adr_t relative = GetRelative(addr, bus);
+bool relConst = GetRelConst(addr, bus);
 adr_t Wrel = (value + relative);
 adr_t hiaddr = GetHighestBusAddr(bus) + 1;
 adr_t WrelMod = (hiaddr) ? Wrel % hiaddr : Wrel;
@@ -602,16 +603,17 @@ if (relative)                           /* if it's relative addressing       */
   int32_t nDiff = Wrel - value;         /* get difference                    */
 
                                         /* get base name                     */
-  pLbl = (bUseLabel) ? FindLabel(relative, Untyped, bus) : NULL;
+  bool bRelUseLabel = (relConst) ? false : bUseLabel;
+  pLbl = (bRelUseLabel) ? FindLabel(relative, Untyped, bus) : NULL;
   // DefLabel overrides normal labels and is independent of bUseLabel
   if (!pLbl)
     pLbl = FindLabel(relative, Const, bus);
   sLabel = (pLbl) ? pLbl->GetText() : "";
   if (sLabel.size())
     sAdd += sLabel;
-  else if (bUseLabel && IsCLabel(relative, bus))
+  else if (bRelUseLabel && IsCLabel(relative, bus))
     sAdd += UnnamedLabel(relative, true, bus);
-  else if (bUseLabel && IsDLabel(relative, bus))
+  else if (bRelUseLabel && IsDLabel(relative, bus))
     sAdd += UnnamedLabel(relative, false, bus);
   else
     {

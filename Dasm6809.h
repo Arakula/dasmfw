@@ -87,6 +87,10 @@ class MemAttribute6809Handler : public MemAttributeHandler
       { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetForcedAddr() : false; }
     virtual void SetForcedAddr(adr_t addr, bool bOn = true)
       { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetForcedAddr(bOn); }
+    virtual bool GetRelConst(adr_t addr)
+      { MemAttribute6809 *pAttr = attr.getat(addr); return pAttr ? pAttr->GetRelConst() : false; }
+    virtual void SetRelConst(adr_t addr, bool bOn = true)
+      { MemAttribute6809 *pAttr = attr.getat(addr); if (pAttr) pAttr->SetRelConst(bOn); }
     virtual uint32_t GetDisassemblyFlags(adr_t addr, uint8_t mem, Label *plbl)
       { return GetBasicDisassemblyFlags(attr.getat(addr), mem, plbl); }
     // basic access
@@ -312,7 +316,7 @@ class Dasm6809 : public Dasm6800
     virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &MI, const char *&I, string *smnemo = NULL);
     virtual bool SetConvenience(uint8_t instpg, uint16_t u2, string &smnemo, adr_t &PC);
     virtual adr_t IndexParse(int MI, adr_t pc, adr_t instaddr = NO_ADDRESS);
-    virtual string IndexString(adr_t &pc);
+    virtual string IndexString(string &smnemo, adr_t &pc);
     void AddFlexLabels();
 
   };

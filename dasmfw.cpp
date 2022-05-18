@@ -1208,6 +1208,7 @@ enum InfoCmd
   infoUnForceAddr,                      /* UNFORCEADDR addr[-addr]           */
   // relative address
   infoRelative,                         /* RELATIVE addr[-addr] rel          */
+  infoRelativeConst,                    /* RELATIVEC addr[-addr] rel         */
   infoUnRelative,                       /* UNRELATIVE addr[-addr]            */
   // label handling
   infoLabel,                            /* LABEL addr[-addr] label           */
@@ -1302,6 +1303,8 @@ static struct                           /* structure to convert key to type  */
   // relative address
   { "RELATIVE",     infoRelative },
   { "REL",          infoRelative },
+  { "RELATIVEC",    infoRelativeConst },
+  { "RELC",         infoRelativeConst },
   { "UNRELATIVE",   infoUnRelative },
   { "UNREL",        infoUnRelative },
   // label handling
@@ -1731,6 +1734,7 @@ do
         }
         break;
       case infoRelative :               /* RELATIVE addr[-addr] rel          */
+      case infoRelativeConst :          /* RELATIVEC addr[-addr] rel         */
         {
         string range;
         idx = value.find_first_of(" \t");
@@ -1745,7 +1749,7 @@ do
           for (adr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned += step)
-           pDasm->SetRelative(scanned, rel, infoBus);
+           pDasm->SetRelative(scanned, rel, cmdType == infoRelativeConst, infoBus);
           }
         }
         break;
@@ -1757,7 +1761,7 @@ do
           for (adr_t scanned = from;
                scanned >= from && scanned <= to;
                scanned += step)
-           pDasm->SetRelative(scanned, 0, infoBus);
+           pDasm->SetRelative(scanned, 0, false, infoBus);
           }
         }
         break;

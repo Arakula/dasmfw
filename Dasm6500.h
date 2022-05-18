@@ -97,6 +97,7 @@ class Dasm650X :
     virtual string Address2String(adr_t addr, int bus = BusCode)
       { (void)bus; return sformat("$%04X", addr); }
     virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &MI, const char *&I, string *smnemo = NULL);
+    void AddForced(string &smnemo, string &sparm, bool bExtended = true);
 
   protected:
     // 6500 addressing modes
@@ -200,6 +201,7 @@ class Dasm650X :
     bool forceExtendedAddr;
     bool forceDirectAddr;
     bool useDPLabels;
+    string textExtendedAddr, textDirectAddr;
   };
 
 

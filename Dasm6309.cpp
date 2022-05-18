@@ -477,7 +477,7 @@ return Dasm6809::IndexParse(MI, pc, instaddr);
 /* IndexString : converts index to string                                    */
 /*****************************************************************************/
 
-string Dasm6309::IndexString(adr_t &pc)
+string Dasm6309::IndexString(string &smnemo, adr_t &pc)
 {
 uint8_t T;
 uint16_t W;
@@ -554,7 +554,7 @@ if (T & 0x80)
           buf = MnemoCase(sformat("[,--W]"));
           break;
         default:
-          return Dasm6809::IndexString(pc);
+          return Dasm6809::IndexString(smnemo, pc);
         }
       break;
     }
@@ -562,7 +562,7 @@ if (T & 0x80)
   return buf;
   }
 
-return Dasm6809::IndexString(pc);
+return Dasm6809::IndexString(smnemo, pc);
 }
 
 /*****************************************************************************/
@@ -772,7 +772,7 @@ switch (mode)                           /* which mode is this?               */
     string scn = lbl ? lbl->GetText() : Number2String(T, 2, PC);
     PC++;
     sparm = sformat("#%s,", I, scn.c_str());
-    sparm += IndexString(PC);
+    sparm += IndexString(smnemo, PC);
     }
     break;
 
@@ -791,9 +791,12 @@ switch (mode)                           /* which mode is this?               */
     if ((dp != NO_ADDRESS) &&
         ((W & (uint16_t)0xff00) == (uint16_t)dp) &&
         (forceExtendedAddr || GetForcedAddr(PC)))
-      sparm = sformat("#%s,>%s",
+      {
+      AddForced(smnemo, slbl, true);
+      sparm = sformat("#%s,%s",
                       snum.c_str(),
                       slbl.c_str());
+      }
     else
       sparm = sformat("#%s,%s",
                       snum.c_str(),
@@ -811,11 +814,12 @@ switch (mode)                           /* which mode is this?               */
     lbl = FindLabel(PC, Const, bus);
     T = GetUByte(PC);
     string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
-    sparm = sformat("%s,%d,%s,%s%s",
+    if (forceDirectAddr || GetForcedAddr(PC))
+      AddForced(smnemo, slbl, false);
+    sparm = sformat("%s,%d,%s,%s",
                     MnemoCase(bit_r[M >> 6]).c_str(),
                     (M >> 3) & 7,
                     snum.c_str(),
-                    (forceDirectAddr || GetForcedAddr(PC)) ? "<" : "",
                     slbl.c_str());
     PC++;
     }
