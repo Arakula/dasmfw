@@ -1489,7 +1489,7 @@ do
         adr_t offs, ign;
         ParseInfoRange(value, offs, ign, ign);
         if (offs != NO_ADDRESS)
-          saFNames.push_back(sformat("-offset:0x%x", offs));
+          saFNames.push_back(sformat("-offset:0x%lx", offs));
         saFNames.push_back(fn);
         }
         break;
@@ -1500,7 +1500,19 @@ do
         if (idx == value.npos) idx = value.size();
         option = value.substr(0, idx);
         value = triminfo(value.substr(idx));
-        ParseOption(option, value, !bProcInfo);
+        if (!bSetDasm &&
+            !bProcInfo &&               /* if just loading includes and files*/
+            (option == "offset" ||      /* and "offset",... comes in         */
+             option == "begin" ||
+             option == "end" ||
+             option == "interleave" ||
+             option == "bus"))
+          {
+          if (!value.empty())           /* append it to file list            */
+            saFNames.push_back(sformat("-%s:%s", option.c_str(), value.c_str()));
+          }
+        else
+          ParseOption(option, value, !bProcInfo);
         }
         break;
       case infoRemap :                  /* REMAP addr[-addr] offset          */

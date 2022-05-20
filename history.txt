@@ -81,3 +81,5 @@ v0.28 2022-05-18 crude fix for https://github.com/Arakula/dasmfw/issues/8
                    added 2 options for the 680X and 650X disassemblers to set
                    up a pattern for forced direct(zeropage) and extended(absolute)
                    addressing
+v0.29 2022-05-20 "option offset,begin,end,bus,interleave" info file statements preceding
+                   a "file" statement should work now

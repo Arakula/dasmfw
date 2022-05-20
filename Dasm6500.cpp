@@ -18,41 +18,6 @@
 /*                          Copyright (C) Hermann Seib                     *
  ***************************************************************************/
 
-#if 0
-Little TODO notepad ...
-
-"<" and ">" for forced addressing modes are obviously not used in the 6502
-assembler world. So be it. There seem to be other methods:
-
-Kick: append .abs or .a to the mnemonic (Absolute mode) or
-      append .zp  or .z to the mnemonic (Zeropage mode)
-
-dasm: .a, .z (plus various others) FORCE mnemonic extensions
-
-ACME: append +1 (zeropage), +2 (absolute 16bit), +3 (absolute 24bit for 65816)
-      to mnemo
-
-as65: nothing to be found in the manual
-
-Most, if not all, of the above assemblers would also interpret constants
-given with leading zeroes (like $00xx) as implicit absolute and without ($xx)
-as zero page addressing, but that is not something I'd rely on. Also, it's
-only usable for constants and equates - but not, for example, labels in
-the zero page.
-
-For the moment, I'm going with .a and .z, but that is surely not enough.
-as65, for example, obviously can't handle that.
-
-To go for maximum compatibility, options would be necessary to define
-  - whether forced addressing is to be done at all (OK, got that)
-  - a potential mnemonic addition (like the .a and .z currently in use)
-  - a potential parameter prefix (like the < and > of old)
-The "$00 means zero page, $0000 means absolute address" approach is not
-something that can be easily incorporated (and, as mentioned, incomplete),
-so I see neither reason nor a way to implement that.
-
-#endif
-
 /*****************************************************************************/
 /* Dasm650X.cpp : 650X disassembler implementation                           */
 /*****************************************************************************/

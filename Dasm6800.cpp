@@ -1175,7 +1175,7 @@ switch (mode)                           /* which mode is this?               */
         dp = 0;
       }
 #if 1
-    if (forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp ||
+    if ((forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp) ||
         GetForcedAddr(PC))
       AddForced(smnemo, slbl, true);
     sparm = slbl;

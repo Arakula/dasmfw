@@ -1865,7 +1865,7 @@ switch (mode)                           /* which mode is this?               */
     if (dp == DEFAULT_ADDRESS)
       dp = 0;
 #if 1
-    if (forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp ||
+    if ((forceExtendedAddr && (W & (uint16_t)0xff00) == (uint16_t)dp) ||
         GetForcedAddr(PC))
       AddForced(smnemo, slbl, true);
     sparm = slbl;

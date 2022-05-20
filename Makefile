@@ -17,10 +17,13 @@ all:	$(PROGS)
 
 dasmfw: $(OBJS)
 	$(CXX) $(CPPFLAGS) -o $@ $^
+	#Here's some things you could do now ...
+	# ln -s dasmfw dasmhc11
+	# ln -s dasmfw dasm6809
 	
 %.o:	%.cpp
 	$(CXX) $(CPPFLAGS) $(<) -c -o $@
 
 .PHONY clean:
 	rm $(OBJS)
-	rm $(PROGS)
+	# rm $(PROGS)
