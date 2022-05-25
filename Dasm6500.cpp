@@ -939,14 +939,9 @@ switch (mode)                           /* which mode is this?               */
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC);
-#if 1
-      if (GetForcedAddr(PC))
-        smnemo += ".Z";
       sparm = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-#else
-      sparm = GetForcedAddr(PC) ? "<" : "";
-      sparm += lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-#endif
+      if (GetForcedAddr(PC))
+        AddForced(smnemo, sparm, false);
       }
     else // if no direct page, this can't be interpreted as a label
       sparm = (lbl ? lbl->GetText() : Number2String(T, 2, PC));
@@ -1551,14 +1546,9 @@ switch (mode)                           /* which mode is this?               */
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC);
-#if 1
-      if (GetForcedAddr(PC))
-        smnemo += ".Z";
       sparm = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-#else
-      sparm = GetForcedAddr(PC) ? "<" : "";
-      sparm += lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-#endif
+      if (GetForcedAddr(PC))
+        AddForced(smnemo, sparm, false);
       }
     else // if no direct page, this can't be interpreted as a label
       sparm = (lbl ? lbl->GetText() : Number2String(T, 2, PC));
@@ -1584,14 +1574,9 @@ switch (mode)                           /* which mode is this?               */
       W = (uint16_t)dp | T;
       if (bGetLabel)
         W = (uint16_t)PhaseInner(W, PC);
-#if 1
-      if (GetForcedAddr(PC))
-        smnemo += ".Z";
       sparm = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-#else
-      sparm = GetForcedAddr(PC) ? "<" : "";
-      sparm += lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-#endif
+      if (GetForcedAddr(PC))
+        AddForced(smnemo, sparm, false);
       }
     else // if no direct page, this can't be interpreted as a label
       sparm = (lbl ? lbl->GetText() : Number2String(T, 2, PC));
