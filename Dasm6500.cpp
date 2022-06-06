@@ -243,8 +243,8 @@ forceExtendedAddr = true;
 forceDirectAddr = true;
 closeCC = false;
 useDPLabels = false;
-textDirectAddr = "p-<";
-textExtendedAddr = "p->";
+textZpgAddr = "p-<";
+textAbsAddr = "p->";
 
 mnemo.resize(mnemo6500_count);          /* set up mnemonics table            */
 for (int i = 0; i < mnemo6500_count; i++)
@@ -321,9 +321,9 @@ else if (lname == "forceaddr")
   return bIsBool ? 1 : 0;
   }
 else if (lname == "forcezpgaddr")
-  textDirectAddr = value;
+  textZpgAddr = value;
 else if (lname == "forceabsaddr")
-  textExtendedAddr = value;
+  textAbsAddr = value;
 else
   return 0;                             /* only name consumed                */
 
@@ -348,9 +348,9 @@ else if (lname == "dplabel")
 else if (lname == "forceaddr")
   return (forceExtendedAddr || forceDirectAddr) ? "on" : "off";
 else if (lname == "forcezpgaddr")
-  return textDirectAddr;
+  return textZpgAddr;
 else if (lname == "forceabsaddr")
-  return textExtendedAddr;
+  return textAbsAddr;
 
 return "";
 }
@@ -484,12 +484,12 @@ return s;                               /* pass back generated string        */
 }
 
 /*****************************************************************************/
-/* AddForced : add forced direct or extended addressing specifier            */
+/* AddForced : add forced zero-page or absolute addressing specifier         */
 /*****************************************************************************/
 
-void Dasm650X::AddForced(string &smnemo, string &sparm, bool bExtended)
+void Dasm650X::AddForced(string &smnemo, string &sparm, bool bAbsolute)
 {
-string sf = bExtended ? textExtendedAddr : textDirectAddr;
+string sf = bAbsolute ? textAbsAddr : textZpgAddr;
 bool bMnemo = false;
 bool bAppend = false;
 int txtat = 0;
@@ -652,7 +652,6 @@ switch (mode)                           /* which mode is this ?              */
   case _zpg:                            /* zero-page                         */
   case _zpx:                            /* zero-page,X                       */
   case _zpy:                            /* zero-page,Y                       */
-  case _ind:                            /* indirect                          */
   case _idx:                            /* (indirect,X)                      */
   case _idy:                            /* (indirect),Y                      */
     bSetLabel = !IsConst(PC);
@@ -677,6 +676,7 @@ switch (mode)                           /* which mode is this ?              */
     PC++;
     break;
 
+  case _ind:                            /* indirect                          */
   case _abs:                            /* absolute                          */
   case _abs|_nof:                       /* absolute, no forced addressing    */
   case _abx:                            /* absolute,X                        */
@@ -922,7 +922,6 @@ switch (mode)                           /* which mode is this?               */
   case _zpg:                            /* zero page                         */
   case _zpx:                            /* zero page,X                       */
   case _zpy:                            /* zero page,Y                       */
-  case _ind:                            /* indirect                          */
   case _idx:                            /* (indirect,X)                      */
   case _idy:                            /* (indirect),Y                      */
     {
@@ -949,8 +948,6 @@ switch (mode)                           /* which mode is this?               */
       sparm += MnemoCase(",X");
     else if (mode == _zpy)
       sparm += MnemoCase(",Y");
-    else if (mode == _ind)
-      sparm = "(" + sparm + ")";
     else if (mode == _idx)
       sparm = "(" + sparm + MnemoCase(",X)");
     else if (mode == _idy)
@@ -959,6 +956,7 @@ switch (mode)                           /* which mode is this?               */
     }
     break;
 
+  case _ind:                            /* indirect                          */
   case _abs:                            /* absolute                          */
   case _abs|_nof:                       /* absolute, no forced addressing    */
   case _abx:                            /* absolute,X                        */
@@ -977,13 +975,16 @@ switch (mode)                           /* which mode is this?               */
       dp = 0;
     if (forceExtendedAddr &&
         (W & (uint16_t)0xff00) == (uint16_t)dp &&
-        !(mode & _nof))
+        !(mode & _nof) &&
+        (mode != _ind)) // ind is always 16bit!
       AddForced(smnemo, slbl, true);
     sparm = slbl;
     if (mode == _abx)
       sparm += MnemoCase(",X");
     else if (mode == _aby)
       sparm += MnemoCase(",Y");
+    else if (mode == _ind)
+      sparm = "(" + sparm + ")";
     PC += 2;
     }
     break;
