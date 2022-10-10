@@ -67,7 +67,7 @@ class Dasm6301 : public Dasm6801
       };
 
 
-    static uint8_t h6301_codes[512];
+    static CMatrixEntry h6301_codes[256];
     static OpCode opcodes[mnemo6301_count - mnemo6801_count];
   };
 

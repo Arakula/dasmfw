@@ -58,72 +58,72 @@ static bool bRegistered[] =
 /* m6800_codes : table of all 6800 instruction bytes and types               */
 /*****************************************************************************/
 
-uint8_t Dasm6800::m6800_codes[512] =
+CMatrixEntry Dasm6800::m6800_codes[256] =
   {
-  _ill  ,_nom,   _nop  ,_imp,   _ill  ,_nom,   _ill  ,_nom,     /* 00..03 */
-  _ill  ,_nom,   _ill  ,_nom,   _tap  ,_imp,   _tpa  ,_imp,     /* 04..07 */
-  _inx  ,_imp,   _dex  ,_imp,   _clv  ,_imp,   _sev  ,_imp,     /* 08..0B */
-  _clc  ,_imp,   _sec  ,_imp,   _cli  ,_imp,   _sei  ,_imp,     /* 0C..0F */
-  _sba  ,_imp,   _cba  ,_imp,   _ill  ,_nom,   _ill  ,_nom,     /* 10..13 */
-  _ill  ,_nom,   _ill  ,_nom,   _tab  ,_imp,   _tba  ,_imp,     /* 14..17 */
-  _ill  ,_nom,   _daa  ,_imp,   _ill  ,_nom,   _aba  ,_imp,     /* 18..1B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 1C..1F */
-  _bra  ,_reb,   _ill  ,_nom,   _bhi  ,_reb,   _bls  ,_reb,     /* 20..23 */
-  _bcc  ,_reb,   _bcs  ,_reb,   _bne  ,_reb,   _beq  ,_reb,     /* 24..27 */
-  _bvc  ,_reb,   _bvs  ,_reb,   _bpl  ,_reb,   _bmi  ,_reb,     /* 28..2B */
-  _bge  ,_reb,   _blt  ,_reb,   _bgt  ,_reb,   _ble  ,_reb,     /* 2C..2F */
-  _tsx  ,_imp,   _ins  ,_imp,   _pula ,_imp,   _pulb ,_imp,     /* 30..33 */
-  _des  ,_imp,   _txs  ,_imp,   _psha ,_imp,   _pshb ,_imp,     /* 34..37 */
-  _ill  ,_nom,   _rts  ,_imp,   _ill  ,_nom,   _rti  ,_imp,     /* 38..3B */
-  _ill  ,_nom,   _ill  ,_nom,   _wai  ,_imp,   _swi  ,_imp,     /* 3C..3F */
-  _nega ,_imp,   _ill  ,_nom,   _ill  ,_nom,   _coma ,_imp,     /* 40..43 */
-  _lsra ,_imp,   _ill  ,_nom,   _rora ,_imp,   _asra ,_imp,     /* 44..47 */
-  _asla ,_imp,   _rola ,_imp,   _deca ,_imp,   _ill  ,_nom,     /* 48..4B */
-  _inca ,_imp,   _tsta ,_imp,   _ill  ,_nom,   _clra ,_imp,     /* 4C..4F */
-  _negb ,_imp,   _ill  ,_nom,   _ill  ,_nom,   _comb ,_imp,     /* 50..53 */
-  _lsrb ,_imp,   _ill  ,_nom,   _rorb ,_imp,   _asrb ,_imp,     /* 54..57 */
-  _aslb ,_imp,   _rolb ,_imp,   _decb ,_imp,   _ill  ,_nom,     /* 58..5B */
-  _incb ,_imp,   _tstb ,_imp,   _ill  ,_nom,   _clrb ,_imp,     /* 5C..5F */
-  _neg  ,_ix8,   _ill  ,_nom,   _ill  ,_nom,   _com  ,_ix8,     /* 60..63 */
-  _lsr  ,_ix8,   _ill  ,_nom,   _ror  ,_ix8,   _asr  ,_ix8,     /* 64..67 */
-  _asl  ,_ix8,   _rol  ,_ix8,   _dec  ,_ix8,   _ill  ,_nom,     /* 68..6B */
-  _inc  ,_ix8,   _tst  ,_ix8,   _jmp  ,_ix8,   _clr  ,_ix8,     /* 6C..6F */
-  _neg  ,_ext,   _ill  ,_nom,   _ill  ,_nom,   _com  ,_ext,     /* 70..73 */
-  _lsr  ,_ext,   _ill  ,_nom,   _ror  ,_ext,   _asr  ,_ext,     /* 74..77 */
-  _asl  ,_ext,   _rol  ,_ext,   _dec  ,_ext,   _ill  ,_nom,     /* 78..7B */
-  _inc  ,_ext,   _tst  ,_ext,   _jmp  ,_ext,   _clr  ,_ext,     /* 7C..7F */
-  _suba ,_imb,   _cmpa ,_imb,   _sbca ,_imb,   _ill  ,_nom,     /* 80..83 */
-  _anda ,_imb,   _bita ,_imb,   _lda  ,_imb,   _ill  ,_nom,     /* 84..87 */
-  _eora ,_imb,   _adca ,_imb,   _ora  ,_imb,   _adda ,_imb,     /* 88..8B */
-  _cpx  ,_imw,   _bsr  ,_reb,   _lds  ,_imw,   _ill  ,_nom,     /* 8C..8F */
-  _suba ,_dir,   _cmpa ,_dir,   _sbca ,_dir,   _ill  ,_nom,     /* 90..93 */
-  _anda ,_dir,   _bita ,_dir,   _lda  ,_dir,   _sta  ,_dir,     /* 94..97 */
-  _eora ,_dir,   _adca ,_dir,   _ora  ,_dir,   _adda ,_dir,     /* 98..9B */
-  _cpx  ,_dir,   _ill  ,_nom,   _lds  ,_dir,   _sts  ,_dir,     /* 9C..9F */
-  _suba ,_ix8,   _cmpa ,_ix8,   _sbca ,_ix8,   _ill  ,_nom,     /* A0..A3 */
-  _anda ,_ix8,   _bita ,_ix8,   _lda  ,_ix8,   _sta  ,_ix8,     /* A4..A7 */
-  _eora ,_ix8,   _adca ,_ix8,   _ora  ,_ix8,   _adda ,_ix8,     /* A8..AB */
-  _cpx  ,_ix8,   _jsr  ,_ix8,   _lds  ,_ix8,   _sts  ,_ix8,     /* AC..AF */
-  _suba ,_ext,   _cmpa ,_ext,   _sbca ,_ext,   _ill  ,_nom,     /* B0..B3 */
-  _anda ,_ext,   _bita ,_ext,   _lda  ,_ext,   _sta  ,_ext,     /* B4..B7 */
-  _eora ,_ext,   _adca ,_ext,   _ora  ,_ext,   _adda ,_ext,     /* B8..BB */
-  _cpx  ,_ext,   _jsr  ,_ext,   _lds  ,_ext,   _sts  ,_ext,     /* BC..BF */
-  _subb ,_imb,   _cmpb ,_imb,   _sbcb ,_imb,   _ill  ,_nom,     /* C0..C3 */
-  _andb ,_imb,   _bitb ,_imb,   _ldb  ,_imb,   _ill  ,_nom,     /* C4..C7 */
-  _eorb ,_imb,   _adcb ,_imb,   _orb  ,_imb,   _addb ,_imb,     /* C8..CB */
-  _ill  ,_nom,   _ill  ,_nom,   _ldx  ,_imw,   _ill  ,_nom,     /* CC..CF */
-  _subb ,_dir,   _cmpb ,_dir,   _sbcb ,_dir,   _ill  ,_nom,     /* D0..D3 */
-  _andb ,_dir,   _bitb ,_dir,   _ldb  ,_dir,   _stb  ,_dir,     /* D4..D7 */
-  _eorb ,_dir,   _adcb ,_dir,   _orb  ,_dir,   _addb ,_dir,     /* D8..DB */
-  _ill  ,_nom,   _ill  ,_nom,   _ldx  ,_dir,   _stx  ,_dir,     /* DC..DF */
-  _subb ,_ix8,   _cmpb ,_ix8,   _sbcb ,_ix8,   _ill  ,_nom,     /* E0..E3 */
-  _andb ,_ix8,   _bitb ,_ix8,   _ldb  ,_ix8,   _stb  ,_ix8,     /* E4..E7 */
-  _eorb ,_ix8,   _adcb ,_ix8,   _orb  ,_ix8,   _addb ,_ix8,     /* E8..EB */
-  _ill  ,_nom,   _ill  ,_nom,   _ldx  ,_ix8,   _stx  ,_ix8,     /* EC..EF */
-  _subb ,_ext,   _cmpb ,_ext,   _sbcb ,_ext,   _ill  ,_nom,     /* F0..F3 */
-  _andb ,_ext,   _bitb ,_ext,   _ldb  ,_ext,   _stb  ,_ext,     /* F4..F7 */
-  _eorb ,_ext,   _adcb ,_ext,   _orb  ,_ext,   _addb ,_ext,     /* F8..FB */
-  _ill  ,_nom,   _ill  ,_nom,   _ldx  ,_ext,   _stx  ,_ext,     /* FC..FF */
+  {_ill  ,_nom}, {_nop  ,_imp}, {_ill  ,_nom}, {_ill  ,_nom},   /* 00..03 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_tap  ,_imp}, {_tpa  ,_imp},   /* 04..07 */
+  {_inx  ,_imp}, {_dex  ,_imp}, {_clv  ,_imp}, {_sev  ,_imp},   /* 08..0B */
+  {_clc  ,_imp}, {_sec  ,_imp}, {_cli  ,_imp}, {_sei  ,_imp},   /* 0C..0F */
+  {_sba  ,_imp}, {_cba  ,_imp}, {_ill  ,_nom}, {_ill  ,_nom},   /* 10..13 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_tab  ,_imp}, {_tba  ,_imp},   /* 14..17 */
+  {_ill  ,_nom}, {_daa  ,_imp}, {_ill  ,_nom}, {_aba  ,_imp},   /* 18..1B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 1C..1F */
+  {_bra  ,_reb}, {_ill  ,_nom}, {_bhi  ,_reb}, {_bls  ,_reb},   /* 20..23 */
+  {_bcc  ,_reb}, {_bcs  ,_reb}, {_bne  ,_reb}, {_beq  ,_reb},   /* 24..27 */
+  {_bvc  ,_reb}, {_bvs  ,_reb}, {_bpl  ,_reb}, {_bmi  ,_reb},   /* 28..2B */
+  {_bge  ,_reb}, {_blt  ,_reb}, {_bgt  ,_reb}, {_ble  ,_reb},   /* 2C..2F */
+  {_tsx  ,_imp}, {_ins  ,_imp}, {_pula ,_imp}, {_pulb ,_imp},   /* 30..33 */
+  {_des  ,_imp}, {_txs  ,_imp}, {_psha ,_imp}, {_pshb ,_imp},   /* 34..37 */
+  {_ill  ,_nom}, {_rts  ,_imp}, {_ill  ,_nom}, {_rti  ,_imp},   /* 38..3B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_wai  ,_imp}, {_swi  ,_imp},   /* 3C..3F */
+  {_nega ,_imp}, {_ill  ,_nom}, {_ill  ,_nom}, {_coma ,_imp},   /* 40..43 */
+  {_lsra ,_imp}, {_ill  ,_nom}, {_rora ,_imp}, {_asra ,_imp},   /* 44..47 */
+  {_asla ,_imp}, {_rola ,_imp}, {_deca ,_imp}, {_ill  ,_nom},   /* 48..4B */
+  {_inca ,_imp}, {_tsta ,_imp}, {_ill  ,_nom}, {_clra ,_imp},   /* 4C..4F */
+  {_negb ,_imp}, {_ill  ,_nom}, {_ill  ,_nom}, {_comb ,_imp},   /* 50..53 */
+  {_lsrb ,_imp}, {_ill  ,_nom}, {_rorb ,_imp}, {_asrb ,_imp},   /* 54..57 */
+  {_aslb ,_imp}, {_rolb ,_imp}, {_decb ,_imp}, {_ill  ,_nom},   /* 58..5B */
+  {_incb ,_imp}, {_tstb ,_imp}, {_ill  ,_nom}, {_clrb ,_imp},   /* 5C..5F */
+  {_neg  ,_ix8}, {_ill  ,_nom}, {_ill  ,_nom}, {_com  ,_ix8},   /* 60..63 */
+  {_lsr  ,_ix8}, {_ill  ,_nom}, {_ror  ,_ix8}, {_asr  ,_ix8},   /* 64..67 */
+  {_asl  ,_ix8}, {_rol  ,_ix8}, {_dec  ,_ix8}, {_ill  ,_nom},   /* 68..6B */
+  {_inc  ,_ix8}, {_tst  ,_ix8}, {_jmp  ,_ix8}, {_clr  ,_ix8},   /* 6C..6F */
+  {_neg  ,_ext}, {_ill  ,_nom}, {_ill  ,_nom}, {_com  ,_ext},   /* 70..73 */
+  {_lsr  ,_ext}, {_ill  ,_nom}, {_ror  ,_ext}, {_asr  ,_ext},   /* 74..77 */
+  {_asl  ,_ext}, {_rol  ,_ext}, {_dec  ,_ext}, {_ill  ,_nom},   /* 78..7B */
+  {_inc  ,_ext}, {_tst  ,_ext}, {_jmp  ,_ext}, {_clr  ,_ext},   /* 7C..7F */
+  {_suba ,_imb}, {_cmpa ,_imb}, {_sbca ,_imb}, {_ill  ,_nom},   /* 80..83 */
+  {_anda ,_imb}, {_bita ,_imb}, {_lda  ,_imb}, {_ill  ,_nom},   /* 84..87 */
+  {_eora ,_imb}, {_adca ,_imb}, {_ora  ,_imb}, {_adda ,_imb},   /* 88..8B */
+  {_cpx  ,_imw}, {_bsr  ,_reb}, {_lds  ,_imw}, {_ill  ,_nom},   /* 8C..8F */
+  {_suba ,_dir}, {_cmpa ,_dir}, {_sbca ,_dir}, {_ill  ,_nom},   /* 90..93 */
+  {_anda ,_dir}, {_bita ,_dir}, {_lda  ,_dir}, {_sta  ,_dir},   /* 94..97 */
+  {_eora ,_dir}, {_adca ,_dir}, {_ora  ,_dir}, {_adda ,_dir},   /* 98..9B */
+  {_cpx  ,_dir}, {_ill  ,_nom}, {_lds  ,_dir}, {_sts  ,_dir},   /* 9C..9F */
+  {_suba ,_ix8}, {_cmpa ,_ix8}, {_sbca ,_ix8}, {_ill  ,_nom},   /* A0..A3 */
+  {_anda ,_ix8}, {_bita ,_ix8}, {_lda  ,_ix8}, {_sta  ,_ix8},   /* A4..A7 */
+  {_eora ,_ix8}, {_adca ,_ix8}, {_ora  ,_ix8}, {_adda ,_ix8},   /* A8..AB */
+  {_cpx  ,_ix8}, {_jsr  ,_ix8}, {_lds  ,_ix8}, {_sts  ,_ix8},   /* AC..AF */
+  {_suba ,_ext}, {_cmpa ,_ext}, {_sbca ,_ext}, {_ill  ,_nom},   /* B0..B3 */
+  {_anda ,_ext}, {_bita ,_ext}, {_lda  ,_ext}, {_sta  ,_ext},   /* B4..B7 */
+  {_eora ,_ext}, {_adca ,_ext}, {_ora  ,_ext}, {_adda ,_ext},   /* B8..BB */
+  {_cpx  ,_ext}, {_jsr  ,_ext}, {_lds  ,_ext}, {_sts  ,_ext},   /* BC..BF */
+  {_subb ,_imb}, {_cmpb ,_imb}, {_sbcb ,_imb}, {_ill  ,_nom},   /* C0..C3 */
+  {_andb ,_imb}, {_bitb ,_imb}, {_ldb  ,_imb}, {_ill  ,_nom},   /* C4..C7 */
+  {_eorb ,_imb}, {_adcb ,_imb}, {_orb  ,_imb}, {_addb ,_imb},   /* C8..CB */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ldx  ,_imw}, {_ill  ,_nom},   /* CC..CF */
+  {_subb ,_dir}, {_cmpb ,_dir}, {_sbcb ,_dir}, {_ill  ,_nom},   /* D0..D3 */
+  {_andb ,_dir}, {_bitb ,_dir}, {_ldb  ,_dir}, {_stb  ,_dir},   /* D4..D7 */
+  {_eorb ,_dir}, {_adcb ,_dir}, {_orb  ,_dir}, {_addb ,_dir},   /* D8..DB */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ldx  ,_dir}, {_stx  ,_dir},   /* DC..DF */
+  {_subb ,_ix8}, {_cmpb ,_ix8}, {_sbcb ,_ix8}, {_ill  ,_nom},   /* E0..E3 */
+  {_andb ,_ix8}, {_bitb ,_ix8}, {_ldb  ,_ix8}, {_stb  ,_ix8},   /* E4..E7 */
+  {_eorb ,_ix8}, {_adcb ,_ix8}, {_orb  ,_ix8}, {_addb ,_ix8},   /* E8..EB */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ldx  ,_ix8}, {_stx  ,_ix8},   /* EC..EF */
+  {_subb ,_ext}, {_cmpb ,_ext}, {_sbcb ,_ext}, {_ill  ,_nom},   /* F0..F3 */
+  {_andb ,_ext}, {_bitb ,_ext}, {_ldb  ,_ext}, {_stb  ,_ext},   /* F4..F7 */
+  {_eorb ,_ext}, {_adcb ,_ext}, {_orb  ,_ext}, {_addb ,_ext},   /* F8..FB */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ldx  ,_ext}, {_stx  ,_ext},   /* FC..FF */
   };
 
 const char *Dasm6800::bit_r[] = {"CC","A","B","??"};
@@ -139,6 +139,19 @@ const char *Dasm6800::block_r[] =
 
 OpCode Dasm6800::opcodes[mnemo6800_count] =
   {
+    { "EQU",   Data },                  /* _equ                              */
+    { "RMB",   Data },                  /* _rmb                              */
+    { "FCB",   Data },                  /* _fcb                              */
+    { "FDB",   Data },                  /* _fcb                              */
+    { "FCC",   Data },                  /* _fcc                              */
+    { "FCS",   Data },                  /* _fcs                              */
+    { "ORG",   Data },                  /* _org                              */
+    { "PHASE", Data },                  /* _phase                            */
+    { "DEPHASE", Data },                /* _dephase                          */
+    { "END",   Data },                  /* _end                              */
+    { "IF",    Data },                  /* _if                               */
+    { "ELSE",  Data },                  /* _else                             */
+    { "ENDIF", Data },                  /* _endif                            */
     { "???",   Data },                  /* _ill                              */
     { "ABA",   Data },                  /* _aba                              */
     { "ADCA",  Data },                  /* _adca                             */
@@ -187,6 +200,7 @@ OpCode Dasm6800::opcodes[mnemo6800_count] =
     { "DAA",   Data },                  /* _daa                              */
     { "DECA",  Data },                  /* _deca                             */
     { "DECB",  Data },                  /* _decb                             */
+    { "DECD",  Data },                  /* _decd                             */
     { "DEC",   Data },                  /* _dec                              */
     { "DES",   Data },                  /* _des                              */
     { "DEX",   Data },                  /* _dex                              */
@@ -194,6 +208,7 @@ OpCode Dasm6800::opcodes[mnemo6800_count] =
     { "EORB",  Data },                  /* _eorb                             */
     { "INCA",  Data },                  /* _inca                             */
     { "INCB",  Data },                  /* _incb                             */
+    { "INCD",  Data },                  /* _incd                             */
     { "INC",   Data },                  /* _inc                              */
     { "INS",   Data },                  /* _ins                              */
     { "INX",   Data },                  /* _inx                              */
@@ -488,7 +503,9 @@ while (ReadFlexRecord(f, &rec))
     AddMemory(nStart, rec.GetSize(), Code, rec.GetData());
     for (i = nStart; i <= nEnd; i++)    /* mark area as used                 */
       {
-      SetCellUsed(i);
+      bool bUsed = ((begin == NO_ADDRESS || i >= begin) &&
+                    (end == NO_ADDRESS || i <= end));
+      SetCellUsed(i, bUsed);
       SetDisplay(i, defaultDisplay);
       }
     }
@@ -509,10 +526,7 @@ if (fgetc(f) != EOF)                    /* if not read through the whole file*/
 fseek(f, nCurPos, SEEK_SET);            /* reset position for next filetype  */
 if (nRecs > 0)
   {
-  if (fbegin < begin)
-    begin = fbegin;
-  if (fend > end)
-    end = fend;
+  offset = fend + 1;
   sLoadType = "FLEX";
   }
 
@@ -775,21 +789,13 @@ adr_t Dasm6800::FetchInstructionDetails
     uint8_t &instpg,
     uint8_t &instb,
     uint8_t &mode,
-    int &MI,
-    const char *&I,
-    string *smnemo
+    int &mnemoIndex
     )
 {
-uint16_t W;
-
 instpg = 0;
 instb = GetUByte(PC++);
-W = (uint16_t)instb * 2;
-MI = codes[W++];
-I = mnemo[MI].mne;
-mode = codes[W];
-if (smnemo)
-  *smnemo = I;
+mnemoIndex = codes[instb].mne;
+mode = codes[instb].adrmode;
 return PC;
 }
 
@@ -805,10 +811,9 @@ adr_t Dasm6800::ParseCode
 {
 uint8_t instpg, instb, T, mode;
 uint16_t W;
-int MI;
-const char *I;
+int mnemoIndex;
 bool bSetLabel;
-adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, mnemoIndex);
 
 switch (mode)                           /* which mode is this ?              */
   {
@@ -834,7 +839,7 @@ switch (mode)                           /* which mode is this ?              */
     if (bSetLabel)
       {
       W = (uint16_t)PhaseInner(W, PC);
-      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
+      AddRelativeLabel(W, PC, mnemo[mnemoIndex].memType, true, BusCode, addr);
       }
     PC += 2;
     break;
@@ -856,7 +861,7 @@ switch (mode)                           /* which mode is this ?              */
         T = GetUByte(PC);
         W = (uint16_t)dp | T;
         W = (uint16_t)PhaseInner(W, PC);
-        AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
+        AddRelativeLabel(W, PC, mnemo[mnemoIndex].memType, true, BusCode, addr);
         }
       }
     PC++;
@@ -871,7 +876,7 @@ switch (mode)                           /* which mode is this ?              */
       {
       W = GetUWord(PC);
       W = (uint16_t)PhaseInner(W, PC);
-      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
+      AddRelativeLabel(W, PC, mnemo[mnemoIndex].memType, true, BusCode, addr);
       }
     PC += 2;
     break;
@@ -891,8 +896,8 @@ switch (mode)                           /* which mode is this ?              */
     if (bSetLabel)
       {
       W = (uint16_t)DephaseOuter(W, PC - 1);
-      // AddLabel(W, mnemo[MI].memType, "", true);
-      AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, addr);
+      // AddLabel(W, mnemo[mnemoIndex].memType, "", true);
+      AddRelativeLabel(W, PC, mnemo[mnemoIndex].memType, true, BusCode, addr);
       }
     break;
     
@@ -922,7 +927,7 @@ if (lbltxt.find_first_of("+-") == string::npos)
     slabel = lbltxt;
   else
     slabel = Label2String(laddr, 4, true, laddr, bus);
-  smnemo = "EQU";
+  smnemo = mnemo[_equ].mne;
   sparm = Address2String(laddr, bus);
   Disassembler::DisassembleLabel(label, slabel, smnemo, sparm, bus);
   return true;
@@ -945,7 +950,7 @@ bool Dasm6800::DisassembleDefLabel
 {
 (void)bus;
 slabel = label->GetText();
-smnemo = "EQU";
+smnemo = mnemo[_equ].mne;
 sparm = label->GetDefinition();
 Disassembler::DisassembleDefLabel(label, slabel, smnemo, sparm, bus);
 return true;
@@ -1005,12 +1010,12 @@ adr_t done;
 if (flags & SHMF_RMB)                   /* if reserved memory block          */
   {
   done = end;                           /* remember it's done completely     */
-  smnemo = "RMB";
+  smnemo = mnemo[_rmb].mne;
   sparm = Number2String(end - addr, 4, addr);
   }
 else if (useFCC && (flags & SHMF_TXT))  /* if FCC (text) allowed             */
   {
-  smnemo = "FCC";
+  smnemo = mnemo[_fcc].mne;
   sparm = '"';                          /* start the game                    */
   for (done = addr; done < end; done++) /* assemble as many as possible      */
     {                                   /* if this would become too long     */
@@ -1024,7 +1029,7 @@ else if (useFCC && (flags & SHMF_TXT))  /* if FCC (text) allowed             */
 else if (flags & 0xff)                  /* if not byte-sized                 */
   {
   // 680x can ony do byte and word, so assume word entities
-  smnemo = "FDB";
+  smnemo = mnemo[_fdb].mne;
                                         /* assemble as many as possible      */
   for (done = addr; done < end; done += 2)
     {
@@ -1040,7 +1045,7 @@ else if (flags & 0xff)                  /* if not byte-sized                 */
   }
 else                                    /* if FCB (hex or binary)            */
   {
-  smnemo = "FCB";
+  smnemo = mnemo[_fcb].mne;
                                         /* assemble as many as possible      */
   for (done = addr; done < end; done++)
     {
@@ -1081,16 +1086,16 @@ adr_t Dasm6800::DisassembleCode
 uint8_t instpg, instb, T, mode;
 uint16_t W;
 adr_t Wrel;
-int MI;
-const char *I;
-adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I, &smnemo);
+int mnemoIndex;
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, mnemoIndex);
 bool bGetLabel;
 Label *lbl;
 
+smnemo = mnemo[mnemoIndex].mne;
 switch (mode)                           /* which mode is this?               */
   {
   case _nom:                            /* no mode                           */
-    smnemo = "FCB";
+    smnemo = mnemo[_fcb].mne;
     lbl = FindLabel(PC, Const, bus);
     sparm = lbl ? lbl->GetText() : Number2String(instb, 2, PC);
     PC = addr + 1;
@@ -1259,14 +1264,14 @@ switch (u2)
   case 0xcd01 :                         /* ADDB #1 + ADCA #0 -> INCD         */
     if (!IsCLabel(PC + 1) && GetUWord(PC + 1) == 0x8900)
       {
-      smnemo = "INCD"; PC += 3;
+      smnemo = mnemo[_incd].mne; PC += 3;
       return true;
       }
     break;
   case 0xc001 :                         /* SUBB #1 SBCA #0 -> DECD           */
     if (!IsCLabel(PC + 1) && GetUWord(PC + 1) == 0x8200)
       {
-      smnemo = "DECD"; PC += 3;
+      smnemo = mnemo[_decd].mne; PC += 3;
       return true;
       }
     break;
@@ -1299,7 +1304,7 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
     {
     LineChange chg;
     changes.push_back(chg);             /* append empty line before END      */
-    chg.oper = MnemoCase("END");
+    chg.oper = mnemo[_end].mne;
     if (load != NO_ADDRESS &&           /* if entry point address given      */
         bLoadLabel)                     /* and labelling wanted              */
       chg.opnds = Label2String(load, 4, true, load);
@@ -1326,7 +1331,7 @@ else // no bus check necessary, there's only one
       changes.push_back(chg);
       if (prevphase != NO_ADDRESS && prevphstart != curphstart)
         {
-        chg.oper = MnemoCase("DEPHASE");
+        chg.oper = MnemoCase(mnemo[_dephase].mne);
         changes.push_back(chg);
         changes.push_back(LineChange());
         }
@@ -1337,14 +1342,14 @@ else // no bus check necessary, there's only one
           {
           if (prevaddr != NO_ADDRESS)
             {
-            chg.oper = MnemoCase("ORG");
+            chg.oper = MnemoCase(mnemo[_org].mne);
             chg.opnds = "* + ";
             chg.opnds += Number2String(addr - (prevaddr + prevsz), 4, NO_ADDRESS);
             }
           }
         else
           {
-          chg.oper = MnemoCase("ORG");
+          chg.oper = MnemoCase(mnemo[_org].mne);
           chg.opnds = Number2String(addr, 4, NO_ADDRESS);
           changes.push_back(chg);
           }
@@ -1354,7 +1359,7 @@ else // no bus check necessary, there's only one
 //          && curphase != addr
             )
           {
-          chg.oper = MnemoCase("PHASE");
+          chg.oper = MnemoCase(mnemo[_phase].mne);
           chg.opnds = Number2String(curphase, 4, NO_ADDRESS);
           changes.push_back(chg);
           }

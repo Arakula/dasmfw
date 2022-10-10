@@ -123,8 +123,8 @@ const Disassembler::Endian Disassembler::prgEndian = (Disassembler::Endian)*((ui
 Disassembler::Disassembler(Application *pApp)
   : pApp(pApp)
 {
-begin = load = NO_ADDRESS;
-end = offset = 0;
+begin = end = load = NO_ADDRESS;
+offset = 0;
 commentStart = ";";
 #if RB_VARIANT
 labelDelim = ":";
@@ -1126,7 +1126,9 @@ while (!done && (nBytes >= 0))          /* while there are lines             */
           { nBytes = -1; break; }       /* return with error                 */
                                         /* otherwise add memory byte         */
         setat(tgtaddr, (uint8_t)c, bus);
-        SetCellUsed(tgtaddr, true, bus);
+        bool bUsed = ((begin == NO_ADDRESS || tgtaddr >= begin) &&
+                      (end == NO_ADDRESS || tgtaddr <= end));
+        SetCellUsed(tgtaddr, bUsed, bus);
         SetDisplay(tgtaddr, defaultDisplay, bus);
         }
       break;
@@ -1181,10 +1183,7 @@ while (!done && (nBytes >= 0))          /* while there are lines             */
 fseek(f, nCurPos, SEEK_SET);
 if (nBytes >= 0)
   {
-  if (fbegin < begin)
-    begin = fbegin;
-  if (fend > end)
-    end = fend;
+  offset = fend + interleave;
   }
 
 if (nBytes > 0)
@@ -1276,7 +1275,9 @@ while ((!done) && (nBytes >= 0))        /* while there are lines             */
           { nBytes = -1; break; }       /* return with error                 */
                                         /* otherwise add memory byte         */
         setat(tgtaddr, (uint8_t)c, bus);
-        SetCellUsed(tgtaddr, true, bus);
+        bool bUsed = ((begin == NO_ADDRESS || tgtaddr >= begin) &&
+                      (end == NO_ADDRESS || tgtaddr <= end));
+        SetCellUsed(tgtaddr, bUsed, bus);
         SetDisplay(tgtaddr, defaultDisplay, bus);
         }
       break;
@@ -1337,10 +1338,7 @@ while ((!done) && (nBytes >= 0))        /* while there are lines             */
 fseek(f, nCurPos, SEEK_SET);
 if (nBytes >= 0)
   {
-  if (fbegin < begin)
-    begin = fbegin;
-  if (fend > end)
-    end = fend;
+  offset = fend + interleave;
   }
 
 if (nBytes > 0)
@@ -1378,45 +1376,35 @@ if ((sadr_t)off > 0 &&                  /* restrict to maximum code size     */
     offset + (off * interleave) > GetHighestBusAddr(bus) + 1)
   off = ((GetHighestBusAddr(bus) + 1) / interleave) - offset;
 
-if (begin == NO_ADDRESS ||              /* set begin if not specified        */
-    begin < offset)
-// if (begin < 0 || offset < begin)  // we allow begin > offset !
-  begin = offset;
-
 if ((sadr_t)off > 0)                    /* if file size can be determined    */
-  {
-  if (end == 0 || end < begin)          /* set end if not specified          */
-//  if (end < offset + (off * interleave) - 1)
-    end = offset + (off * interleave) - 1;
-  if (end > offset && end < offset + (off * interleave) -1)
-    off = (end + 1 - offset + interleave - 1) / interleave;
-  // account for begin > offset scenarios
-  adr_t memoff = begin > offset ? begin - offset : 0;
-  AddMemory(begin,                      /* make sure memory is there         */
-            (off - 1) * interleave + 1 - memoff, memType, 0, bus);
-  }
+  AddMemory(offset,                     /* make sure memory is there         */
+            (off - 1) * interleave + 1, memType, 0, bus);
                                         /* mark area as used                 */
 for (i = 0; (sadr_t)off < 0 || i < off; i++)
   {
   if (c == EOF)                         /* if error, abort reading           */
     {
-    if (off > 0)
+    if ((sadr_t)off >= 0)
+      {
       fseek(f, nCurPos, SEEK_SET);
-    return (sadr_t)off < 0;
+      return false;
+      }
+    break;
     }
   adr_t tgtaddr = offset + (i * interleave);
-  if (tgtaddr >= begin &&
-      tgtaddr <= end)
-    {
-    if ((sadr_t)off < 0)              /* if reading an unseekable stream   */
-      AddMemory(tgtaddr, interleave,  /* assure memory                     */
-                memType, 0, bus);
-    setat(tgtaddr, (uint8_t)c, bus);  /* put byte                          */
-    SetCellUsed(tgtaddr, true, bus);  /* mark as used byte                 */
-    SetDisplay(tgtaddr, defaultDisplay, bus);
-    }
-  c = fgetc(f);                       /* read next byte from the file      */
+  if ((sadr_t)off < 0)                  /* if reading an unseekable stream   */
+    AddMemory(tgtaddr, interleave,      /* assure memory                     */
+              memType, 0, bus);
+  setat(tgtaddr, (uint8_t)c, bus);      /* put byte                          */
+
+  bool bUsed = ((begin == NO_ADDRESS || tgtaddr >= begin) &&
+                (end == NO_ADDRESS || tgtaddr <= end));
+  SetCellUsed(tgtaddr, bUsed, bus);     /* mark as (un)used byte             */
+  SetDisplay(tgtaddr, defaultDisplay, bus);
+  c = fgetc(f);                         /* read next byte from the file      */
   }
+
+offset = offset + i * interleave;
 
 sLoadType = "binary";
 return true;
@@ -1459,8 +1447,10 @@ if (pFile == NULL)
 bool bOK = LoadFile(filename, pFile, sLoadType, interleave, bus);
 if (pFile != stdin)
   fclose(pFile);
+#if 0
 if (bOK)                                /* if loading done,                  */
   offset = end + 1;                     /* prepare for next file             */
+#endif
 return bOK;
 }
 

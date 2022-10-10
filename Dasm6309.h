@@ -108,7 +108,6 @@ class Dasm6309 : public Dasm6809
       _come,
       _comf,
       _comw,
-      _decd,
       _dece,
       _decf,
       _decw,
@@ -116,7 +115,6 @@ class Dasm6309 : public Dasm6809
       _divq,
       _eord,
       _eorr,
-      _incd,
       _ince,
       _incf,
       _incw,
@@ -154,12 +152,14 @@ class Dasm6309 : public Dasm6809
       _tstf,
       _tstw,
 
+      _fqb,
+
       mnemo6309_count
       };
 
-    static uint8_t h6309_codes[512];
-    static uint8_t h6309_codes10[512];
-    static uint8_t h6309_codes11[512];
+    static CMatrixEntry h6309_codes[256];
+    static CMatrixEntry h6309_codes10[256];
+    static CMatrixEntry h6309_codes11[256];
     static OpCode opcodes[mnemo6309_count - mnemo6809_count];
 
   protected:

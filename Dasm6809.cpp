@@ -126,216 +126,216 @@ const char *Dasm6809::os9_codes[0x100] =
 /* m6809_codes : table of all 6809 instruction bytes and types               */
 /*****************************************************************************/
 
-uint8_t Dasm6809::m6809_codes[512] =
+CMatrixEntry Dasm6809::m6809_codes[256] =
   {
-  _neg  ,_dir,   _ill  ,_nom,   _ill  ,_nom,   _com  ,_dir,     /* 00..03 */
-  _lsr  ,_dir,   _ill  ,_nom,   _ror  ,_dir,   _asr  ,_dir,     /* 04..07 */
-  _asl  ,_dir,   _rol  ,_dir,   _dec  ,_dir,   _ill  ,_nom,     /* 08..0B */
-  _inc  ,_dir,   _tst  ,_dir,   _jmp  ,_dir,   _clr  ,_dir,     /* 0C..0F */
-  _ill  ,_nom,   _ill  ,_nom,   _nop  ,_imp,   _sync ,_imp,     /* 10..13 */
-  _ill  ,_nom,   _ill  ,_nom,   _lbra ,_rew,   _lbsr ,_rew,     /* 14..17 */
-  _ill  ,_nom,   _daa  ,_imp,   _orcc ,_imb,   _ill  ,_nom,     /* 18..1B */
-  _andcc,_imb,   _sex  ,_imp,   _exg  ,_r1 ,   _tfr  ,_r1 ,     /* 1C..1F */
-  _bra  ,_reb,   _brn  ,_reb,   _bhi  ,_reb,   _bls  ,_reb,     /* 20..23 */
-  _bcc  ,_reb,   _bcs  ,_reb,   _bne  ,_reb,   _beq  ,_reb,     /* 24..27 */
-  _bvc  ,_reb,   _bvs  ,_reb,   _bpl  ,_reb,   _bmi  ,_reb,     /* 28..2B */
-  _bge  ,_reb,   _blt  ,_reb,   _bgt  ,_reb,   _ble  ,_reb,     /* 2C..2F */
-  _leax ,_ind,   _leay ,_ind,   _leas ,_ind,   _leau ,_ind,     /* 30..33 */
-  _pshs ,_r2 ,   _puls ,_r2 ,   _pshu ,_r3 ,   _pulu ,_r3 ,     /* 34..37 */
-  _ill  ,_nom,   _rts  ,_imp,   _abx  ,_imp,   _rti  ,_imp,     /* 38..3B */
-  _cwai ,_imb,   _mul  ,_imp,   _reset,_imp,   _swi  ,_imp,     /* 3C..3F */
-  _nega ,_imp,   _ill  ,_nom,   _ill  ,_nom,   _coma ,_imp,     /* 40..43 */
-  _lsra ,_imp,   _ill  ,_nom,   _rora ,_imp,   _asra ,_imp,     /* 44..47 */
-  _asla ,_imp,   _rola ,_imp,   _deca ,_imp,   _ill  ,_nom,     /* 48..4B */
-  _inca ,_imp,   _tsta ,_imp,   _ill  ,_nom,   _clra ,_imp,     /* 4C..4F */
-  _negb ,_imp,   _ill  ,_nom,   _ill  ,_nom,   _comb ,_imp,     /* 50..53 */
-  _lsrb ,_imp,   _ill  ,_nom,   _rorb ,_imp,   _asrb ,_imp,     /* 54..57 */
-  _aslb ,_imp,   _rolb ,_imp,   _decb ,_imp,   _ill  ,_nom,     /* 58..5B */
-  _incb ,_imp,   _tstb ,_imp,   _ill  ,_nom,   _clrb ,_imp,     /* 5C..5F */
-  _neg  ,_ind,   _ill  ,_nom,   _ill  ,_nom,   _com  ,_ind,     /* 60..63 */
-  _lsr  ,_ind,   _ill  ,_nom,   _ror  ,_ind,   _asr  ,_ind,     /* 64..67 */
-  _asl  ,_ind,   _rol  ,_ind,   _dec  ,_ind,   _ill  ,_nom,     /* 68..6B */
-  _inc  ,_ind,   _tst  ,_ind,   _jmp  ,_ind,   _clr  ,_ind,     /* 6C..6F */
-  _neg  ,_ext,   _ill  ,_nom,   _ill  ,_nom,   _com  ,_ext,     /* 70..73 */
-  _lsr  ,_ext,   _ill  ,_nom,   _ror  ,_ext,   _asr  ,_ext,     /* 74..77 */
-  _asl  ,_ext,   _rol  ,_ext,   _dec  ,_ext,   _ill  ,_nom,     /* 78..7B */
-  _inc  ,_ext,   _tst  ,_ext,   _jmp  ,_ext,   _clr  ,_ext,     /* 7C..7F */
-  _suba ,_imb,   _cmpa ,_imb,   _sbca ,_imb,   _subd ,_imw,     /* 80..83 */
-  _anda ,_imb,   _bita ,_imb,   _lda  ,_imb,   _ill  ,_nom,     /* 84..87 */
-  _eora ,_imb,   _adca ,_imb,   _ora  ,_imb,   _adda ,_imb,     /* 88..8B */
-  _cmpx ,_imw,   _bsr  ,_reb,   _ldx  ,_imw,   _ill  ,_nom,     /* 8C..8F */
-  _suba ,_dir,   _cmpa ,_dir,   _sbca ,_dir,   _subd ,_dir,     /* 90..93 */
-  _anda ,_dir,   _bita ,_dir,   _lda  ,_dir,   _sta  ,_dir,     /* 94..97 */
-  _eora ,_dir,   _adca ,_dir,   _ora  ,_dir,   _adda ,_dir,     /* 98..9B */
-  _cmpx ,_dir,   _jsr  ,_dir,   _ldx  ,_dir,   _stx  ,_dir,     /* 9C..9F */
-  _suba ,_ind,   _cmpa ,_ind,   _sbca ,_ind,   _subd ,_ind,     /* A0..A3 */
-  _anda ,_ind,   _bita ,_ind,   _lda  ,_ind,   _sta  ,_ind,     /* A4..A7 */
-  _eora ,_ind,   _adca ,_ind,   _ora  ,_ind,   _adda ,_ind,     /* A8..AB */
-  _cmpx ,_ind,   _jsr  ,_ind,   _ldx  ,_ind,   _stx  ,_ind,     /* AC..AF */
-  _suba ,_ext,   _cmpa ,_ext,   _sbca ,_ext,   _subd ,_ext,     /* B0..B3 */
-  _anda ,_ext,   _bita ,_ext,   _lda  ,_ext,   _sta  ,_ext,     /* B4..B7 */
-  _eora ,_ext,   _adca ,_ext,   _ora  ,_ext,   _adda ,_ext,     /* B8..BB */
-  _cmpx ,_ext,   _jsr  ,_ext,   _ldx  ,_ext,   _stx  ,_ext,     /* BC..BF */
-  _subb ,_imb,   _cmpb ,_imb,   _sbcb ,_imb,   _addd ,_imw,     /* C0..C3 */
-  _andb ,_imb,   _bitb ,_imb,   _ldb  ,_imb,   _ill  ,_nom,     /* C4..C7 */
-  _eorb ,_imb,   _adcb ,_imb,   _orb  ,_imb,   _addb ,_imb,     /* C8..CB */
-  _ldd  ,_imw,   _ill  ,_nom,   _ldu  ,_imw,   _ill  ,_nom,     /* CC..CF */
-  _subb ,_dir,   _cmpb ,_dir,   _sbcb ,_dir,   _addd ,_dir,     /* D0..D3 */
-  _andb ,_dir,   _bitb ,_dir,   _ldb  ,_dir,   _stb  ,_dir,     /* D4..D7 */
-  _eorb ,_dir,   _adcb ,_dir,   _orb  ,_dir,   _addb ,_dir,     /* D8..DB */
-  _ldd  ,_dir,   _std  ,_dir,   _ldu  ,_dir,   _stu  ,_dir,     /* DC..DF */
-  _subb ,_ind,   _cmpb ,_ind,   _sbcb ,_ind,   _addd ,_ind,     /* E0..E3 */
-  _andb ,_ind,   _bitb ,_ind,   _ldb  ,_ind,   _stb  ,_ind,     /* E4..E7 */
-  _eorb ,_ind,   _adcb ,_ind,   _orb  ,_ind,   _addb ,_ind,     /* E8..EB */
-  _ldd  ,_ind,   _std  ,_ind,   _ldu  ,_ind,   _stu  ,_ind,     /* EC..EF */
-  _subb ,_ext,   _cmpb ,_ext,   _sbcb ,_ext,   _addd ,_ext,     /* F0..F3 */
-  _andb ,_ext,   _bitb ,_ext,   _ldb  ,_ext,   _stb  ,_ext,     /* F4..F7 */
-  _eorb ,_ext,   _adcb ,_ext,   _orb  ,_ext,   _addb ,_ext,     /* F8..FB */
-  _ldd  ,_ext,   _std  ,_ext,   _ldu  ,_ext,   _stu  ,_ext,     /* FC..FF */
+  {_neg  ,_dir}, {_ill  ,_nom}, {_ill  ,_nom}, {_com  ,_dir},   /* 00..03 */
+  {_lsr  ,_dir}, {_ill  ,_nom}, {_ror  ,_dir}, {_asr  ,_dir},   /* 04..07 */
+  {_asl  ,_dir}, {_rol  ,_dir}, {_dec  ,_dir}, {_ill  ,_nom},   /* 08..0B */
+  {_inc  ,_dir}, {_tst  ,_dir}, {_jmp  ,_dir}, {_clr  ,_dir},   /* 0C..0F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_nop  ,_imp}, {_sync ,_imp},   /* 10..13 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_lbra ,_rew}, {_lbsr ,_rew},   /* 14..17 */
+  {_ill  ,_nom}, {_daa  ,_imp}, {_orcc ,_imb}, {_ill  ,_nom},   /* 18..1B */
+  {_andcc,_imb}, {_sex  ,_imp}, {_exg  ,_r1 }, {_tfr  ,_r1 },   /* 1C..1F */
+  {_bra  ,_reb}, {_brn  ,_reb}, {_bhi  ,_reb}, {_bls  ,_reb},   /* 20..23 */
+  {_bcc  ,_reb}, {_bcs  ,_reb}, {_bne  ,_reb}, {_beq  ,_reb},   /* 24..27 */
+  {_bvc  ,_reb}, {_bvs  ,_reb}, {_bpl  ,_reb}, {_bmi  ,_reb},   /* 28..2B */
+  {_bge  ,_reb}, {_blt  ,_reb}, {_bgt  ,_reb}, {_ble  ,_reb},   /* 2C..2F */
+  {_leax ,_ind}, {_leay ,_ind}, {_leas ,_ind}, {_leau ,_ind},   /* 30..33 */
+  {_pshs ,_r2 }, {_puls ,_r2 }, {_pshu ,_r3 }, {_pulu ,_r3 },   /* 34..37 */
+  {_ill  ,_nom}, {_rts  ,_imp}, {_abx  ,_imp}, {_rti  ,_imp},   /* 38..3B */
+  {_cwai ,_imb}, {_mul  ,_imp}, {_reset,_imp}, {_swi  ,_imp},   /* 3C..3F */
+  {_nega ,_imp}, {_ill  ,_nom}, {_ill  ,_nom}, {_coma ,_imp},   /* 40..43 */
+  {_lsra ,_imp}, {_ill  ,_nom}, {_rora ,_imp}, {_asra ,_imp},   /* 44..47 */
+  {_asla ,_imp}, {_rola ,_imp}, {_deca ,_imp}, {_ill  ,_nom},   /* 48..4B */
+  {_inca ,_imp}, {_tsta ,_imp}, {_ill  ,_nom}, {_clra ,_imp},   /* 4C..4F */
+  {_negb ,_imp}, {_ill  ,_nom}, {_ill  ,_nom}, {_comb ,_imp},   /* 50..53 */
+  {_lsrb ,_imp}, {_ill  ,_nom}, {_rorb ,_imp}, {_asrb ,_imp},   /* 54..57 */
+  {_aslb ,_imp}, {_rolb ,_imp}, {_decb ,_imp}, {_ill  ,_nom},   /* 58..5B */
+  {_incb ,_imp}, {_tstb ,_imp}, {_ill  ,_nom}, {_clrb ,_imp},   /* 5C..5F */
+  {_neg  ,_ind}, {_ill  ,_nom}, {_ill  ,_nom}, {_com  ,_ind},   /* 60..63 */
+  {_lsr  ,_ind}, {_ill  ,_nom}, {_ror  ,_ind}, {_asr  ,_ind},   /* 64..67 */
+  {_asl  ,_ind}, {_rol  ,_ind}, {_dec  ,_ind}, {_ill  ,_nom},   /* 68..6B */
+  {_inc  ,_ind}, {_tst  ,_ind}, {_jmp  ,_ind}, {_clr  ,_ind},   /* 6C..6F */
+  {_neg  ,_ext}, {_ill  ,_nom}, {_ill  ,_nom}, {_com  ,_ext},   /* 70..73 */
+  {_lsr  ,_ext}, {_ill  ,_nom}, {_ror  ,_ext}, {_asr  ,_ext},   /* 74..77 */
+  {_asl  ,_ext}, {_rol  ,_ext}, {_dec  ,_ext}, {_ill  ,_nom},   /* 78..7B */
+  {_inc  ,_ext}, {_tst  ,_ext}, {_jmp  ,_ext}, {_clr  ,_ext},   /* 7C..7F */
+  {_suba ,_imb}, {_cmpa ,_imb}, {_sbca ,_imb}, {_subd ,_imw},   /* 80..83 */
+  {_anda ,_imb}, {_bita ,_imb}, {_lda  ,_imb}, {_ill  ,_nom},   /* 84..87 */
+  {_eora ,_imb}, {_adca ,_imb}, {_ora  ,_imb}, {_adda ,_imb},   /* 88..8B */
+  {_cmpx ,_imw}, {_bsr  ,_reb}, {_ldx  ,_imw}, {_ill  ,_nom},   /* 8C..8F */
+  {_suba ,_dir}, {_cmpa ,_dir}, {_sbca ,_dir}, {_subd ,_dir},   /* 90..93 */
+  {_anda ,_dir}, {_bita ,_dir}, {_lda  ,_dir}, {_sta  ,_dir},   /* 94..97 */
+  {_eora ,_dir}, {_adca ,_dir}, {_ora  ,_dir}, {_adda ,_dir},   /* 98..9B */
+  {_cmpx ,_dir}, {_jsr  ,_dir}, {_ldx  ,_dir}, {_stx  ,_dir},   /* 9C..9F */
+  {_suba ,_ind}, {_cmpa ,_ind}, {_sbca ,_ind}, {_subd ,_ind},   /* A0..A3 */
+  {_anda ,_ind}, {_bita ,_ind}, {_lda  ,_ind}, {_sta  ,_ind},   /* A4..A7 */
+  {_eora ,_ind}, {_adca ,_ind}, {_ora  ,_ind}, {_adda ,_ind},   /* A8..AB */
+  {_cmpx ,_ind}, {_jsr  ,_ind}, {_ldx  ,_ind}, {_stx  ,_ind},   /* AC..AF */
+  {_suba ,_ext}, {_cmpa ,_ext}, {_sbca ,_ext}, {_subd ,_ext},   /* B0..B3 */
+  {_anda ,_ext}, {_bita ,_ext}, {_lda  ,_ext}, {_sta  ,_ext},   /* B4..B7 */
+  {_eora ,_ext}, {_adca ,_ext}, {_ora  ,_ext}, {_adda ,_ext},   /* B8..BB */
+  {_cmpx ,_ext}, {_jsr  ,_ext}, {_ldx  ,_ext}, {_stx  ,_ext},   /* BC..BF */
+  {_subb ,_imb}, {_cmpb ,_imb}, {_sbcb ,_imb}, {_addd ,_imw},   /* C0..C3 */
+  {_andb ,_imb}, {_bitb ,_imb}, {_ldb  ,_imb}, {_ill  ,_nom},   /* C4..C7 */
+  {_eorb ,_imb}, {_adcb ,_imb}, {_orb  ,_imb}, {_addb ,_imb},   /* C8..CB */
+  {_ldd  ,_imw}, {_ill  ,_nom}, {_ldu  ,_imw}, {_ill  ,_nom},   /* CC..CF */
+  {_subb ,_dir}, {_cmpb ,_dir}, {_sbcb ,_dir}, {_addd ,_dir},   /* D0..D3 */
+  {_andb ,_dir}, {_bitb ,_dir}, {_ldb  ,_dir}, {_stb  ,_dir},   /* D4..D7 */
+  {_eorb ,_dir}, {_adcb ,_dir}, {_orb  ,_dir}, {_addb ,_dir},   /* D8..DB */
+  {_ldd  ,_dir}, {_std  ,_dir}, {_ldu  ,_dir}, {_stu  ,_dir},   /* DC..DF */
+  {_subb ,_ind}, {_cmpb ,_ind}, {_sbcb ,_ind}, {_addd ,_ind},   /* E0..E3 */
+  {_andb ,_ind}, {_bitb ,_ind}, {_ldb  ,_ind}, {_stb  ,_ind},   /* E4..E7 */
+  {_eorb ,_ind}, {_adcb ,_ind}, {_orb  ,_ind}, {_addb ,_ind},   /* E8..EB */
+  {_ldd  ,_ind}, {_std  ,_ind}, {_ldu  ,_ind}, {_stu  ,_ind},   /* EC..EF */
+  {_subb ,_ext}, {_cmpb ,_ext}, {_sbcb ,_ext}, {_addd ,_ext},   /* F0..F3 */
+  {_andb ,_ext}, {_bitb ,_ext}, {_ldb  ,_ext}, {_stb  ,_ext},   /* F4..F7 */
+  {_eorb ,_ext}, {_adcb ,_ext}, {_orb  ,_ext}, {_addb ,_ext},   /* F8..FB */
+  {_ldd  ,_ext}, {_std  ,_ext}, {_ldu  ,_ext}, {_stu  ,_ext},   /* FC..FF */
   };
 
 /*****************************************************************************/
 /* m6809_codes10 : $10 extended instruction 2nd byte                         */
 /*****************************************************************************/
 
-uint8_t Dasm6809::m6809_codes10[512] =
+CMatrixEntry Dasm6809::m6809_codes10[256] =
   {
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 00..03 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 04..07 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 08..0B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 0C..0F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 10..13 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 14..17 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 18..1B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 1C..1F */
-  _ill  ,_nom,   _lbrn ,_rew,   _lbhi ,_rew,   _lbls ,_rew,     /* 20..23 */
-  _lbcc ,_rew,   _lbcs ,_rew,   _lbne ,_rew,   _lbeq ,_rew,     /* 24..27 */
-  _lbvc ,_rew,   _lbvs ,_rew,   _lbpl ,_rew,   _lbmi ,_rew,     /* 28..2B */
-  _lbge ,_rew,   _lblt ,_rew,   _lbgt ,_rew,   _lble ,_rew,     /* 2C..2F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 30..33 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 34..37 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 38..3B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _swi2 ,_imp,     /* 3C..3F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 40..43 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 44..47 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 48..4B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 4C..4F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 50..53 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 54..57 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 58..5B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 5C..5F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 60..63 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 64..67 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 68..6B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 6C..6F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 70..73 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 74..77 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 78..7B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 7C..7F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _cmpd ,_imw,     /* 80..83 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 84..87 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 88..8B */
-  _cmpy ,_imw,   _ill  ,_nom,   _ldy  ,_imw,   _ill  ,_nom,     /* 8C..8F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _cmpd ,_dir,     /* 90..93 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 94..97 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 98..9B */
-  _cmpy ,_dir,   _ill  ,_nom,   _ldy  ,_dir,   _sty  ,_dir,     /* 9C..9F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _cmpd ,_ind,     /* A0..A3 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* A4..A7 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* A8..AB */
-  _cmpy ,_ind,   _ill  ,_nom,   _ldy  ,_ind,   _sty  ,_ind,     /* AC..AF */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _cmpd ,_ext,     /* B0..B3 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* B4..B7 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* B8..BB */
-  _cmpy ,_ext,   _ill  ,_nom,   _ldy  ,_ext,   _sty  ,_ext,     /* BC..BF */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* C0..C3 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* C4..C7 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* C8..CB */
-  _ill  ,_nom,   _ill  ,_nom,   _lds  ,_imw,   _ill  ,_nom,     /* CC..CF */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* D0..D3 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* D4..D7 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* D8..DB */
-  _ill  ,_nom,   _ill  ,_nom,   _lds  ,_dir,   _sts  ,_dir,     /* DC..DF */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* E0..E3 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* E4..E7 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* E8..EB */
-  _ill  ,_nom,   _ill  ,_nom,   _lds  ,_ind,   _sts  ,_ind,     /* EC..EF */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* F0..F3 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* F4..F7 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* F8..FB */
-  _ill  ,_nom,   _ill  ,_nom,   _lds  ,_ext,   _sts  ,_ext,     /* FC..FF */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 00..03 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 04..07 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 08..0B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 0C..0F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 10..13 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 14..17 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 18..1B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 1C..1F */
+  {_ill  ,_nom}, {_lbrn ,_rew}, {_lbhi ,_rew}, {_lbls ,_rew},   /* 20..23 */
+  {_lbcc ,_rew}, {_lbcs ,_rew}, {_lbne ,_rew}, {_lbeq ,_rew},   /* 24..27 */
+  {_lbvc ,_rew}, {_lbvs ,_rew}, {_lbpl ,_rew}, {_lbmi ,_rew},   /* 28..2B */
+  {_lbge ,_rew}, {_lblt ,_rew}, {_lbgt ,_rew}, {_lble ,_rew},   /* 2C..2F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 30..33 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 34..37 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 38..3B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_swi2 ,_imp},   /* 3C..3F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 40..43 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 44..47 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 48..4B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 4C..4F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 50..53 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 54..57 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 58..5B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 5C..5F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 60..63 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 64..67 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 68..6B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 6C..6F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 70..73 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 74..77 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 78..7B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 7C..7F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_cmpd ,_imw},   /* 80..83 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 84..87 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 88..8B */
+  {_cmpy ,_imw}, {_ill  ,_nom}, {_ldy  ,_imw}, {_ill  ,_nom},   /* 8C..8F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_cmpd ,_dir},   /* 90..93 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 94..97 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 98..9B */
+  {_cmpy ,_dir}, {_ill  ,_nom}, {_ldy  ,_dir}, {_sty  ,_dir},   /* 9C..9F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_cmpd ,_ind},   /* A0..A3 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* A4..A7 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* A8..AB */
+  {_cmpy ,_ind}, {_ill  ,_nom}, {_ldy  ,_ind}, {_sty  ,_ind},   /* AC..AF */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_cmpd ,_ext},   /* B0..B3 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* B4..B7 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* B8..BB */
+  {_cmpy ,_ext}, {_ill  ,_nom}, {_ldy  ,_ext}, {_sty  ,_ext},   /* BC..BF */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* C0..C3 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* C4..C7 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* C8..CB */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_lds  ,_imw}, {_ill  ,_nom},   /* CC..CF */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* D0..D3 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* D4..D7 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* D8..DB */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_lds  ,_dir}, {_sts  ,_dir},   /* DC..DF */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* E0..E3 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* E4..E7 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* E8..EB */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_lds  ,_ind}, {_sts  ,_ind},   /* EC..EF */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* F0..F3 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* F4..F7 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* F8..FB */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_lds  ,_ext}, {_sts  ,_ext},   /* FC..FF */
   };
 
 /*****************************************************************************/
 /* m6809_codes11 : $11 extended instruction 2nd byte                         */
 /*****************************************************************************/
 
-uint8_t Dasm6809::m6809_codes11[512] =
+CMatrixEntry Dasm6809::m6809_codes11[256] =
   {
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 00..03 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 04..07 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 08..0B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 0C..0F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 10..13 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 14..17 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 18..1B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 1C..1F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 20..23 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 24..27 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 28..2B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 2C..2F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 30..33 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 34..37 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 38..3B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _swi3 ,_imp,     /* 3C..3F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 40..43 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 44..47 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 48..4B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 4C..4F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 50..53 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 54..57 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 58..5B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 5C..5F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 60..63 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 64..67 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 68..6B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 6C..6F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 70..73 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 74..77 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 78..7B */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 7C..7F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _cmpu ,_imw,     /* 80..83 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 84..87 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 88..8B */
-  _cmps ,_imw,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 8C..8F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _cmpu ,_dir,     /* 90..93 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 94..97 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 98..9B */
-  _cmps ,_dir,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* 9C..9F */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _cmpu ,_ind,     /* A0..A3 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* A4..A7 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* A8..AB */
-  _cmps ,_ind,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* AC..AF */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _cmpu ,_ext,     /* B0..B3 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* B4..B7 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* B8..BB */
-  _cmps ,_ext,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* BC..BF */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* C0..C3 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* C4..C7 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* C8..CB */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* CC..CF */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* D0..D3 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* D4..D7 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* D8..DB */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* DC..DF */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* E0..E3 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* E4..E7 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* E8..EB */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* EC..EF */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* F0..F3 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* F4..F7 */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* F8..FB */
-  _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,   _ill  ,_nom,     /* FC..FF */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 00..03 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 04..07 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 08..0B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 0C..0F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 10..13 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 14..17 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 18..1B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 1C..1F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 20..23 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 24..27 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 28..2B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 2C..2F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 30..33 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 34..37 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 38..3B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_swi3 ,_imp},   /* 3C..3F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 40..43 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 44..47 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 48..4B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 4C..4F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 50..53 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 54..57 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 58..5B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 5C..5F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 60..63 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 64..67 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 68..6B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 6C..6F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 70..73 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 74..77 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 78..7B */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 7C..7F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_cmpu ,_imw},   /* 80..83 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 84..87 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 88..8B */
+  {_cmps ,_imw}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 8C..8F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_cmpu ,_dir},   /* 90..93 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 94..97 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 98..9B */
+  {_cmps ,_dir}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* 9C..9F */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_cmpu ,_ind},   /* A0..A3 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* A4..A7 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* A8..AB */
+  {_cmps ,_ind}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* AC..AF */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_cmpu ,_ext},   /* B0..B3 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* B4..B7 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* B8..BB */
+  {_cmps ,_ext}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* BC..BF */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* C0..C3 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* C4..C7 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* C8..CB */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* CC..CF */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* D0..D3 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* D4..D7 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* D8..DB */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* DC..DF */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* E0..E3 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* E4..E7 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* E8..EB */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* EC..EF */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* F0..F3 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* F4..F7 */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* F8..FB */
+  {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* FC..FF */
   };
 
 
@@ -404,6 +404,8 @@ OpCode Dasm6809::opcodes[mnemo6809_count - mnemo6800_count] =
     { "SWI3",  Data },                  /* _swi3                             */
     { "SYNC",  Data },                  /* _sync                             */
     { "TFR",   Data },                  /* _tfr                              */
+    { "SETDP", Data },                  /* _setdp                            */
+    { "OS9",   Data },                  /* _os9                              */
     // Convenience mnemonics
     { "CLF",   Data },                  /* _clf                              */
     { "CLIF",  Data },                  /* _clif                             */
@@ -412,6 +414,12 @@ OpCode Dasm6809::opcodes[mnemo6809_count - mnemo6800_count] =
     { "DEY",   Data },                  /* _dey                              */
     { "INU",   Data },                  /* _inu                              */
     { "INY",   Data },                  /* _iny                              */
+    { "PSHD",  Data },                  /* _pshd                             */
+    { "PSHX",  Data },                  /* _pshx                             */
+    { "PSHY",  Data },                  /* _pshy                             */
+    { "PULD",  Data },                  /* _puld                             */
+    { "PULX",  Data },                  /* _pulx                             */
+    { "PULY",  Data },                  /* _puly                             */
     { "SEF",   Data },                  /* _sef                              */
     { "SEIF",  Data },                  /* _seif                             */
     { "SEZ",   Data },                  /* _sez                              */
@@ -575,7 +583,7 @@ static struct                           /* structure to convert key to type  */
   } sKey[] =
   {
   { "SETDP",        infoSetDP },
-  { "UNSETDP",      infoSetDP },
+  { "UNSETDP",      infoUnsetDP },
   };
 
 InfoCmd cmdType = infoUnknown;
@@ -633,6 +641,80 @@ switch (cmdType)
     break;
   default :  // keep gcc happy
     break;
+  }
+return true;
+}
+
+/*****************************************************************************/
+/* LoadRel : loads a relocatable module generated by RELASMB                 */
+/*****************************************************************************/
+
+bool Dasm6809::LoadRel(FILE *f, string &sLoadType)
+{
+int c = fgetc(f);                       /* fetch first byte to decide        */
+if (c == EOF)                           /* whether it may be a rel module    */
+  return false;
+ungetc(c, f);
+if (c != 0x03)
+  return false;
+
+int nCurPos = ftell(f);                 /* remember where we started         */
+
+bool ok = true;
+bool isCommon = true;
+// read the capsules
+int nCapStart = nCurPos;
+while (ok)
+  {
+  ok &= LoadRelCapsule(f, isCommon);
+  if (feof(f))
+    break;
+  nCapStart = ftell(f);
+  }
+
+if (ok)
+  sLoadType = "REL";
+else
+  fseek(f, nCurPos, SEEK_SET);          /* seek back                         */
+return ok;
+}
+
+/*****************************************************************************/
+/* LoadRelCapsule : loads a relocatable module capsule                       */
+/*****************************************************************************/
+
+bool Dasm6809::LoadRelCapsule(FILE *f, bool &isCommon)
+{
+RelCapsuleHeader c;
+if (fread(&c, 1, sizeof(c), f) != sizeof(c))
+  return false;
+if (c.signature != 0x03 ||
+    (c.flags1 != 0x10 && c.flags1 != 0x12 && c.flags1 != 0x18))
+  return false;
+// module layout:
+// [<common capsule>]* <code capsule>
+int capsbytes = sizeof(c);
+
+switch (c.flags1)                       /* what's this one, exactly?         */
+  {
+  case 0x10 :                           /* a relative code capsule?          */
+    isCommon = false;
+    break;
+  case 0x12 :                           /* an absolute code capsule?         */
+    isCommon = false;
+    break;
+  case 0x18 :                           /* a common capsule ?                */
+    if (!isCommon)                      /* that must be before code          */
+      return false;
+    break;
+  }
+
+while (capsbytes % 0xfc)                /* capsule is filled up with zeroes  */
+  {                                     /* to FLEX sector size (252)         */
+  int x = fgetc(f);
+  if (x)
+    return false;
+  capsbytes++;
   }
 return true;
 }
@@ -733,10 +815,13 @@ if (crc24[0] != 0x80 ||                 /* CRCCHK checks against $800FE3!    */
   }
 
 // loaded & checked OK, so set up contents
+#if 0
 if (fbegin < begin)
   begin = fbegin;
 if (fend > end)
   end = fend;
+#endif
+
 sLoadType = "OS9";
 os9Patch = true;  // in this case, DO patch OS9 codes.
 bPIC = true;      // and default to position-independent code
@@ -838,7 +923,9 @@ for (i = fbegin; i <= fend; i++)
     SetMemType(i, Data);
   else
     SetMemType(i, Code);
-  SetCellUsed(i);
+  bool bUsed = ((begin == NO_ADDRESS || i >= begin) &&
+                (end == NO_ADDRESS || i <= end));
+  SetCellUsed(i, bUsed);
   SetDisplay(i, defaultDisplay);
   }
 SetupOS9(fbegin, wModSize, mod.h);
@@ -857,27 +944,29 @@ if (os9ModHeader)
   if (wExecOff)
     AddLabel(loadAddr + wExecOff, Code, modstrt, true);
 
-  pApp->AddComment(fbegin, false, "        IF      0", true, false);
+  pApp->AddComment(fbegin, false, sformat("%*s %s%*s 0", 7, "", mnemo[_if].mne, 5, ""), true, false);
   pApp->AddComment(startContent, false, "", true, false);
-  pApp->AddComment(startContent, false, "        ENDIF", true, false);
-  pApp->AddComment(startContent, false, datasize + " EQU " + Number2String(wPSReq, 4, NO_ADDRESS), true, false);
-  pApp->AddComment(startContent, false, modnm + " fcs /" + modname + "/", true, false);
-  string modcmd("        mod     ");
+  pApp->AddComment(startContent, false, sformat("%*s %s", 7, "", mnemo[_endif].mne), true, false);
+  pApp->AddComment(startContent, false, datasize + " " + mnemo[_equ].mne + " " + Number2String(wPSReq, 4, NO_ADDRESS), true, false);
+  pApp->AddComment(startContent, false, modnm + " " + mnemo[_fcs].mne + " /" + modname + "/", true, false);
+  string modcmd(sformat("%*s %s%*s", 7, "", "mod", 4, ""));
   modcmd += modsiz + "," + modnm + "," + modtypename + "," + attributes + ",";
   modcmd += modstrt + "," + datasize;
   pApp->AddComment(startContent, false, modcmd, true, false);
-  pApp->AddComment(startContent, false, "        ELSE", true, false);
+  pApp->AddComment(startContent, false, sformat("%*s %s", 7, "", mnemo[_else].mne), true, false);
 
   adr_t chksadr = fend - 2;
-  pApp->AddComment(chksadr, false, "        IF      0", true, false);
+  pApp->AddComment(chksadr, false, sformat("%*s %s%*s 0", 7, "", mnemo[_if].mne, 5, ""), true, false);
   pApp->AddComment(chksadr, false, "", true, false);
-  pApp->AddComment(chksadr, true, "        ENDIF", true, false);
-  pApp->AddComment(chksadr, true, modsiz + " equ *", true, false);
-  pApp->AddComment(chksadr, true, "        emod", true, false);
-  pApp->AddComment(chksadr, true, "        ELSE", true, false);
+  pApp->AddComment(chksadr, true, sformat("%*s %s", 7, "", mnemo[_endif].mne), true, false);
+  pApp->AddComment(chksadr, true, modsiz + " " + mnemo[_equ].mne + " *", true, false);
+  pApp->AddComment(chksadr, true, sformat("%*s %s", 7, "", "emod"), true, false);
+  pApp->AddComment(chksadr, true, sformat("%*s %s", 7, "", mnemo[_else].mne), true, false);
   }
 else if (wExecOff)
   AddLabel(fbegin + wExecOff, Code, "", true);
+
+offset = fend + 1;
 
 (void)wPSReq;  // keep gcc happy
 
@@ -1022,6 +1111,7 @@ return true;
 bool Dasm6809::LoadFile(string filename, FILE *f, string &sLoadType, int interleave, int bus)
 {
 return LoadOS9(f, sLoadType) ||  // OS9 files need no interleave nor bus
+       LoadRel(f, sLoadType) ||  // RELASMB output needs no interleave nor bus
        Dasm6800::LoadFile(filename, f, sLoadType, interleave, bus);
 }
 
@@ -1082,42 +1172,29 @@ adr_t Dasm6809::FetchInstructionDetails
     uint8_t &instpg,
     uint8_t &instb,
     uint8_t &mode,
-    int &MI,
-    const char *&I,
-    string *smnemo
+    int &mnemoIndex
     )
 {
-uint16_t W;
-uint8_t T;
-
 instpg = instb = GetUByte(PC++);
 if (instpg == 0x10)
   {
-  T = GetUByte(PC++);
-  W = T * 2;
-  MI = T = codes10[W++];
-  I = mnemo[MI].mne;
-  mode = codes10[W];
+  instb = GetUByte(PC++);
+  mnemoIndex = codes10[instb].mne;
+  mode = codes10[instb].adrmode;
   }
 else if (instpg == 0x11)
   {
-  T = GetUByte(PC++);
-  W = T * 2;
-  MI = codes11[W++];
-  I = mnemo[MI].mne;
-  mode = codes11[W];
+  instb = GetUByte(PC++);
+  mnemoIndex = codes11[instb].mne;
+  mode = codes11[instb].adrmode;
   }
 else
   {
   instpg = 0;
-  W = (uint16_t)instb * 2;
-  MI = codes[W++];
-  mode = codes[W];
-  I = mnemo[MI].mne;
+  mnemoIndex = codes[instb].mne;
+  mode = codes[instb].adrmode;
   }
 
-if (smnemo)
-  *smnemo = I;
 return PC;
 }
 
@@ -1238,13 +1315,13 @@ switch (u2)
     smnemo = mnemo[_psha].mne; PC++;
     return true;
   case 0x3406 :                         /* PSHS D -> PSHD                    */
-    smnemo = "PSHD"; PC++;
+    smnemo = mnemo[_pshd].mne; PC++;
     return true;
   case 0x3410 :                         /* PSHS X -> PSHX                    */
-    smnemo = "PSHX"; PC++;
+    smnemo = mnemo[_pshx].mne; PC++;
     return true;
   case 0x3420 :                         /* PSHS Y -> PSHY                    */
-    smnemo = "PSHY"; PC++;
+    smnemo = mnemo[_pshy].mne; PC++;
     return true;
   case 0x3502 :                         /* PULS A -> PULA                    */
     smnemo = mnemo[_pula].mne; PC++;
@@ -1253,19 +1330,19 @@ switch (u2)
     smnemo = mnemo[_pulb].mne; PC++;
     return true;
   case 0x3506 :                         /* PULS D -> PULD                    */
-    smnemo = "PULD"; PC++;
+    smnemo = mnemo[_puld].mne; PC++;
     return true;
   case 0x3510 :                         /* PULS X -> PULX                    */
-    smnemo = "PULX"; PC++;
+    smnemo = mnemo[_pulx].mne; PC++;
     return true;
   case 0x3520 :                         /* PULS Y -> PULY                    */
-    smnemo = "PULY"; PC++;
+    smnemo = mnemo[_puly].mne; PC++;
     return true;
   case 0x8300 :                         /* SUBD #1 -> DECD                   */
     W = GetUWord(PC);
     if (W == 1)
       {
-      smnemo = "DECD"; PC += 2;
+      smnemo = mnemo[_decd].mne; PC += 2;
       return true;
       }
     break;
@@ -1273,7 +1350,7 @@ switch (u2)
     W = GetUWord(PC);
     if (W == 1)
       {
-      smnemo = "INCD"; PC += 2;
+      smnemo = mnemo[_incd].mne; PC += 2;
       return true;
       }
     break;
@@ -1290,7 +1367,7 @@ return Dasm6800::SetConvenience(instpg, u2, smnemo, PC);
 /*****************************************************************************/
 
 #define HMHMHM 0
-adr_t Dasm6809::IndexParse(int MI, adr_t pc, adr_t instaddr)
+adr_t Dasm6809::IndexParse(int mnemoIndex, adr_t pc, adr_t instaddr)
 {
 uint8_t T;
 uint16_t W;
@@ -1330,10 +1407,10 @@ if (T & 0x80)
       T = GetUByte(PC++);
       if (bSetLabel)
 #if HMHMHM
-        AddRelativeLabel((uint16_t)((int)((char)T) + PC), PC - 1, mnemo[MI].memType,
+        AddRelativeLabel((uint16_t)((int)((char)T) + PC), PC - 1, mnemo[mnemoIndex].memType,
                          true, BusCode, instaddr);
 #else
-        AddLabel((uint16_t)((int)((char)T) + PC), mnemo[MI].memType, "", true);
+        AddLabel((uint16_t)((int)((char)T) + PC), mnemo[mnemoIndex].memType, "", true);
 #endif
       break;
     case 0x08:
@@ -1351,10 +1428,10 @@ if (T & 0x80)
           (W != Wrel ||                 /* if it's relative, or label's there*/
             FindLabel(Wrel)))
 #if 1
-        AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, instaddr);
+        AddRelativeLabel(W, PC, mnemo[mnemoIndex].memType, true, BusCode, instaddr);
 #else
         AddLabel(Wrel,                  /* mark it as used                   */
-                 mnemo[MI].memType, "", true);
+                 mnemo[mnemoIndex].memType, "", true);
 #endif
       PC++;
       break;
@@ -1370,10 +1447,10 @@ if (T & 0x80)
       W = GetUWord(PC); PC += 2;
       if (bSetLabel)
 #if HMHMHM
-        AddRelativeLabel((uint16_t)(W + PC), PC - 2, mnemo[MI].memType, true,
+        AddRelativeLabel((uint16_t)(W + PC), PC - 2, mnemo[mnemoIndex].memType, true,
                          BusCode, instaddr);
 #else
-        AddLabel((uint16_t)(W + PC), mnemo[MI].memType, "", true);
+        AddLabel((uint16_t)(W + PC), mnemo[mnemoIndex].memType, "", true);
 #endif
       break;
     case 0x09:
@@ -1390,10 +1467,10 @@ if (T & 0x80)
           (W != Wrel ||                 /* if it's relative, or label's there*/
             FindLabel(Wrel)))
 #if 1
-        AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, instaddr);
+        AddRelativeLabel(W, PC, mnemo[mnemoIndex].memType, true, BusCode, instaddr);
 #else
         AddLabel(Wrel,                  /* mark it as used                   */
-                 mnemo[MI].memType, "", true);
+                 mnemo[mnemoIndex].memType, "", true);
 #endif
       PC += 2;
       break;
@@ -1406,10 +1483,10 @@ if (T & 0x80)
       W = GetUWord(PC); PC += 2;
       if (bSetLabel)
 #if HMHMHM
-        AddRelativeLabel((uint16_t)(W + PC), PC - 2, mnemo[MI].memType, true,
+        AddRelativeLabel((uint16_t)(W + PC), PC - 2, mnemo[mnemoIndex].memType, true,
                          BusCode, instaddr);
 #else
-        AddLabel((uint16_t)(W + PC), mnemo[MI].memType, "", true);
+        AddLabel((uint16_t)(W + PC), mnemo[mnemoIndex].memType, "", true);
 #endif
       break;
 
@@ -1424,9 +1501,9 @@ if (T & 0x80)
         W = GetUWord(PC);
         if (bSetLabel)
 #if HMHMHM
-          AddRelativeLabel(W, PC, mnemo[MI].memType, true, BusCode, instaddr);
+          AddRelativeLabel(W, PC, mnemo[mnemoIndex].memType, true, BusCode, instaddr);
 #else
-          AddLabel(W, mnemo[MI].memType, "", true);
+          AddLabel(W, mnemo[mnemoIndex].memType, "", true);
 #endif
         PC += 2;
         }
@@ -1447,9 +1524,9 @@ else
     W = (uint16_t)(c + Wrel);
     if (bSetLabel)
 #if HMHMHM
-      AddRelativeLabel(W, PC - 1, mnemo[MI].memType, true, BusCode, instaddr);
+      AddRelativeLabel(W, PC - 1, mnemo[mnemoIndex].memType, true, BusCode, instaddr);
 #else
-      AddLabel(W, mnemo[MI].memType, "", true);
+      AddLabel(W, mnemo[mnemoIndex].memType, "", true);
 #endif
     }
   else
@@ -1777,19 +1854,18 @@ adr_t Dasm6809::ParseCode
 {
 uint8_t instpg, instb, /* T, */ mode;
 uint16_t W;
-int MI;
-const char *I;
+int mnemoIndex;
 bool bSetLabel;
 Label *lbl;
-adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, MI, I);
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, mnemoIndex);
 
-if ((MI == _swi2) && os9Patch)
+if ((mnemoIndex == _swi2) && os9Patch)
   return (PC + 1 - addr);
 
 switch (mode)                           /* which mode is this ?              */
   {
   case _ind:                            /* indexed                           */
-    PC = IndexParse(MI, PC, addr);
+    PC = IndexParse(mnemoIndex, PC, addr);
     break;
     
   case _rew:                            /* relative word                     */
@@ -1802,7 +1878,7 @@ switch (mode)                           /* which mode is this ?              */
     W += (uint16_t)PC;
     W = (uint16_t)DephaseOuter(W, PC - 2);
     if (bSetLabel)
-      AddLabel(W, mnemo[MI].memType, "", true);
+      AddLabel(W, mnemo[mnemoIndex].memType, "", true);
     break;
     
   case _r1:                             /* tfr/exg mode                      */
@@ -1834,17 +1910,16 @@ adr_t Dasm6809::DisassembleCode
 {
 uint8_t instpg, instb, T, mode;
 uint16_t W;
-int MI;
-const char *I;
-adr_t PC = addr;
+int mnemoIndex;
+adr_t PC = FetchInstructionDetails(addr, instpg, instb, mode, mnemoIndex);
 bool bGetLabel;
 Label *lbl;
 
-PC = FetchInstructionDetails(PC, instpg, instb, mode, MI, I, &smnemo);
-if ((MI == _swi2) && os9Patch)
+smnemo = mnemo[mnemoIndex].mne;
+if ((mnemoIndex == _swi2) && os9Patch)
   {
   T = GetUByte(PC++);
-  smnemo = "OS9";
+  smnemo = mnemo[_os9].mne;
   sparm = os9_codes[T];
   return PC - addr;
   }
@@ -1984,7 +2059,7 @@ if (!bAfterLine)                        /* if before the address             */
     {
     LineChange chg;
     changes.push_back(chg);
-    chg.oper = MnemoCase("SETDP");
+    chg.oper = MnemoCase(mnemo[_setdp].mne);
     if (dp != NO_ADDRESS)
       chg.opnds = sformat("$%02X", dp >> 8);
     changes.push_back(chg);

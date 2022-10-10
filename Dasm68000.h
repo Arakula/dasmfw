@@ -148,6 +148,12 @@ class Dasm68000 :
       };
     enum Mnemonics68000
       {
+      _equ,
+      _org,
+      _phase,
+      _dephase,
+      _end,
+
       _ill,                             /* illegal                           */
       _abcd,
       _adda,

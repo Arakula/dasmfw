@@ -43,6 +43,11 @@ class Dasm68HC11 : public Dasm6801
     // Initialize parsing
     virtual bool InitParse(int bus = BusCode);
 
+  // Options handler
+  protected:
+    int Set68HC11Option(string name, string value);
+    string Get68HC11Option(string name);
+
   protected:
     // additional 68HC11 addressing modes
     enum AddrMode68HC11
@@ -83,18 +88,20 @@ class Dasm68HC11 : public Dasm6801
       mnemo68HC11_count
       };
 
-    static uint8_t m68hc11_codes[512];
-    static uint8_t m68hc11_codes18[512];
-    static uint8_t m68hc11_codes1a[512];
-    static uint8_t m68hc11_codescd[512];
+    static CMatrixEntry m68hc11_codes[256];
+    static CMatrixEntry m68hc11_codes18[256];
+    static CMatrixEntry m68hc11_codes1a[256];
+    static CMatrixEntry m68hc11_codescd[256];
     static OpCode opcodes[mnemo68HC11_count - mnemo6801_count];
 
-    uint8_t *codes18;
-    uint8_t *codes1a;
-    uint8_t *codescd;
+    CMatrixEntry *codes18;
+    CMatrixEntry *codes1a;
+    CMatrixEntry *codescd;
+
+    bool boppcom;
 
   protected:
-    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &MI, const char *&I, string *smnemo = NULL);
+    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &mnemoIndex);
     virtual string GetIx8IndexReg(uint8_t instpg);
     // parse instruction at given memory address for labels
     virtual adr_t ParseCode(adr_t addr, int bus = BusCode);

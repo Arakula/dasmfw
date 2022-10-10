@@ -42,6 +42,15 @@
   #define RB_VARIANT 0
 #endif
 
+/*****************************************************************************/
+/* CMatrixEntry : little structure for the code matrix entries               */
+/*****************************************************************************/
+
+struct CMatrixEntry
+  {
+  uint16_t mne;                         /* index of mnemonic                 */
+  uint8_t adrmode;                      /* addressing mode                   */
+  };
 
 /*****************************************************************************/
 /* Dasm6800 : class for a Motorola 6800 processor                            */
@@ -116,7 +125,7 @@ class Dasm6800 :
     virtual string Number2String(adr_t value, int nDigits, adr_t addr, int bus = BusCode);
     virtual string Address2String(adr_t addr, int bus = BusCode)
       { (void)bus; return sformat("$%04X", addr); }
-    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &MI, const char *&I, string *smnemo = NULL);
+    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &mnemoIndex);
     virtual string GetIx8IndexReg(uint8_t instpg) { (void)instpg; return MnemoCase(",X"); }
     virtual bool SetConvenience(uint8_t instpg, uint16_t u2, string &smnemo, adr_t &PC);
     void AddForced(string &smnemo, string &sparm, bool bExtended = true);
@@ -140,6 +149,19 @@ class Dasm6800 :
     // 6800 mnemonics
     enum Mnemonics6800
       {
+      _equ,                             /* start with pseudo-ops             */
+      _rmb,
+      _fcb,
+      _fdb,
+      _fcc,
+      _fcs,
+      _org,
+      _phase,
+      _dephase,
+      _end,
+      _if,
+      _else,
+      _endif,
       _ill,                             /* illegal                           */
       _aba,
       _adca,
@@ -188,6 +210,7 @@ class Dasm6800 :
       _daa,
       _deca,
       _decb,
+      _decd,
       _dec,
       _des,
       _dex,
@@ -195,6 +218,7 @@ class Dasm6800 :
       _eorb,
       _inca,
       _incb,
+      _incd,
       _inc,
       _ins,
       _inx,
@@ -257,9 +281,9 @@ class Dasm6800 :
       mnemo6800_count
       };
 
-    static uint8_t m6800_codes[512];
+    static CMatrixEntry m6800_codes[256];
 
-    uint8_t *codes;
+    CMatrixEntry *codes;
     static const char *bit_r[];
     static const char *block_r[];
     static OpCode opcodes[mnemo6800_count];

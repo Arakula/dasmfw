@@ -916,6 +916,21 @@ class Disassembler
       return sformat("%s%0*X", cType, (bits + 3) / 4, addr);
       }
     virtual bool IsForwardRef(adr_t value, bool bUseLabel, adr_t addr, int bus = BusCode);
+    virtual bool MnemoRename(string oldMnemo, string newMnemo)
+      {
+      // not exactly beautiful, but there's no guarantee that mnemonics are sorted
+      // and setting up a hash table for that would be overkill, so iterate through the list
+      string oldup = uppercase(oldMnemo);
+      for (size_t i = 0; i < mnemo.size(); i++)
+        {
+        if (uppercase(mnemo[i].mne) == oldup)
+          {
+          mnemo[i].mne = strdup(newMnemo.c_str());
+          return true;
+          }
+        }
+      return false;
+      }
 
   protected:
     static const Endian prgEndian;

@@ -26,6 +26,16 @@
 #include "Disassembler.h"
 
 /*****************************************************************************/
+/* CMatrixEntry : little structure for the code matrix entries               */
+/*****************************************************************************/
+
+struct CMatrixEntry
+  {
+  uint16_t mne;                         /* index of mnemonic                 */
+  uint8_t adrmode;                      /* addressing mode                   */
+  };
+
+/*****************************************************************************/
 /* Dasm650X : base class for a MOS Technology 650x processor                 */
 /*****************************************************************************/
 
@@ -96,7 +106,7 @@ class Dasm650X :
     virtual string Number2String(adr_t value, int nDigits, adr_t addr, int bus = BusCode);
     virtual string Address2String(adr_t addr, int bus = BusCode)
       { (void)bus; return sformat("$%04X", addr); }
-    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &MI, const char *&I, string *smnemo = NULL);
+    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &mnemoIndex);
     void AddForced(string &smnemo, string &sparm, bool bAbsolute = true);
 
   protected:
@@ -125,6 +135,16 @@ class Dasm650X :
     // 6500 mnemonics
     enum Mnemonics6500
       {
+      _equ,                             /* start with pseudo-ops             */
+      _rmb,
+      _fcb,
+      _fdb,
+      _fcc,
+      _org,
+      _phase,
+      _dephase,
+      _end,
+
       _ill,                             /* illegal                           */
 
       _adc,
@@ -187,9 +207,9 @@ class Dasm650X :
       mnemo6500_count
       };
 
-    static uint8_t m6500_codes[512];
+    static CMatrixEntry m6500_codes[256];
 
-    uint8_t *codes;
+    CMatrixEntry *codes;
     static const char *bit_r[];
     static const char *block_r[];
     static OpCode opcodes[mnemo6500_count];
@@ -221,7 +241,7 @@ class Dasm6501 :
     string Get6501Option(string name);
 
   protected:
-    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &MI, const char *&I, string *smnemo = NULL);
+    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &mnemoIndex);
 
   protected:
     // 6501 addressing modes
@@ -255,7 +275,7 @@ class Dasm6501 :
       mnemo6501_count
       };
 
-    static uint8_t m6501_codes[512];
+    static CMatrixEntry m6501_codes[256];
     static OpCode m6501_opcodes[mnemo6501_count - mnemo6500_count];
     bool useUndefined;
   };
@@ -350,7 +370,7 @@ class Dasm65C02 :
       mnemo65C02_count
       };
 
-    static uint8_t m65c02_codes[512];
+    static CMatrixEntry m65c02_codes[256];
     static OpCode m65c02_opcodes[mnemo65C02_count - mnemo6500_count];
     bool useUndefined;
   };

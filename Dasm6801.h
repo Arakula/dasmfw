@@ -64,7 +64,7 @@ class Dasm6801 : public Dasm6800
       };
 
 
-    static uint8_t m6801_codes[512];
+    static CMatrixEntry m6801_codes[256];
     static OpCode opcodes[mnemo6801_count - mnemo6800_count];
   };
 

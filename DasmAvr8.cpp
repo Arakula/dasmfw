@@ -762,7 +762,11 @@ while (!done && (nBytes >= 0))          /* while there are lines             */
     SetUWord(nAddr, value, bus);
   for (; i >= 0; i--)
     {
-    SetCellUsed(nAddr + i, true, bus);  /* mark as used byte                 */
+    // Hmmm. begin/end is a bit inadequate here, without the bus ...
+    // Might need an update when this becomes remotely relevant
+    bool bUsed = ((begin == NO_ADDRESS || (adr_t)i >= begin) &&
+                  (end == NO_ADDRESS || (adr_t)i <= end));
+    SetCellUsed(nAddr + i, bUsed, bus); /* mark as (un)used byte             */
     SetDisplay(nAddr + i, defaultDisplay, bus);
     }
   while ((c = fgetc(f)) == '\r' || c == '\n')
@@ -778,10 +782,7 @@ while (!done && (nBytes >= 0))          /* while there are lines             */
 fseek(f, nCurPos, SEEK_SET);
 if (nBytes >= 0)
   {
-  if (fbegin < begin)
-    begin = fbegin;
-  if (fend > end)
-    end = fend;
+  offset = fend + 1;
   }
 
 if (nBytes > 0)
@@ -1335,7 +1336,7 @@ int i;
 avrInstructionInfo *ii = LookupInstruction(opcode);
 if (ii == NULL)                         /* if no instruction,                */
   {
-  smnemo = ".dw";
+  smnemo = mnemo[_d_dw].mne;
   sparm = Number2String(opcode, 4, addr, bus);
   return 2;
   }

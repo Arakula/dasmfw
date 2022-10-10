@@ -109,7 +109,37 @@ class MemAttribute6809Handler : public MemAttributeHandler
 
 
 /*****************************************************************************/
-/* OS8 file structures                                                       */
+/* REL file structures                                                       */
+/*****************************************************************************/
+// This is based on an incomplete analysis done by William Gee Jr.,
+// posted on the Flex Usergroup mailing list, 2003-09-24
+
+#pragma pack(1)
+
+struct RelCapsuleHeader
+  {
+  uint8_t signature;                    /* Capsule signature - must be 3     */
+  uint8_t flags1;                       /* Flags 1; can be one of:           */
+                                        /*   0x10 - relative code capsule    */
+                                        /*   0x12 - absolute code capsule    */
+                                        /*   0x18 - common capsule           */
+  uint8_t datalen[2];                   /* Length of data                    */
+  uint8_t unknown1[4];                  /* unknown                           */
+  uint8_t extsize[2];                   /* Size of external table            */
+  uint8_t progstart[2];                 /* Program start address             */
+  uint8_t unknown2[2];                  /* unknown                           */
+  uint8_t glbsize[2];                   /* Size of global table              */
+  uint8_t unknown3[2];                  /* unknown                           */
+  uint8_t namelen[2];                   /* Length of module name             */
+  uint8_t flags2;                       /* Flags 2; can be one of:           */
+                                        /*   0x80 - start address is given   */
+  uint8_t unknown4[3];                  /* unknown                           */
+  };
+#pragma pack()
+
+
+/*****************************************************************************/
+/* OS9 file structures                                                       */
 /*****************************************************************************/
 
 #pragma pack(1)
@@ -192,6 +222,8 @@ class Dasm6809 : public Dasm6800
 
     virtual bool ProcessInfo(string key, string value, adr_t &from, adr_t &to, adr_t &step, vector<TMemoryArray<adr_t>> &remaps, bool bProcInfo = true, int bus = BusCode, int tgtbus = BusCode);
 
+    bool LoadRel(FILE *f, string &sLoadType);
+    bool LoadRelCapsule(FILE *f, bool &isCommon);
     bool LoadOS9(FILE *f, string &sLoadType);
     bool SetupOS9(adr_t loadAddr, uint16_t modsize, OS9ModuleHeader &h);
     bool SetupOS9(adr_t loadAddr, OS9UserModuleHeader &h);
@@ -278,6 +310,8 @@ class Dasm6809 : public Dasm6800
       _swi3,
       _sync,
       _tfr,
+      _setdp,
+      _os9,
       // Convenience mnemonics
       _clf,
       _clif,
@@ -286,6 +320,12 @@ class Dasm6809 : public Dasm6800
       _dey,
       _inu,
       _iny,
+      _pshd,
+      _pshx,
+      _pshy,
+      _puld,
+      _pulx,
+      _puly,
       _sef,
       _seif,
       _sez,
@@ -293,14 +333,14 @@ class Dasm6809 : public Dasm6800
       mnemo6809_count
       };
 
-    static uint8_t m6809_codes[512];
-    static uint8_t m6809_codes10[512];
-    static uint8_t m6809_codes11[512];
+    static CMatrixEntry m6809_codes[256];
+    static CMatrixEntry m6809_codes10[256];
+    static CMatrixEntry m6809_codes11[256];
     static OpCode opcodes[mnemo6809_count - mnemo6800_count];
     static const char *os9_codes[0x100];
 
-    uint8_t *codes10;
-    uint8_t *codes11;
+    CMatrixEntry *codes10;
+    CMatrixEntry *codes11;
     const char **exg_tfr;
     static const char reg[];
 
@@ -313,9 +353,9 @@ class Dasm6809 : public Dasm6800
     // must not be called from constructor!
     virtual MemAttributeHandler *CreateAttributeHandler() { return new MemAttribute6809Handler; }
 
-    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &MI, const char *&I, string *smnemo = NULL);
+    virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &mnemoIndex);
     virtual bool SetConvenience(uint8_t instpg, uint16_t u2, string &smnemo, adr_t &PC);
-    virtual adr_t IndexParse(int MI, adr_t pc, adr_t instaddr = NO_ADDRESS);
+    virtual adr_t IndexParse(int mnemoIndex, adr_t pc, adr_t instaddr = NO_ADDRESS);
     virtual string IndexString(string &smnemo, adr_t &pc);
     void AddFlexLabels();
 

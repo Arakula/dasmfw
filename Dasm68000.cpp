@@ -217,6 +217,11 @@ Dasm68000::OpDef Dasm68000::OpTable[optblSize] =
 
 OpCode Dasm68000::opcodes[mnemo68000_count] =
   {
+    { "EQU",     Data },                /* _equ                              */
+    { "ORG",     Data },                /* _org                              */
+    { "PHASE",   Data },                /* _phase                            */
+    { "DEPHASE", Data },                /* _dephase                          */
+    { "END",     Data },                /* _end                              */
     { "???",     Data },                /* _ill                              */
     { "ABCD",    Data },                /* _abcd                             */
     { "ADDA",    Data },                /* _adda                             */
@@ -1585,7 +1590,7 @@ if (lbltxt.find_first_of("+-") == string::npos)
     slabel = lbltxt;
   else
     slabel = Label2String(laddr, GetBusWidth() / 4, true, laddr, bus);
-  smnemo = "EQU";
+  smnemo = mnemo[_equ].mne;
   sparm = Address2String(laddr, bus);
   Disassembler::DisassembleLabel(label, slabel, smnemo, sparm, bus);
   return true;
@@ -1608,7 +1613,7 @@ bool Dasm68000::DisassembleDefLabel
 {
 (void)bus;
 slabel = label->GetText();
-smnemo = "EQU";
+smnemo = mnemo[_equ].mne;
 sparm = label->GetDefinition();
 Disassembler::DisassembleDefLabel(label, slabel, smnemo, sparm, bus);
 return true;
@@ -2717,7 +2722,7 @@ if (addr == NO_ADDRESS && prevaddr == NO_ADDRESS)
     {
     LineChange chg;
     changes.push_back(chg);             /* append empty line before END      */
-    chg.oper = MnemoCase("END");
+    chg.oper = MnemoCase(mnemo[_end].mne);
     if (load != NO_ADDRESS &&           /* if entry point address given      */
         bLoadLabel)                     /* and labelling wanted              */
       chg.opnds = Label2String(load, GetBusWidth() / 4, true, load);
@@ -2743,14 +2748,14 @@ else // no bus check necessary, there's only one
       changes.push_back(chg);
       if (prevphase != NO_ADDRESS && prevphstart != curphstart)
         {
-        chg.oper = MnemoCase("DEPHASE");
+        chg.oper = MnemoCase(mnemo[_dephase].mne);
         changes.push_back(chg);
         changes.push_back(LineChange());
         }
       if (addr != NO_ADDRESS)
         {
         // TODO: check how that interferes with PIC!
-        chg.oper = MnemoCase("ORG");
+        chg.oper = MnemoCase(mnemo[_org].mne);
         chg.opnds = Number2String(addr, 6, NO_ADDRESS);
         changes.push_back(chg);
         if (curphase != NO_ADDRESS &&
@@ -2759,7 +2764,7 @@ else // no bus check necessary, there's only one
 //          && curphase != addr
             )
           {
-          chg.oper = MnemoCase("PHASE");
+          chg.oper = MnemoCase(mnemo[_phase].mne);
           chg.opnds = Number2String(curphase, 6, NO_ADDRESS);
           changes.push_back(chg);
           }

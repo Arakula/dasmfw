@@ -1218,6 +1218,8 @@ enum InfoCmd
   // phasing support
   infoPhase,                            /* PHASE addr[-addr] [+|-]phase      */
   infoUnphase,                          /* UNPHASE addr[-addr]               */
+  // mnemonic renaming
+  infoMnemo,                            /* MNEMO org ren                     */
 
   // handled outside disassembler engine:
   infoInclude,                          /* INCLUDE infofilename              */
@@ -1316,6 +1318,8 @@ static struct                           /* structure to convert key to type  */
   // phasing support
   { "PHASE",        infoPhase },
   { "UNPHASE",      infoUnphase },
+  // mnemonic renaming
+  { "MNEMO",        infoMnemo },
 
   // handled outside disassembler engine:
   { "INCLUDE",      infoInclude },
@@ -1885,6 +1889,18 @@ do
           }
         }
         break;
+
+      case infoMnemo :                  /* MNEMO org ren                     */
+        {
+        string org;
+        idx = value.find_first_of(" \t");
+        if (idx == value.npos) idx = value.size();
+        org = value.substr(0, idx);
+        value = triminfo(value.substr(idx));
+        pDasm->MnemoRename(org, value);
+        }
+        break;
+
       case infoComment :                /* COMMENT [addr[-addr]] comment     */
       case infoPrepComm :               /* PREPCOMM [addr[-addr]] comment    */
       case infoInsert :                 /* INSERT [addr[-addr]] text         */

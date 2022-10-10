@@ -84,3 +84,6 @@ v0.28 2022-05-18 crude fix for https://github.com/Arakula/dasmfw/issues/8
 v0.29 2022-05-20 "option offset,begin,end,bus,interleave" info file statements preceding
                    a "file" statement should work now
 v0.30 2022-06-06 Updates to 6502 disassembler
+v0.31 2022-06-08 Added mnemo info file directive
+                 Added boppcom option for 68HC11
+v0.32 2022-10-10 begin and end options didn't work as intended; they should now.
