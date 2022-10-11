@@ -253,6 +253,7 @@ forceExtendedAddr = true;
 forceDirectAddr = true;
 closeCC = false;
 useDPLabels = false;
+accparm = true;
 textZpgAddr = "p-<";
 textAbsAddr = "p->";
 
@@ -284,6 +285,9 @@ AddOption("forcezpgaddr","{string}\tstring pattern to use for forced zero-page a
           static_cast<PSetter>(&Dasm650X::Set6500Option),
           static_cast<PGetter>(&Dasm650X::Get6500Option));
 AddOption("forceabsaddr","{string}\tstring pattern to use for forced absolute addressing",
+          static_cast<PSetter>(&Dasm650X::Set6500Option),
+          static_cast<PGetter>(&Dasm650X::Get6500Option));
+AddOption("accparm","{string}\taccumulator addressing sets parameter",
           static_cast<PSetter>(&Dasm650X::Set6500Option),
           static_cast<PGetter>(&Dasm650X::Get6500Option));
 }
@@ -334,6 +338,11 @@ else if (lname == "forcezpgaddr")
   textZpgAddr = value;
 else if (lname == "forceabsaddr")
   textAbsAddr = value;
+else if (lname == "accparm")
+  {
+  accparm = bnValue;
+  return bIsBool ? 1 : 0;
+  }
 else
   return 0;                             /* only name consumed                */
 
@@ -361,6 +370,8 @@ else if (lname == "forcezpgaddr")
   return textZpgAddr;
 else if (lname == "forceabsaddr")
   return textAbsAddr;
+else if (lname == "accparm")
+  return accparm ? "on" : "off";
 
 return "";
 }
@@ -911,7 +922,8 @@ switch (mode)                           /* which mode is this?               */
     // no need to do anything
     break;
   case _acc:                            /* accumulator                       */
-    sparm = MnemoCase("A");
+    if (accparm)
+      sparm = MnemoCase("A");
     break;
 
   case _imm:                            /* immediate byte                    */

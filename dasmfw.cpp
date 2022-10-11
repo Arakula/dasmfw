@@ -911,6 +911,62 @@ return sz;
 }
 
 /*****************************************************************************/
+/* PostprocessLine : post-process line if mnemonic dictates so               */
+/*****************************************************************************/
+
+bool Application::PostprocessLine
+    (
+    string &sLabel,
+    string &smnemo,
+    string &sparm,
+    string &scomment,
+    int &labelLen
+    )
+{
+size_t pos = smnemo.find("$(");
+while (pos != string::npos)             /* mnemo containing $( is special,   */
+  {
+  if (pos > 0 && smnemo[pos - 1] == '\\')
+    {
+    smnemo = smnemo.substr(0, pos) + smnemo.substr(pos + 1);
+    }
+  else
+    {
+    size_t endpos = smnemo.substr(pos).find(")");
+    if (endpos == string::npos)
+      break;
+    endpos++;
+    string part = lowercase(smnemo.substr(pos, endpos));
+    if (part == "$(label)")
+      {
+      string labelDelim = pDasm->GetOption("ldchar");
+      if (labelDelim.size() && sLabel.size() &&
+          sLabel.substr(sLabel.size() - labelDelim.size()) == labelDelim)
+        sLabel = sLabel.substr(0, sLabel.size() - labelDelim.size());
+      smnemo = smnemo.substr(0, pos) + sLabel + smnemo.substr(pos + endpos);
+      sLabel = "";
+      }
+    else if (part == "$(parm)")
+      {
+      smnemo = smnemo.substr(0, pos) + sparm + smnemo.substr(pos + endpos);
+      sparm = "";
+      }
+    else if (part == "$(<<)")
+      {
+      smnemo = smnemo.substr(0, pos) + smnemo.substr(pos + endpos);
+      sLabel = smnemo;
+      smnemo = sparm;
+      sparm = "";
+      pos = (size_t)-1;
+      }
+    }
+  pos = smnemo.find("$(", pos + 1);
+  }
+
+return true;
+}
+
+/*****************************************************************************/
 /* PrintLine : prints a formatted line to the output                         */
 /*****************************************************************************/
 
@@ -927,6 +983,7 @@ if (labelLen < 0) labelLen = this->labelLen;
 int nLen = 0;
 int nMinLen = labelLen;
 
+PostprocessLine(sLabel, smnemo, sparm, scomment, labelLen);
 if (sLabel.size())
   {
   nLen += fprintf(out, "%s", sLabel.c_str());

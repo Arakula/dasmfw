@@ -221,6 +221,7 @@ class Dasm650X :
     bool forceExtendedAddr;
     bool forceDirectAddr;
     bool useDPLabels;
+    bool accparm;
     string textAbsAddr, textZpgAddr;
   };
 

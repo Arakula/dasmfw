@@ -6,7 +6,7 @@
 <body>
 <h1>dasmfw / the DisASseMbler FrameWork</h1>
 
-<p align="right">Copyright (c) 2015-2021 Hermann Seib<br />
+<p align="right">Copyright (c) 2015-2022 Hermann Seib<br />
 Parts Copyright (c) 2000 Arto Salmi<br />
 Parts Copyright (c) 2013 Colin Bourassa<br />
 Parts Copyright (c) 2014-2015 Rainer Buchty</p>
@@ -255,6 +255,21 @@ These are the universal options:</p>
   <dd>can be used to force the disassembler to emit mnemonics in uppercase (<b><i>on</i></b>) or
       lowercase (<b><i>off</i></b>) characters; if not given (same as <b><i>default</i></b>),
       it uses the default mode implemented by the respective disassembler</dd>
+  <dt><b>mnemo <i>org repl</i></b></dt>
+  <dd>can be used to redefine any of the mnemonics a disassembler emits. The list of mnemonics is
+      disassembler-dependent, of course, but the underlying logic is implemented for all of them.<br />
+      If, for example, you create a disassembly that should be run through an assembler that uses
+      <b>.byte</b> instead of <b>fcb</b> to emit a certain byte, just put<br />
+      <b>mnemo fcb .byte</b><br />
+      into the info file.<br />
+      For more complex changes, <b>mnemo</b> can also contain the following specialties in the replacement part:<br />
+      <b>$(label)</b> can be used to embed the label of the instruction (if any) at this position in the instruction;<br />
+      <b>$(parm)</b> can be used to embed the parameter(s) at this position in the instruction;<br />
+      <b>$(&lt;&lt;)</b> can be used to "shift left" the resulting mnemonic plus parameters into the label position.<br />
+      Complicated? Well, here's an example: if the assembler expects a construct like <b>*=addr</b> instead of the
+      commonly used <b>ORG addr</b>, you can add <b>mnemo org \*=$(parm)</b> to the info file (the backslash is necessary
+      since dasmfw would think this is the start of a comment in the info file otherwise).
+      </dd>
 </dl>
 <p>The following options are disassembler-specific; some are only available for specific
    disassemblers. If in doubt, invoking dasmfw with the command line
@@ -345,6 +360,12 @@ These are the universal options:</p>
       understood officially undefined opcodes. These can be made available; however,
       since using these instructions can lead to quite problematic program behavior,
       it's normally turned off.</dd>
+  <dt><b>accparm <i>on|off</i><br />noaccparm</b></dt>
+  <dd>For 650x-based disassemblers only.<br />
+      Some instructions can be written with or without an <b>A</b> parameter (accumulator-based);
+      depending on the assembler in question, this may be required or lead to errors, so output of
+      the accumulator register can be turned off.<br />
+      Default is on.</dd>
   <dt><b>flex <i>on|off</i><br />noflex</b></dt>
   <dd>For 6809-based disassemblers only.<br />
       If the file in question is known to be a binary for the FLEX9 operating system, dasmfw can

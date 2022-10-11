@@ -87,3 +87,4 @@ v0.30 2022-06-06 Updates to 6502 disassembler
 v0.31 2022-06-08 Added mnemo info file directive
                  Added boppcom option for 68HC11
 v0.32 2022-10-10 begin and end options didn't work as intended; they should now.
+v0.33 2022-10-11 Added some features to the mnemo directive
