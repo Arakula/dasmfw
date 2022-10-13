@@ -157,10 +157,26 @@ class Dasm6309 : public Dasm6809
       mnemo6309_count
       };
 
+    enum Reg6309
+      {
+      _e = reg6809_count,
+      _f,
+      _v,
+      _w,
+      _md,
+      _reg0,                            /* not really a register, but hey... */
+
+      reg6309_count
+      };
+
     static CMatrixEntry h6309_codes[256];
     static CMatrixEntry h6309_codes10[256];
     static CMatrixEntry h6309_codes11[256];
     static OpCode opcodes[mnemo6309_count - mnemo6809_count];
+    static const char *regnames[reg6309_count - reg6809_count];
+    static const int h6309_exg_tfr[];
+    static const int bit_r[];
+    static const int block_r[];
 
   protected:
     virtual adr_t IndexParse(int MI, adr_t pc, adr_t instaddr = NO_ADDRESS);

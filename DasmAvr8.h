@@ -303,10 +303,11 @@ class DasmAvr8 :
       { return sformat("0x%0*x", (busbits[bus] + 3) / 4, addr); }
     string RegName(int regnum, bool with_label = true)
       {
-      static const char *reghdr[] = { "R", "r" };
+      // static const char *reghdr[] = { "R", "r" };
       if (with_label && CurRegLabel[regnum].size())
         return CurRegLabel[regnum];
-      return MnemoCase(sformat("%s%d", reghdr[avr_gcc], regnum));
+      // return MnemoCase(sformat("%s%d", reghdr[avr_gcc], regnum));
+      return MnemoCase(regname[regnum]);
       }
     string IORegName(adr_t addr)
       {
@@ -390,6 +391,7 @@ class DasmAvr8 :
       return flags;
       }
 	int DisassembleString(adr_t addr, adr_t end, uint32_t flags, string &s, int maxparmlen, int bus = BusCode);
+    virtual void SetupRegnames(bool newAvrGcc = false);
 
   protected:
     // Enumeration for all types of AVR operands
@@ -565,6 +567,47 @@ class DasmAvr8 :
 	  _d_stringz,
 
       mnemoAvr8_count
+      };
+
+    enum RegAvr8
+      {
+      _r0,
+      _r1,
+      _r2,
+      _r3,
+      _r4,
+      _r5,
+      _r6,
+      _r7,
+      _r8,
+      _r9,
+      _r10,
+      _r11,
+      _r12,
+      _r13,
+      _r14,
+      _r15,
+      _r16,
+      _r17,
+      _r18,
+      _r19,
+      _r20,
+      _r21,
+      _r22,
+      _r23,
+      _r24,
+      _r25,
+      _r26,
+      _r27,
+      _r28,
+      _r29,
+      _r30,
+      _r31,
+      _x,
+      _y,
+      _z,
+
+      regAvr8_count
       };
 
     static OpCode opcodes[mnemoAvr8_count];

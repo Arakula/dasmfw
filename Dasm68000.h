@@ -291,9 +291,37 @@ class Dasm68000 :
       {
       optblSize = 143
       };
+    enum Reg68000
+      {
+      _unkr,
+      _a0,
+      _a1,
+      _a2,
+      _a3,
+      _a4,
+      _a5,
+      _a6,
+      _a7,
+      _d0,
+      _d1,
+      _d2,
+      _d3,
+      _d4,
+      _d5,
+      _d6,
+      _d7,
+      _pc,
+      _ccr,
+      _sr,
+      _usp,
+
+      reg68000_count
+      };
+
     static OpDef OpTable[optblSize];
     static OpCode opcodes[mnemo68000_count];
     uint8_t *otIndex;
+    static const char *regnames[reg68000_count];
 #if 1
     string asmtype;                     /* assembler type                    */
 #else
@@ -341,6 +369,7 @@ class Dasm68000 :
     virtual const char *GetAddrReg(int i);
     virtual const char *GetDataReg(int i);
     virtual const char *GetSizeSuffix(int sizeCode);
+    virtual int GetEffectiveAddressRegNum(uint16_t ea);
     virtual adr_t DisassembleEffectiveAddress(adr_t instaddr, adr_t addr, string &s, uint16_t ea, int16_t index, int op_mode);
     virtual adr_t DisassembleOptype01(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);
     virtual adr_t DisassembleOptype02(adr_t instaddr, adr_t addr, uint16_t code, int optable_index, string &smnemo, string &sparm);

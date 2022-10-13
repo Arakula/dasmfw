@@ -265,10 +265,19 @@ CMatrixEntry Dasm6309::h6309_codes11[256] =
   {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom}, {_ill  ,_nom},   /* FC..FF */
   };
 
-static const char *h6309_exg_tfr[] =
+const int Dasm6309::bit_r[] = { _cc, _a, _b, _unkr };
+
+const int Dasm6309::block_r[] =
   {
-  "D", "X", "Y", "U", "S", "PC","W" ,"V",
-  "A", "B", "CC","DP","0", "0", "E", "F"
+     _d,    _x,    _y,    _u,    _s, _unkr, _unkr, _unkr,
+  _unkr, _unkr, _unkr, _unkr, _unkr, _unkr, _unkr, _unkr
+  };
+
+
+const int Dasm6309::h6309_exg_tfr[] =
+  {
+   _d,  _x, _y, _u, _s, _pc, _w, _v,
+   _a,  _b, _cc, _dp, _reg0, _reg0, _e, _f
   };
 
 /*****************************************************************************/
@@ -360,6 +369,20 @@ OpCode Dasm6309::opcodes[mnemo6309_count - mnemo6809_count] =
   };
 
 /*****************************************************************************/
+/* regnames : additional register names over 6809                            */
+/*****************************************************************************/
+
+const char *Dasm6309::regnames[reg6309_count - reg6809_count] =
+  {
+  "E",                                  /* _e                                */
+  "F",                                  /* _f                                */
+  "V",                                  /* _v                                */
+  "W",                                  /* _w                                */
+  "MD",                                 /* _md                               */
+  "0",                                  /* _reg0                             */
+  };
+
+/*****************************************************************************/
 /* Dasm6309 : constructor                                                    */
 /*****************************************************************************/
 
@@ -371,9 +394,13 @@ codes10 = h6309_codes10;
 codes11 = h6309_codes11;
 exg_tfr = h6309_exg_tfr;
 
+int i;
 mnemo.resize(mnemo6309_count);          /* set up additional mnemonics       */
-for (int i = 0; i < mnemo6309_count - mnemo6809_count; i++)
+for (i = 0; i < mnemo6309_count - mnemo6809_count; i++)
   mnemo[mnemo6809_count + i] = opcodes[i];
+regname.resize(reg6309_count);          /* set up additional register names  */
+for (i = 0; i < reg6309_count - reg6809_count; i++)
+  regname[reg6809_count + i] = regnames[i];
 }
 
 /*****************************************************************************/
@@ -494,31 +521,37 @@ if (T & 0x80)
   switch (T & 0x1F)
     {
     case 0x07:
-      buf = MnemoCase(sformat("E,%c", R));
+      buf = MnemoCase(sformat("%s,%s",
+                              regname[_e].c_str(), regname[R].c_str()));
       break;
     case 0x17:
-      buf = MnemoCase(sformat("[E,%c]", R));
+      buf = MnemoCase(sformat("[%s,%s]",
+                              regname[_e].c_str(), regname[R].c_str()));
       break;
     case 0x0A:
-      buf = MnemoCase(sformat("F,%c",R));
+      buf = MnemoCase(sformat("%s,%s",
+                              regname[_f].c_str(), regname[R].c_str()));
       break;
     case 0x1A:
-      buf = MnemoCase(sformat("[F,%c]",R));
+      buf = MnemoCase(sformat("[s,%s]",
+                              regname[_f].c_str(), regname[R].c_str()));
       break;
     case 0x0E:
-      buf = MnemoCase(sformat("W,%c",R));
+      buf = MnemoCase(sformat("%s,%s",
+                              regname[_w].c_str(), regname[R].c_str()));
       break;
     case 0x1E:
-      buf = MnemoCase(sformat("[W,%c]",R));
+      buf = MnemoCase(sformat("[%s,%s]",
+                              regname[_w].c_str(), regname[R].c_str()));
       break;
     default:
       switch (T)
         {
         case 0x8F:
-          buf = MnemoCase(sformat(",W"));
+          buf = "," + MnemoCase(regname[_w]);
           break;
         case 0x90:
-          buf = MnemoCase(sformat("[,W]"));
+          buf = MnemoCase(sformat("[,%s]", regname[_w].c_str()));
           break;
         case 0xAF:
           {
@@ -526,7 +559,7 @@ if (T & 0x80)
           lbl = bGetLabel ? NULL : FindLabel(PC, Const);
           W = GetUWord(PC);
           string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-          buf = sformat("%s,%s", slbl.c_str(), MnemoCase("W").c_str());
+          buf = sformat("%s,%s", slbl.c_str(), MnemoCase(regname[_w]).c_str());
           PC += 2;
           }
           break;
@@ -536,21 +569,21 @@ if (T & 0x80)
           lbl = bGetLabel ? NULL : FindLabel(PC, Const);
           W = GetUWord(PC);
           string slbl = lbl ? lbl->GetText() : Label2String(W, 4, bGetLabel, PC);
-          buf = sformat("[%s,%s]", slbl.c_str(),MnemoCase("W").c_str());
+          buf = sformat("[%s,%s]", slbl.c_str(),MnemoCase(regname[_w]).c_str());
           PC += 2;
           }
           break;
         case 0xCF:
-          buf = MnemoCase(sformat(",W++"));
+          buf = MnemoCase(sformat(",%s++", regname[_w].c_str()));
           break;
         case 0xD0:
-          buf = MnemoCase(sformat("[,W++]"));
+          buf = MnemoCase(sformat("[,%s++]", regname[_w].c_str()));
           break;
         case 0xEF:
-          buf = MnemoCase(sformat(",--W"));
+          buf = MnemoCase(sformat(",--%s", regname[_w].c_str()));
           break;
         case 0xF0:
-          buf = MnemoCase(sformat("[,--W]"));
+          buf = MnemoCase(sformat("[,--%s]", regname[_w].c_str()));
           break;
         default:
           return Dasm6809::IndexString(smnemo, pc);
@@ -815,7 +848,7 @@ switch (mode)                           /* which mode is this?               */
     if (forceDirectAddr || GetForcedAddr(PC))
       AddForced(smnemo, slbl, false);
     sparm = sformat("%s,%d,%s,%s",
-                    MnemoCase(bit_r[M >> 6]).c_str(),
+                    MnemoCase(regname[bit_r[M >> 6]]).c_str(),
                     (M >> 3) & 7,
                     snum.c_str(),
                     slbl.c_str());
@@ -826,29 +859,29 @@ switch (mode)                           /* which mode is this?               */
   case _t1:                             /* Block Transfer r0+,r1+            */
     T = GetUByte(PC++);
     sparm = sformat("%s+,%s+",
-                    MnemoCase(block_r[T >> 4]).c_str(),
-                    MnemoCase(block_r[T & 0xF]).c_str());
+                    MnemoCase(regname[block_r[T >> 4]]).c_str(),
+                    MnemoCase(regname[block_r[T & 0xF]]).c_str());
     break;
     
   case _t2:                             /* Block Transfer r0-,r1-            */
     T = GetUByte(PC++);
     sparm = sformat("%s-,%s-",
-                    MnemoCase(block_r[T >> 4]).c_str(),
-                    MnemoCase(block_r[T & 0xF]).c_str());
+                    MnemoCase(regname[block_r[T >> 4]]).c_str(),
+                    MnemoCase(regname[block_r[T & 0xF]]).c_str());
     break;
     
   case _t3:                             /* Block Transfer r0+,r1             */
     T = GetUByte(PC++);
     sparm = sformat("%s+,%s",
-                    MnemoCase(block_r[T >> 4]).c_str(),
-                    MnemoCase(block_r[T & 0xF]).c_str());
+                    MnemoCase(regname[block_r[T >> 4]]).c_str(),
+                    MnemoCase(regname[block_r[T & 0xF]]).c_str());
     break;
     
   case _t4:                             /* Block Transfer r0,r1+             */
     T = GetUByte(PC++);
     sparm = sformat("%s,%s+",
-                    MnemoCase(block_r[T >> 4]).c_str(),
-                    MnemoCase(block_r[T & 0xF]).c_str());
+                    MnemoCase(regname[block_r[T >> 4]]).c_str(),
+                    MnemoCase(regname[block_r[T & 0xF]]).c_str());
     break;
     
   case _iml:                            /* immediate 32-bit                  */

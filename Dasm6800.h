@@ -126,7 +126,7 @@ class Dasm6800 :
     virtual string Address2String(adr_t addr, int bus = BusCode)
       { (void)bus; return sformat("$%04X", addr); }
     virtual adr_t FetchInstructionDetails(adr_t PC, uint8_t &instpg, uint8_t &instb, uint8_t &mode, int &mnemoIndex);
-    virtual string GetIx8IndexReg(uint8_t instpg) { (void)instpg; return MnemoCase(",X"); }
+    virtual string GetIx8IndexReg(uint8_t instpg) { (void)instpg; return "," + MnemoCase(regname[_x]); }
     virtual bool SetConvenience(uint8_t instpg, uint16_t u2, string &smnemo, adr_t &PC);
     void AddForced(string &smnemo, string &sparm, bool bExtended = true);
 
@@ -281,12 +281,24 @@ class Dasm6800 :
       mnemo6800_count
       };
 
+    enum Reg6800
+      {
+      _unkr,
+      _a,
+      _b,
+      _x,
+      _s,
+      _pc,
+      _cc,
+
+      reg6800_count
+      };
+
     static CMatrixEntry m6800_codes[256];
 
     CMatrixEntry *codes;
-    static const char *bit_r[];
-    static const char *block_r[];
     static OpCode opcodes[mnemo6800_count];
+    static const char *regnames[reg6800_count];
     adr_t dirpage;
 
     bool useConvenience;

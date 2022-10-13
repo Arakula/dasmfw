@@ -126,13 +126,6 @@ CMatrixEntry Dasm6800::m6800_codes[256] =
   {_ill  ,_nom}, {_ill  ,_nom}, {_ldx  ,_ext}, {_stx  ,_ext},   /* FC..FF */
   };
 
-const char *Dasm6800::bit_r[] = {"CC","A","B","??"};
-
-const char *Dasm6800::block_r[] =
-  {
-  "D","X","Y","U","S","?","?","?","?","?","?","?","?","?","?","?"
-  };
-
 /*****************************************************************************/
 /* opcodes : 6800 opcodes array for initialization                           */
 /*****************************************************************************/
@@ -270,6 +263,21 @@ OpCode Dasm6800::opcodes[mnemo6800_count] =
   };
 
 /*****************************************************************************/
+/* regnames : 6800 register names array for initialization                   */
+/*****************************************************************************/
+
+const char *Dasm6800::regnames[reg6800_count] =
+  {
+  "?",                                  /* _unk                              */
+  "A",                                  /* _a                                */
+  "B",                                  /* _b                                */
+  "X",                                  /* _x                                */
+  "S",                                  /* _s                                */
+  "PC",                                 /* _pc                               */
+  "CC",                                 /* _cc                               */
+  };
+
+/*****************************************************************************/
 /* Dasm6800 : constructor                                                    */
 /*****************************************************************************/
 
@@ -294,9 +302,14 @@ useDPLabels = false;
 textDirectAddr = "p-<";
 textExtendedAddr = "p->";
 
+int i;
 mnemo.resize(mnemo6800_count);          /* set up mnemonics table            */
-for (int i = 0; i < mnemo6800_count; i++)
+for (i = 0; i < mnemo6800_count; i++)
   mnemo[i] = opcodes[i];
+
+regname.resize(reg6800_count);          /* set up register name table        */
+for (i = 0; i < reg6800_count; i++)
+  regname[i] = regnames[i];
 
 // set up options table
 // class uses one generic option setter/getter pair (not mandatory)

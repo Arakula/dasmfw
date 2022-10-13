@@ -270,6 +270,9 @@ These are the universal options:</p>
       commonly used <b>ORG addr</b>, you can add <b>mnemo org \*=$(parm)</b> to the info file (the backslash is necessary
       since dasmfw would think this is the start of a comment in the info file otherwise).
       </dd>
+  <dt><b>reg <i>org repl</i></b></dt>
+  <dd>can be used to redefine any register name the disassembler emits. The list of register names is
+      disassembler-dependent, of course, but the underlying logic is implemented for all of them.</dd>
 </dl>
 <p>The following options are disassembler-specific; some are only available for specific
    disassemblers. If in doubt, invoking dasmfw with the command line

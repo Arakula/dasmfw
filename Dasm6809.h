@@ -333,16 +333,29 @@ class Dasm6809 : public Dasm6800
       mnemo6809_count
       };
 
+    enum Reg6809
+      {
+      _d = reg6800_count,
+      _y,
+      _u,
+      _dp,
+      _pcr,                             /* not really a register, but hey... */
+
+      reg6809_count
+      };
+
     static CMatrixEntry m6809_codes[256];
     static CMatrixEntry m6809_codes10[256];
     static CMatrixEntry m6809_codes11[256];
     static OpCode opcodes[mnemo6809_count - mnemo6800_count];
+    static const char *regnames[reg6809_count - reg6800_count];
+    static const int m6809_exg_tfr[];
     static const char *os9_codes[0x100];
 
     CMatrixEntry *codes10;
     CMatrixEntry *codes11;
-    const char **exg_tfr;
-    static const char reg[];
+    const int *exg_tfr;
+    static const int reg[];
 
     bool os9Patch;
     bool os9Comments;

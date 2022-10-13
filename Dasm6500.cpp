@@ -239,6 +239,19 @@ OpCode Dasm650X::opcodes[mnemo6500_count] =
   };
 
 /*****************************************************************************/
+/* regnames : 6500 register names array for initialization                   */
+/*****************************************************************************/
+
+const char *Dasm650X::regnames[reg6500_count] =
+  {
+  "A",                                  /* _a                                */
+  "X",                                  /* _x                                */
+  "Y",                                  /* _y                                */
+  "P",                                  /* _p                                */
+  "PC",                                 /* _pc                               */
+  };
+
+/*****************************************************************************/
 /* Dasm650X : constructor                                                    */
 /*****************************************************************************/
 
@@ -260,6 +273,10 @@ textAbsAddr = "p->";
 mnemo.resize(mnemo6500_count);          /* set up mnemonics table            */
 for (int i = 0; i < mnemo6500_count; i++)
   mnemo[i] = opcodes[i];
+
+regname.resize(reg6500_count);          /* set up register name table        */
+for (int i = 0; i < reg6500_count; i++)
+  regname[i] = regnames[i];
 
 // set up options table
 // class uses one generic option setter/getter pair (not mandatory)
@@ -923,7 +940,7 @@ switch (mode)                           /* which mode is this?               */
     break;
   case _acc:                            /* accumulator                       */
     if (accparm)
-      sparm = MnemoCase("A");
+      sparm = MnemoCase(regname[_a]);
     break;
 
   case _imm:                            /* immediate byte                    */
@@ -959,13 +976,13 @@ switch (mode)                           /* which mode is this?               */
     else // if no direct page, this can't be interpreted as a label
       sparm = (lbl ? lbl->GetText() : Number2String(T, 2, PC));
     if (mode == _zpx)
-      sparm += MnemoCase(",X");
+      sparm += "," + MnemoCase(regname[_x]);
     else if (mode == _zpy)
-      sparm += MnemoCase(",Y");
+      sparm += "," + MnemoCase(regname[_y]);
     else if (mode == _idx)
-      sparm = "(" + sparm + MnemoCase(",X)");
+      sparm = "(" + sparm + "," + MnemoCase(regname[_x]) + ")";
     else if (mode == _idy)
-      sparm = "(" + sparm + MnemoCase("),Y");
+      sparm = "(" + sparm + ")," + MnemoCase(regname[_y]);
     PC++;
     }
     break;
@@ -994,9 +1011,9 @@ switch (mode)                           /* which mode is this?               */
       AddForced(smnemo, slbl, true);
     sparm = slbl;
     if (mode == _abx)
-      sparm += MnemoCase(",X");
+      sparm += "," + MnemoCase(regname[_x]);
     else if (mode == _aby)
-      sparm += MnemoCase(",Y");
+      sparm += "," + MnemoCase(regname[_y]);
     else if (mode == _ind)
       sparm = "(" + sparm + ")";
     PC += 2;

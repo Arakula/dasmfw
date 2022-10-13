@@ -63,9 +63,16 @@ class Dasm6801 : public Dasm6800
       mnemo6801_count
       };
 
+    enum Reg6801
+      {
+      _d = reg6800_count,
+
+      reg6801_count
+      };
 
     static CMatrixEntry m6801_codes[256];
     static OpCode opcodes[mnemo6801_count - mnemo6800_count];
+    static const char *regnames[reg6801_count - reg6800_count];
   };
 
 #endif // __Dasm6801_h_defined__

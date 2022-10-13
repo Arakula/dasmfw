@@ -87,12 +87,19 @@ class Dasm68HC11 : public Dasm6801
 
       mnemo68HC11_count
       };
+    enum Reg6801
+      {
+      _y = reg6801_count,
+
+      reg68HC11_count
+      };
 
     static CMatrixEntry m68hc11_codes[256];
     static CMatrixEntry m68hc11_codes18[256];
     static CMatrixEntry m68hc11_codes1a[256];
     static CMatrixEntry m68hc11_codescd[256];
     static OpCode opcodes[mnemo68HC11_count - mnemo6801_count];
+    static const char *regnames[reg68HC11_count - reg6801_count];
 
     CMatrixEntry *codes18;
     CMatrixEntry *codes1a;

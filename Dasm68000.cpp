@@ -348,6 +348,35 @@ OpCode Dasm68000::opcodes[mnemo68000_count] =
   };
 
 /*****************************************************************************/
+/* regnames : 68000 register names array for initialization                  */
+/*****************************************************************************/
+
+const char *Dasm68000::regnames[reg68000_count] =
+  {
+  "?",                                  /* _unkr                             */
+  "A0",                                 /* _a0                               */
+  "A1",                                 /* _a1                               */
+  "A2",                                 /* _a2                               */
+  "A3",                                 /* _a3                               */
+  "A4",                                 /* _a4                               */
+  "A5",                                 /* _a5                               */
+  "A6",                                 /* _a6                               */
+  "A7",                                 /* _a7                               */
+  "D0",                                 /* _d0                               */
+  "D1",                                 /* _d1                               */
+  "D2",                                 /* _d2                               */
+  "D3",                                 /* _d3                               */
+  "D4",                                 /* _d4                               */
+  "D5",                                 /* _d5                               */
+  "D6",                                 /* _d6                               */
+  "D7",                                 /* _d7                               */
+  "PC",                                 /* _pc                               */
+  "CCR",                                /* _ccr                              */
+  "SR",                                 /* _sr                               */
+  "USP",                                /* _usp                              */
+  };
+
+/*****************************************************************************/
 /* Dasm68000 : constructor                                                   */
 /*****************************************************************************/
 
@@ -380,6 +409,9 @@ int i, j;
 mnemo.resize(mnemo68000_count);         /* set up mnemonics table            */
 for (i = 0; i < mnemo68000_count; i++)
   mnemo[i] = opcodes[i];
+regname.resize(reg68000_count);         /* set up register name table        */
+for (i = 0; i < reg68000_count; i++)
+  regname[i] = regnames[i];
                                         /* set up instruction table          */
 otIndex = new uint8_t[65536];
 for (i = optblSize - 1; i > 0; i--)
@@ -1853,8 +1885,7 @@ return len;
 
 const char *Dasm68000::GetAddrReg(int i)
 {
-static const char *regs[] = { "A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7" };
-return regs[i & 7];
+return regname[_a0 + (i & 7)].c_str();
 }
 
 /*****************************************************************************/
@@ -1863,8 +1894,7 @@ return regs[i & 7];
 
 const char *Dasm68000::GetDataReg(int i)
 {
-static const char *regs[] = { "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7" };
-return regs[i & 7];
+return regname[_d0 + (i & 7)].c_str();
 }
 
 /*****************************************************************************/
@@ -1877,6 +1907,27 @@ const char *Dasm68000::GetSizeSuffix(int sizeCode)
 static const string sizes[] = { ".B", ".W", ".L",
                                ".?3?", ".?4?", ".?5?", ".?6?", ".?7?" };
 return sizes[sizeCode & 7].c_str();
+}
+
+/*****************************************************************************/
+/* GetEffectiveAddressRegNum : returns reg# for EA                           */
+/*****************************************************************************/
+
+int Dasm68000::GetEffectiveAddressRegNum
+    (
+    uint16_t ea
+    )
+{
+int mode = (ea & 0x38) >> 3;
+int reg = ea & 0x7;
+switch (mode)
+  {
+  case 0:
+    return _d0 + reg;
+  case 1:
+    return _a0 + reg;
+  }	/*	end of switch mode	*/
+return -1;
 }
 
 /*****************************************************************************/
@@ -1994,7 +2045,7 @@ switch(mode)
         a1 = (int32_t)addr + displacement;
         s = sformat("%s(%s)",
                     Label2String(a1, GetBusWidth() / 4, bGetLabel, addr).c_str(),
-                    MnemoCase("PC").c_str());
+                    MnemoCase(regname[_pc]).c_str());
         addr += 2;
         break;
       case 3:
@@ -2006,13 +2057,13 @@ switch(mode)
         if (displacement & 0x8000)
           s = sformat("%s(%s,%s%s)",    /* address reg is index reg          */
                   Label2String(a1, GetBusWidth() / 4, bGetLabel, addr).c_str(),
-                  MnemoCase("PC").c_str(),
+                  MnemoCase(regname[_pc]).c_str(),
                   MnemoCase(GetAddrReg(index_reg)).c_str(),
                   MnemoCase(sExtLong).c_str());
         else
           s = sformat("%s(%s,%s%s)",    /* data reg is index reg             */
                   Label2String(a1, GetBusWidth() / 4, bGetLabel, addr).c_str(),
-                  MnemoCase("PC").c_str(),
+                  MnemoCase(regname[_pc]).c_str(),
                   MnemoCase(GetDataReg(index_reg)).c_str(),
                   MnemoCase(sExtWord).c_str());
         addr += 2;
@@ -2454,14 +2505,7 @@ if (e_a.size() > 2 && e_a.substr(e_a.size() - 2) == sExtShort)
 
 if (smnemo.size() > 2 && smnemo[smnemo.size() - 2] != '.')
   {
-  bool gas = (asmtype == "gas");
-  int critsz = 2 + gas;
-  int regnam = 0 + gas;
-  int regnum = 1 + gas;
-  if ((int)e_a.size() == critsz &&
-      (!gas || e_a[0] == '%') &&
-      (toupper(e_a[regnam]) == 'A' || toupper(e_a[regnam]) == 'D') &&
-      isdigit(e_a[regnum]))
+  if (GetEffectiveAddressRegNum(dest) >= 0)
     ; // smnemo += sExtLong;
   else
     smnemo += sExtByte;
@@ -2647,7 +2691,7 @@ if (e_a.size() > 2 && e_a[e_a.size() - 2] == '.')
   }
 
 uint16_t mt = code & 0x0600;
-const char *reg = (mt == 0x0200 || mt == 0x0400) ? "CCR" : "SR";
+string reg = regname[(mt == 0x0200 || mt == 0x0400) ? _ccr : _sr];
 sparm = (code & 0x400) ?
     sformat("%s,%s", e_a.c_str(), MnemoCase(reg).c_str()) :
     sformat("%s,%s", MnemoCase(reg).c_str(), e_a.c_str());
@@ -2661,7 +2705,7 @@ adr_t Dasm68000::DisassembleOptype27(adr_t instaddr, adr_t addr, uint16_t code, 
 uint16_t data = GetUWord(addr);
 sparm = sformat("#%s,%s",
                 Number2String(data, 4, addr).c_str(),
-                MnemoCase((code & 0x40) ? "SR" : "CCR").c_str());
+                MnemoCase(regname[(code & 0x40) ? _sr : _ccr]).c_str());
 addr += 2;
 return addr;
 }
@@ -2670,8 +2714,14 @@ adr_t Dasm68000::DisassembleOptype28(adr_t instaddr, adr_t addr, uint16_t code, 
 {
 (void)instaddr; (void)optable_index; (void)smnemo;
 // MOVE USP
-sparm = MnemoCase(sformat((code & 0x08) ? "USP,%s" : "%s,USP",
-                          GetAddrReg(code & 0x07)));
+if (code & 0x08)
+  sparm = MnemoCase(sformat("%s,%s",
+                            regname[_usp].c_str(),
+                            GetAddrReg(code & 0x07)));
+else
+  sparm = MnemoCase(sformat("%s,%s",
+                            GetAddrReg(code & 0x07),
+                            regname[_usp].c_str()));
 return addr;
 }
 

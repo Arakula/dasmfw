@@ -931,6 +931,21 @@ class Disassembler
         }
       return false;
       }
+    virtual bool RegRename(string oldReg, string newReg)
+      {
+      // not exactly beautiful, but there's no guarantee that mnemonics are sorted
+      // and setting up a hash table for that would be overkill, so iterate through the list
+      string oldup = uppercase(oldReg);
+      for (size_t i = 0; i < regname.size(); i++)
+        {
+        if (uppercase(regname[i]) == oldup)
+          {
+          regname[i] = newReg;
+          return true;
+          }
+        }
+      return false;
+      }
 
   protected:
     static const Endian prgEndian;
@@ -972,6 +987,7 @@ class Disassembler
     uint32_t disassemblyFlagMask;
 
     vector<OpCode> mnemo;
+    vector<string> regname;
 
   };
 

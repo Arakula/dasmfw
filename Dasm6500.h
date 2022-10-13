@@ -207,12 +207,21 @@ class Dasm650X :
       mnemo6500_count
       };
 
+    enum Reg6500
+      {
+      _a,
+      _x,
+      _y,
+      _p,
+      _pc,
+      reg6500_count
+      };
+
     static CMatrixEntry m6500_codes[256];
 
     CMatrixEntry *codes;
-    static const char *bit_r[];
-    static const char *block_r[];
     static OpCode opcodes[mnemo6500_count];
+    static const char *regnames[reg6500_count];
     adr_t dirpage;
 
     bool useConvenience;

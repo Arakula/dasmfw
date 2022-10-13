@@ -142,6 +142,15 @@ OpCode Dasm6801::opcodes[mnemo6801_count - mnemo6800_count] =
   };
 
 /*****************************************************************************/
+/* regnames : additional register names over 6800                            */
+/*****************************************************************************/
+
+const char *Dasm6801::regnames[reg6801_count - reg6800_count] =
+  {
+  "D",                                  /* _d                                */
+  };
+
+/*****************************************************************************/
 /* Dasm6801 : constructor                                                    */
 /*****************************************************************************/
 
@@ -150,8 +159,12 @@ Dasm6801::Dasm6801(Application *pApp)
 {
 codes = m6801_codes;
 mnemo.resize(mnemo6801_count);          /* set up additional mnemonics       */
-for (int i = 0; i < mnemo6801_count - mnemo6800_count; i++)
+int i;
+for (i = 0; i < mnemo6801_count - mnemo6800_count; i++)
   mnemo[mnemo6800_count + i] = opcodes[i];
+regname.resize(reg6801_count);          /* set up additional register names  */
+for (i = 0; i < reg6801_count - reg6800_count; i++)
+  regname[reg6800_count + i] = regnames[i];
 }
 
 /*****************************************************************************/

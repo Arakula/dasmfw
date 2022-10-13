@@ -417,11 +417,36 @@ highaddr[BusEEPROM] = 0xffff;
 
 bool bOK = Disassembler::Setup();
 
+SetupRegnames(avr_gcc);                 /* initial register name setup       */
+
 busnames[BusData]   = "Data";
 busnames[BusIO]     = "IO";
 busnames[BusEEPROM] = "EEPROM";
 
 return bOK;
+}
+
+/*****************************************************************************/
+/* SetupRegnames : set up register names                                     */
+/*****************************************************************************/
+
+void DasmAvr8::SetupRegnames(bool newAvrGcc)
+{
+static const char *reghdr[] = { "R", "r" };
+if (!regname.size())
+  {
+  regname.resize(regAvr8_count);        /* assure space for reg names        */
+  regname[_x] = "X";
+  regname[_y] = "Y";
+  regname[_z] = "Z";
+  }
+for (int i = _r0; i <= _r31; i++)       /* set up R0..R31                    */
+  {
+  string regnameold = sformat("%s%d", reghdr[avr_gcc], i);
+  if (!regname[i].size() ||
+      regname[i] == regnameold)
+    regname[i] = sformat("%s%d", reghdr[newAvrGcc], i);
+  }
 }
 
 /*****************************************************************************/
@@ -669,11 +694,15 @@ else if (lname == "avr-gcc")
 	{ _d_string,  { ".db",      ".ascii" } },
 	{ _d_stringz, { ".db",      ".asciz" } },
 	};
+  for (size_t i = 0; i < _countof(smne); i++)
+    {
+    if (mnemo[smne[i].idx].mne == smne[i].txt[avr_gcc])
+      mnemo[smne[i].idx].mne = smne[i].txt[bnValue];
+    }
+  SetupRegnames(bnValue);
   avr_gcc = bnValue;
   if (!dbalignchg)
     dbalign = !avr_gcc;
-  for (size_t i = 0; i < _countof(smne); i++)
-	mnemo[smne[i].idx].mne = smne[i].txt[avr_gcc];
   return bIsBool ? 1 : 0;
   }
 

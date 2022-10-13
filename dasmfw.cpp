@@ -1277,6 +1277,7 @@ enum InfoCmd
   infoUnphase,                          /* UNPHASE addr[-addr]               */
   // mnemonic renaming
   infoMnemo,                            /* MNEMO org ren                     */
+  infoReg,                              /* REG org ren                       */
 
   // handled outside disassembler engine:
   infoInclude,                          /* INCLUDE infofilename              */
@@ -1377,6 +1378,7 @@ static struct                           /* structure to convert key to type  */
   { "UNPHASE",      infoUnphase },
   // mnemonic renaming
   { "MNEMO",        infoMnemo },
+  { "REG",          infoReg },
 
   // handled outside disassembler engine:
   { "INCLUDE",      infoInclude },
@@ -1948,13 +1950,22 @@ do
         break;
 
       case infoMnemo :                  /* MNEMO org ren                     */
+      case infoReg :                    /* REG org ren                       */
         {
         string org;
         idx = value.find_first_of(" \t");
         if (idx == value.npos) idx = value.size();
         org = value.substr(0, idx);
         value = triminfo(value.substr(idx));
-        pDasm->MnemoRename(org, value);
+        switch (cmdType)
+          {
+          case infoMnemo :
+            pDasm->MnemoRename(org, value);
+            break;
+          case infoReg :
+            pDasm->RegRename(org, value);
+            break;
+          }
         }
         break;
 
@@ -2649,6 +2660,8 @@ printf("\t                    (like WORD, but adds target labels if necessary)\n
         "\tinsert text:        INSERT [AFTER] addr[-addr] embedded line\n"
         "\tinclude label file: INCLUDE filename\n"
         "\tload binary file:   FILE filename [baseaddr]\n"
+        "\trename a mnemonic:  MNEMO old new\n"
+        "\trename a register:  REG old new\n"
         "\tdefine a text:      TEXT name [content]\n"
         "\tstop parsing:       END\n"
        );
@@ -2729,6 +2742,9 @@ printf("RMB addr[-addr]\n"
        "RPATCHW addr [word]*\n"
        "RPATCHDW addr [word]*\n"
        "RPATCHF addr [float]*\n"
+
+       "MNEMO old new\n"
+       "REG old new\n"
 
        "TEXT name [content]\n"
 
