@@ -222,8 +222,8 @@ These are the universal options:</p>
   <dd>can be used to specify the default base for parsing numbers.<br />Default is 16.</dd>
   <dt><b>defdisp <i>bin|char|oct|dec|hex</i></b></dt>
   <dd>can be used to specify the default number output format.<br />Default is hex.</dd>
-  <dt><b>cchar <i>chr</i></b></dt>
-  <dd>can be used to set up the comment delimiter character<br />Default is <b>;</b></dd>
+  <dt><b>cchar <i>text</i></b></dt>
+  <dd>can be used to set up the comment delimiter character(s)<br />Default is <b>;</b></dd>
   <dt><b>ldchar <i>chr</i></b></dt>
   <dd>can be used to set up the label delimiter character. This character is added after labels
       that get their own line if more than one label is defined for the same address.
@@ -255,24 +255,6 @@ These are the universal options:</p>
   <dd>can be used to force the disassembler to emit mnemonics in uppercase (<b><i>on</i></b>) or
       lowercase (<b><i>off</i></b>) characters; if not given (same as <b><i>default</i></b>),
       it uses the default mode implemented by the respective disassembler</dd>
-  <dt><b>mnemo <i>org repl</i></b></dt>
-  <dd>can be used to redefine any of the mnemonics a disassembler emits. The list of mnemonics is
-      disassembler-dependent, of course, but the underlying logic is implemented for all of them.<br />
-      If, for example, you create a disassembly that should be run through an assembler that uses
-      <b>.byte</b> instead of <b>fcb</b> to emit a certain byte, just put<br />
-      <b>mnemo fcb .byte</b><br />
-      into the info file.<br />
-      For more complex changes, <b>mnemo</b> can also contain the following specialties in the replacement part:<br />
-      <b>$(label)</b> can be used to embed the label of the instruction (if any) at this position in the instruction;<br />
-      <b>$(parm)</b> can be used to embed the parameter(s) at this position in the instruction;<br />
-      <b>$(&lt;&lt;)</b> can be used to "shift left" the resulting mnemonic plus parameters into the label position.<br />
-      Complicated? Well, here's an example: if the assembler expects a construct like <b>*=addr</b> instead of the
-      commonly used <b>ORG addr</b>, you can add <b>mnemo org \*=$(parm)</b> to the info file (the backslash is necessary
-      since dasmfw would think this is the start of a comment in the info file otherwise).
-      </dd>
-  <dt><b>reg <i>org repl</i></b></dt>
-  <dd>can be used to redefine any register name the disassembler emits. The list of register names is
-      disassembler-dependent, of course, but the underlying logic is implemented for all of them.</dd>
 </dl>
 <p>The following options are disassembler-specific; some are only available for specific
    disassemblers. If in doubt, invoking dasmfw with the command line
@@ -763,6 +745,26 @@ dasmfw would otherwise assume the line ends at the <b>*</b>, which starts the co
   <dd>Can be used to patch double words (i.e., 4-byte entities in the byte order defined
       by the processor architecture) in a loaded file.<br />
       Patching in unused areas causes them to become used.</dd>
+</dl>
+<dl>
+  <dt><b>mnemo <i>orig repl</i></b></dt>
+  <dd>can be used to redefine any of the mnemonics a disassembler emits. The list of mnemonics is
+      disassembler-dependent, of course, but the underlying logic is implemented for all of them.<br />
+      If, for example, you create a disassembly that should be run through an assembler that uses
+      <b>.byte</b> instead of <b>fcb</b> to emit a certain byte, just put<br />
+      <b>mnemo fcb .byte</b><br />
+      into the info file.<br />
+      For more complex changes, <b>mnemo</b> can also contain the following specialties in the replacement part:<br />
+      <b>$(label)</b> can be used to embed the label of the instruction (if any) at this position in the instruction;<br />
+      <b>$(parm)</b> can be used to embed the parameter(s) at this position in the instruction;<br />
+      <b>$(&lt;&lt;)</b> can be used to "shift left" the resulting mnemonic plus parameters into the label position.<br />
+      Complicated? Well, here's an example: if the assembler expects a construct like <b>*=addr</b> instead of the
+      commonly used <b>ORG addr</b>, you can add <b>mnemo org \*=$(parm)</b> to the info file (the backslash is necessary
+      since dasmfw would think this is the start of a comment in the info file otherwise).
+      </dd>
+  <dt><b>reg <i>orig repl</i></b></dt>
+  <dd>can be used to redefine any register name the disassembler emits. The list of register names is
+      disassembler-dependent, of course, but the underlying logic is implemented for all of them.</dd>
 </dl>
 <dl>
   <dt><b>text <i>name [content]</i></b></dt>
