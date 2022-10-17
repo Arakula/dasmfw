@@ -919,8 +919,7 @@ bool Application::PostprocessLine
     string &sLabel,
     string &smnemo,
     string &sparm,
-    string &scomment,
-    int &labelLen
+    string &scomment
     )
 {
 size_t pos = smnemo.find("$(");
@@ -956,12 +955,14 @@ while (pos != string::npos)             /* mnemo containing $( is special,   */
       smnemo = smnemo.substr(0, pos) + smnemo.substr(pos + endpos);
       sLabel = smnemo;
       smnemo = sparm;
-      sparm = "";
+      sparm = "";  // might be a bad bad bad idea to shift comment left
       pos = (size_t)-1;
       }
     }
   pos = smnemo.find("$(", pos + 1);
   }
+
+(void)scomment;                         /* not used yet - keep gcc happy     */
 
 return true;
 }
@@ -983,7 +984,7 @@ if (labelLen < 0) labelLen = this->labelLen;
 int nLen = 0;
 int nMinLen = labelLen;
 
-PostprocessLine(sLabel, smnemo, sparm, scomment, labelLen);
+PostprocessLine(sLabel, smnemo, sparm, scomment);
 if (sLabel.size())
   {
   nLen += fprintf(out, "%s", sLabel.c_str());
@@ -1964,6 +1965,11 @@ do
             break;
           case infoReg :
             pDasm->RegRename(org, value);
+            break;
+          default :
+            // g++ (7.5.0) -Wall complains about lots of missing command types
+            // unless this default part is added, blindly ignoring the fact
+            // that it is impossible to get to this inner switch for them.
             break;
           }
         }

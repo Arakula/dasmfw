@@ -87,7 +87,7 @@ class Dasm68HC11 : public Dasm6801
 
       mnemo68HC11_count
       };
-    enum Reg6801
+    enum Reg68HC11
       {
       _y = reg6801_count,
 

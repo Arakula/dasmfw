@@ -744,7 +744,6 @@ if (!( (c >= '0' && c <= '9') ||
 
 bool done = false;
 int nBytes = 0;
-adr_t fbegin = GetHighestBusAddr(bus);
 adr_t fend = GetLowestBusAddr(bus);
 MemoryType memType = GetDefaultMemoryType(bus);
 

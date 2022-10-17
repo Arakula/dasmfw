@@ -385,12 +385,12 @@ codes = m68hc11_codes;
 codes18 = m68hc11_codes18;
 codes1a = m68hc11_codes1a;
 codescd = m68hc11_codescd;
-boppcom = false;  // A09 can't handle commas as bitop parameter delimiter yet
+boppcom = true;  // since V1.58, A09 can handle commas as bitop parameter delimiter
 int i;
 mnemo.resize(mnemo68HC11_count);        /* set up additional mnemonics       */
 for (i = 0; i < mnemo68HC11_count - mnemo6801_count; i++)
   mnemo[mnemo6801_count + i] = opcodes[i];
-regname.resize(reg6801_count);          /* set up additional register names  */
+regname.resize(reg68HC11_count);        /* set up additional register names  */
 for (i = 0; i < reg68HC11_count - reg6801_count; i++)
   regname[reg6801_count + i] = regnames[i];
 // set up options table
