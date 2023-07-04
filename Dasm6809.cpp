@@ -1733,7 +1733,9 @@ if (T & 0x80)
       {
       lbl = FindLabel(PC, Const);
       T = GetUByte(PC);
-      string slbl = lbl ? lbl->GetText() : Number2String(T, 2, PC);
+      string slbl = lbl ?
+                        lbl->GetText() :
+                        SignedNumber2String((signed char)T, 2, PC);
       buf = sformat("[%s,%s]",
               slbl.c_str(),
               MnemoCase(regname[R]).c_str());
